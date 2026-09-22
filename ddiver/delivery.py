@@ -155,6 +155,11 @@ class Delivery:
         user = await self._storage.get_user(item.user_id)
         if user is None or not user.active or user.paused:
             self.metrics.dropped_inactive += 1
+            # `pending` has to mean "a queue or a rescan will take this". Leaving these rows
+            # pending would fill the replay window and hide other users' recoverable rows.
+            await self._storage.set_delivery_status(
+                *item.key, DeliveryStatus.FAILED, error="inactive"
+            )
             return False
         state = self._queue_for(item.user_id)
         try:
@@ -310,17 +315,11 @@ class Delivery:
                 entries, lang=lang, tz=tz, now=self._clock(), overflow=overflow
             )
             sent = await self._send(user_id, rendered, buttons=None, item=batch[0])
-            if sent:
-                await self._storage.mark_digested([i.key for i in batch])
-                self.metrics.digested += len(batch)
-            else:
-                # _send only marked batch[0]; the rest were taken off the queue, so record them
-                # too instead of leaving rows nothing will ever pick up again.
+            try:
+                await self._finish_digest(batch, sent=sent)
+            finally:
                 for extra in batch[1:]:
-                    await self._storage.set_delivery_status(
-                        *extra.key, DeliveryStatus.FAILED, error="digest_failed"
-                    )
-                    self.metrics.failed += 1
+                    state.enqueued_at.pop(extra.key, None)
             return
 
         payload = await self._with_sender_name(Payload.from_json(item.payload))
@@ -329,6 +328,19 @@ class Delivery:
         if await self._send(user_id, rendered, buttons=buttons, item=item):
             await self._storage.set_delivery_status(*item.key, DeliveryStatus.SENT)
             self.metrics.delivered += 1
+
+    async def _finish_digest(self, batch: list[OutboxItem], *, sent: bool) -> None:
+        if sent:
+            await self._storage.mark_digested([i.key for i in batch])
+            self.metrics.digested += len(batch)
+        else:
+            # _send only marked batch[0]; the rest were taken off the queue, so record them
+            # too instead of leaving rows nothing will ever pick up again.
+            for extra in batch[1:]:
+                await self._storage.set_delivery_status(
+                    *extra.key, DeliveryStatus.FAILED, error="digest_failed"
+                )
+                self.metrics.failed += 1
 
     async def _with_sender_name(self, payload: Payload) -> Payload:
         """Fill in a missing sender name.
@@ -339,7 +351,7 @@ class Delivery:
         """
         if payload.sender_name or payload.sender_id is None or self._senders is None:
             return payload
-        info = await self._senders.resolve(payload.sender_id)
+        info = await self._senders.resolve(payload.sender_id, payload.chat_id)
         if info is None or not info.display_name:
             return payload
         return replace(
@@ -368,7 +380,9 @@ class Delivery:
         batch = [item]
         while len(batch) < DIGEST_MAX_ITEMS and not state.queue.empty():
             extra = state.queue.get_nowait()
-            state.enqueued_at.pop(extra.key, None)
+            # Deliberately keep the key in enqueued_at: the row stays `pending` until the
+            # digest is actually sent, and the periodic rescan uses that map to tell "nobody
+            # is holding this" from "this is in flight".
             state.queue.task_done()
             batch.append(extra)
         return batch

@@ -189,7 +189,11 @@ def build_router(
             return None
         if ctx.is_owner:
             return chat
-        if not chat.shared or not await storage.is_subscribed(ctx.user_id, chat_id):
+        if await storage.is_subscribed(ctx.user_id, chat_id):
+            # The subscription is the grant: it could only have been created while the chat was
+            # shared, and taking it away must never lock the user out of managing it.
+            return chat
+        if not chat.shared:
             return None
         return chat
 
@@ -237,10 +241,11 @@ def build_router(
     async def subscribe(ctx: Context) -> list[Action]:
         _, raw_chat, raw_state = (ctx.incoming.data or "").split(":")
         chat_id, wanted = _int(raw_chat), raw_state == "1"
-        chat = await storage.get_chat(chat_id)
-        if chat is None or (not ctx.is_owner and not chat.shared):
+        chat = await accessible_chat(ctx, chat_id)
+        if chat is None:
             return [Toast("bot.err.not_found")]
         if wanted:
+            # storage.subscribe re-checks sharing itself, atomically
             await storage.subscribe(ctx.user_id, chat_id)
         else:
             await storage.unsubscribe(ctx.user_id, chat_id)

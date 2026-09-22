@@ -53,7 +53,7 @@ class SenderInfo:
 
 
 class EntityResolver(Protocol):
-    async def __call__(self, peer_id: int) -> Any: ...
+    async def __call__(self, peer_id: int, chat_id: int | None = None) -> Any: ...
 
 
 def active_username(entity: Any) -> str | None:
@@ -134,8 +134,12 @@ class SenderCache:
         while len(self._entries) > self._size:
             self._entries.popitem(last=False)
 
-    async def resolve(self, peer_id: int) -> SenderInfo | None:
-        """Cache lookup, then at most one resolve per ``min_interval``; never raises."""
+    async def resolve(self, peer_id: int, chat_id: int | None = None) -> SenderInfo | None:
+        """Cache lookup, then at most one resolve per ``min_interval``; never raises.
+
+        ``chat_id`` tells the resolver where the sender was seen, which is what makes a basic
+        group's members findable at all.
+        """
         cached = self.get(peer_id)
         if cached is not None:
             return cached
@@ -153,7 +157,7 @@ class SenderCache:
             self.stats_resolves += 1
             try:
                 async with asyncio.timeout(RESOLVE_TIMEOUT):
-                    entity = await self._resolver(peer_id)
+                    entity = await self._resolver(peer_id, chat_id)
             except (RPCError, ValueError, TypeError, TimeoutError, ConnectionError) as exc:
                 self.stats_failures += 1
                 log.info("sender resolve failed for %s: %s", peer_id, type(exc).__name__)

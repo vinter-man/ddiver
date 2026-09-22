@@ -53,6 +53,7 @@ PRUNE_SECONDS = 24 * 3600
 REPROBE_SECONDS = 6 * 3600
 RESCAN_SECONDS = 300
 SILENCE_WARN = dt.timedelta(minutes=10)
+SILENCE_RETRY = dt.timedelta(minutes=30)
 
 
 class BotAdapter:
@@ -82,26 +83,31 @@ class BotAdapter:
         return t(lang, action.key_or_text, **action.params)
 
     async def perform(self, event: Any, actions: list[Any], lang: str) -> None:
+        # Only a callback query can be edited or answered. `hasattr(event, "edit")` looks right
+        # but is always true: a NewMessage event delegates unknown attributes to its Message,
+        # so it would try to edit the moderator's own message as the bot.
+        editable = isinstance(event, events.CallbackQuery.Event)
         for action in actions:
             try:
-                await self._one(event, action, lang)
+                await self._one(event, action, lang, editable=editable)
             except errors.QueryIdInvalidError:
                 log.debug("callback answer arrived too late")
             except (errors.RPCError, ValueError):
                 log.warning("could not perform %s", type(action).__name__, exc_info=True)
 
-    async def _one(self, event: Any, action: Any, lang: str) -> None:
+    async def _one(self, event: Any, action: Any, lang: str, *, editable: bool = False) -> None:
         if isinstance(action, Toast):
-            if hasattr(event, "answer"):
+            if editable:
                 await event.answer(self._text(action, lang), alert=action.alert)
             return
         if isinstance(action, Edit):
-            if hasattr(event, "edit"):
+            if editable:
                 with contextlib.suppress(errors.MessageNotModifiedError):
                     await event.edit(
                         self._text(action, lang),
                         buttons=self._buttons(action.buttons, lang),
                         link_preview=False,
+                        parse_mode=None,
                     )
                 return
             action = Reply(action.key_or_text, action.params, action.buttons, action.literal)
@@ -111,6 +117,7 @@ class BotAdapter:
                 self._text(action, lang),
                 buttons=self._buttons(action.buttons, lang),
                 link_preview=False,
+                parse_mode=None,
             )
             return
         if isinstance(action, Send):
@@ -119,6 +126,7 @@ class BotAdapter:
                 self._text(action, lang),
                 buttons=self._buttons(action.buttons, lang),
                 link_preview=False,
+                parse_mode=None,
             )
 
     @staticmethod
@@ -140,10 +148,20 @@ class BotAdapter:
             formatting_entities=formatting_entities,
             buttons=buttons,
             link_preview=link_preview,
+            parse_mode=None,  # our text is literal; markdown would eat __init__, **, ` and ~~
         )
 
     # Delivery's BotPort protocol
     send_message = send
+
+
+def self_id_of(client: Any) -> int | None:
+    """The account's own id, without an RPC.
+
+    ``get_me()`` always issues ``GetUsers`` unless it is asked for the input peer, and a
+    membership change in any of 50 chats must not cost a request.
+    """
+    return getattr(client, "_self_id", None)
 
 
 def notification_buttons_factory(lang_of: Any) -> Any:
@@ -184,6 +202,8 @@ class Application:
         self._owned: list[asyncio.Task[Any]] = []
         self._last_ping_ok: dt.datetime | None = None
         self._last_update_at: dt.datetime | None = None
+        self._silence_probe_at: dt.datetime | None = None
+        self._members_loaded: set[int] = set()
         self._catchup_lock = asyncio.Lock()
 
     # -- lifecycle -------------------------------------------------------------------------
@@ -232,6 +252,7 @@ class Application:
             per_chat=self.settings.catchup_max_per_chat,
             on_unavailable=self._notify_lost_access,
             on_recovered=self._notify_regained_access,
+            on_available=self._invalidate,
         )
         self.router = build_router(
             self.storage,
@@ -284,8 +305,8 @@ class Application:
         boots = await self.storage.record_boot()
         assert self.delivery is not None  # noqa: S101
         await self.delivery.replay_pending()
-        self._start_background_tasks()
         await boot_delay(boots)
+        self._start_background_tasks()
         self._spawn(self._catch_up(), "catchup-boot")
         self._spawn(self._watch_reconnects(), "reconnect-watch")
         return await self.supervisor.run()
@@ -358,11 +379,11 @@ class Application:
 
     async def _on_chat_action(self, event: Any) -> None:
         try:
-            me = await self.user_client.get_me()
+            me_id = self_id_of(self.user_client)  # no RPC: invariant 1
             affected = list(getattr(event, "user_ids", None) or [])
             if event.user_id is not None:
                 affected.append(event.user_id)
-            if me.id not in affected:
+            if me_id is None or me_id not in affected:
                 return  # somebody else joined or left; not our membership
             chat_id = int(event.chat_id)
             if event.user_kicked or event.user_left:
@@ -523,11 +544,18 @@ class Application:
             delivery.flood_seconds,
         )
         last = self.listener.last_update_at
-        if last is not None and self.clock() - last > SILENCE_WARN:
-            log.warning("no updates for over 10 minutes; forcing a catch-up")
-            with contextlib.suppress(Exception):
-                await self.user_client.catch_up()
-            await self._catch_up()
+        if last is None or self.clock() - last <= SILENCE_WARN:
+            return
+        if (
+            self._silence_probe_at is not None
+            and self.clock() - self._silence_probe_at < SILENCE_RETRY
+        ):
+            return  # already probed recently; a quiet night is not an emergency
+        self._silence_probe_at = self.clock()
+        log.warning("no updates for over 10 minutes; forcing a catch-up")
+        with contextlib.suppress(Exception):
+            await self.user_client.catch_up()
+        await self._catch_up()
 
     async def _reprobe(self) -> None:
         """Give chats we lost access to another chance; one bad round must not be permanent."""
@@ -584,8 +612,26 @@ class Application:
 
     # -- helpers ---------------------------------------------------------------------------
 
-    async def _resolve_entity(self, peer_id: int) -> Any:
-        return await self.user_client.get_entity(peer_id)
+    async def _resolve_entity(self, peer_id: int, chat_id: int | None = None) -> Any:
+        """Resolve a sender for the delivery worker (never called from a message handler).
+
+        A plain ``get_entity`` on a bare user id only works when the session already knows that
+        user's access hash. Basic groups never send one — their updates carry no entities at
+        all — so for those we load the member list once and try again.
+        """
+        try:
+            return await self.user_client.get_entity(peer_id)
+        except (ValueError, errors.RPCError):
+            if chat_id is None:
+                raise
+            chat = await self.storage.get_chat(chat_id)
+            if chat is None or not chat.ref.is_basic_group:
+                raise
+            if chat_id not in self._members_loaded:
+                self._members_loaded.add(chat_id)
+                log.info("loading members of %s to name its senders", chat_id)
+                await self.user_client.get_participants(chat_id)
+            return await self.user_client.get_entity(peer_id)
 
     async def _tell(self, user_id: int, text: str) -> None:
         with contextlib.suppress(errors.RPCError, ValueError, ConnectionError):

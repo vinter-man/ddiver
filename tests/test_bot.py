@@ -565,10 +565,20 @@ class TestForgedChatIds:
         assert actions[0].key_or_text == "bot.err.not_found"
         assert all("Приватный" not in str(a.key_or_text) for a in actions)
 
-    async def test_rules_view_of_a_shared_but_unsubscribed_chat_is_not_found(self, router, store):
+    async def test_a_shared_chat_is_reachable_even_before_subscribing(self, router, store):
+        """It is already listed in their picker, so its title is not a secret."""
         await store.set_chat_shared(CHAT_B.id, True)
         actions = await cb(router, MOD, f"rules:{CHAT_B.id}:include:0")
-        assert actions[0].key_or_text == "bot.err.not_found"
+        assert "Приватный семейный" in actions[0].key_or_text
+
+    async def test_a_subscription_survives_the_chat_being_unshared(self, router, store):
+        """Taking the grant away must not lock a moderator out of leaving the chat."""
+        await store.set_chat_shared(CHAT_A.id, True)
+        await cb(router, MOD, f"sub:{CHAT_A.id}:1")
+        await store.set_chat_shared(CHAT_A.id, False)  # e.g. after a migration reset it
+        actions = await cb(router, MOD, f"sub:{CHAT_A.id}:0")
+        assert actions[0].key_or_text != "bot.err.not_found"
+        assert await store.list_subscriptions(MOD) == []
 
     async def test_adding_a_rule_to_an_unshared_chat_is_refused(self, router, store):
         actions = await cb(router, MOD, f"radd:{CHAT_B.id}:include")

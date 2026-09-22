@@ -64,6 +64,22 @@ class CursorTracker:
         if current is None or msg_id > current[0]:
             self.pending[chat_id] = (msg_id, moment)
 
+    def drop(self, chat_id: int) -> None:
+        """Forget a pending note (a catch-up round did not verify this chat after all)."""
+        self.pending.pop(chat_id, None)
+
+    def cap(self, chat_id: int, max_id: int) -> None:
+        """Lower a pending note. Replaying a chat notes every message it handled, so a failure
+        in the middle has to pull the note back below it — otherwise the messages it skipped
+        would fall below the cursor and never be fetched again."""
+        current = self.pending.get(chat_id)
+        if current is None:
+            return
+        if max_id <= 0:
+            del self.pending[chat_id]
+        elif current[0] > max_id:
+            self.pending[chat_id] = (max_id, current[1])
+
     def block(self, chat_id: int) -> None:
         self.blocked.add(chat_id)
 

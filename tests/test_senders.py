@@ -62,7 +62,7 @@ def test_sender_from_none():
 async def test_sender_of_uses_attached_entity_without_resolving():
     calls = []
 
-    async def resolver(peer_id):
+    async def resolver(peer_id, chat_id=None):
         calls.append(peer_id)
 
     cache = SenderCache(resolver)
@@ -77,7 +77,7 @@ async def test_sender_of_never_resolves_on_the_hot_path():
     """The listener must not make RPCs; an id-only SenderInfo is the honest answer."""
     calls = []
 
-    async def resolver(peer_id):
+    async def resolver(peer_id, chat_id=None):
         calls.append(peer_id)
         return make_user(peer_id, "Resolved", "res", min_=False)
 
@@ -104,7 +104,7 @@ async def test_sender_of_uses_a_name_the_cache_already_knows():
 
 
 async def test_resolver_is_rate_limited():
-    async def resolver(peer_id):
+    async def resolver(peer_id, chat_id=None):
         return make_user(peer_id, "R", None, min_=False)
 
     clock = FakeClock()
@@ -117,7 +117,7 @@ async def test_resolver_is_rate_limited():
 
 
 async def test_resolver_errors_are_swallowed():
-    async def flood(peer_id):
+    async def flood(peer_id, chat_id=None):
         raise FloodWaitError(request=None, capture=30)
 
     clock = FakeClock()
@@ -125,7 +125,7 @@ async def test_resolver_errors_are_swallowed():
     assert await cache.resolve(5) is None
     assert cache.stats_failures == 1
 
-    async def missing(peer_id):
+    async def missing(peer_id, chat_id=None):
         msg = "Could not find the input entity"
         raise ValueError(msg)
 
@@ -134,7 +134,7 @@ async def test_resolver_errors_are_swallowed():
 
 
 async def test_resolver_timeout_is_swallowed():
-    async def hang(peer_id):
+    async def hang(peer_id, chat_id=None):
         await asyncio.sleep(10)
 
     cache = SenderCache(hang, min_interval=0)

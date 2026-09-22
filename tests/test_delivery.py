@@ -453,7 +453,7 @@ class TestSenderEnrichment:
 
         resolved = []
 
-        async def resolver(peer_id):
+        async def resolver(peer_id, chat_id=None):
             resolved.append(peer_id)
             return make_user(peer_id, "Сергей", "serge", min_=False)
 
@@ -477,7 +477,7 @@ class TestSenderEnrichment:
 
         resolved = []
 
-        async def resolver(peer_id):
+        async def resolver(peer_id, chat_id=None):
             resolved.append(peer_id)
 
         delivery = Delivery(
@@ -495,7 +495,7 @@ class TestSenderEnrichment:
     async def test_a_failed_resolve_still_delivers(self, bot, store, clock, sleeps):
         from ddiver.senders import SenderCache
 
-        async def resolver(peer_id):
+        async def resolver(peer_id, chat_id=None):
             raise ValueError("Could not find the input entity")
 
         delivery = Delivery(
@@ -512,3 +512,27 @@ class TestSenderEnrichment:
         assert len(bot.sent) == 1
         assert "4242" in bot.sent[0].text  # at least the id, so the ignore button makes sense
         assert (await store.get_delivery(*item.key)).status is DeliveryStatus.SENT
+
+
+class TestRescanDoesNotDuplicate:
+    async def test_a_digest_in_flight_is_not_requeued(self, delivery, bot, store):
+        """The rescan must tell "in flight" from "nobody is holding this"."""
+        await store.update_user(MOD, digest_threshold=3)
+        bot.hold()
+        items = [await claim(store, MOD, i) for i in range(1, 8)]
+        for item in items:
+            await delivery.enqueue(item)
+        await asyncio.sleep(0)  # the worker collapses the backlog and blocks inside send
+        assert await delivery.replay_pending() == 0
+        bot.release()
+        await settle(delivery)
+        assert len(bot.sent) == 2  # one single message plus one digest, nothing twice
+        statuses = [(await store.get_delivery(*i.key)).status for i in items]
+        assert statuses.count(DeliveryStatus.DIGESTED) == 6
+
+    async def test_rows_for_a_paused_user_leave_the_replay_window(self, delivery, bot, store):
+        await store.pause_delivery(MOD, "blocked")
+        item = await claim(store, MOD, 1)
+        assert await delivery.enqueue(item) is False
+        assert (await store.get_delivery(*item.key)).status is DeliveryStatus.FAILED
+        assert await store.pending_deliveries() == []

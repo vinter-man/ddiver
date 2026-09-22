@@ -23,7 +23,11 @@ the bot UI and the heartbeat responsive even when somebody installs hundreds of 
 """
 
 MESSAGE_BUDGET = 0.5
-"""Seconds of matching per message, after which the remaining rules are skipped."""
+"""Seconds of matching per message *per user*.
+
+Per user, not per message: a shared budget would let one moderator's pathological rules
+silently swallow everybody else's notifications for that message.
+"""
 DISABLED_TIMEOUT = "timeout"
 DISABLED_INVALID = "invalid"
 
@@ -146,12 +150,12 @@ class Matcher:
         self, ruleset: _ChatRuleSet, text: str, sender_id: int | None
     ) -> tuple[list[Match], list[Rule]]:
         """The pure matching work, safe to run in a worker thread."""
-        deadline = time.monotonic() + MESSAGE_BUDGET
         matches: list[Match] = []
         timed_out: list[Rule] = []
         for user in ruleset.users:
             if sender_id is not None and sender_id in user.ignored:
                 continue
+            deadline = time.monotonic() + MESSAGE_BUDGET
             if self._first_hit(user.excludes, text, deadline, timed_out) is not None:
                 continue
             hit = self._first_hit(user.includes, text, deadline, timed_out)

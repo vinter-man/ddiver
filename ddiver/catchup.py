@@ -64,6 +64,7 @@ class Catchup:
         total: int = 5000,
         on_unavailable: Callable[[int, str], Awaitable[Any]] | None = None,
         on_recovered: Callable[[int], Awaitable[Any]] | None = None,
+        on_available: Callable[[int], Awaitable[Any]] | None = None,
     ) -> None:
         self._storage = storage
         self._listener = listener
@@ -75,6 +76,7 @@ class Catchup:
         self._total = total
         self._on_unavailable = on_unavailable
         self._on_recovered = on_recovered
+        self._on_available = on_available
 
     async def run(self, chat_ids: set[int] | None = None) -> CatchupResult:
         result = CatchupResult()
@@ -88,6 +90,7 @@ class Catchup:
         # a live message in a chat still queued would otherwise flush a cursor past the gap,
         # and a crash mid-round would skip it for good.
         todo = sorted(monitored)
+        unfinished = set(todo)
         for chat_id in todo:
             self._listener.cursors.block(chat_id)
         try:
@@ -95,10 +98,12 @@ class Catchup:
                 cursor = cursors.get(chat_id)
                 if cursor is None:
                     # A chat we have never seen starts "now": no backfill on first subscribe.
+                    unfinished.discard(chat_id)
                     continue
                 chat = await self._storage.get_chat(chat_id)
                 if chat is None or not chat.available:
                     result.skipped += 1
+                    unfinished.discard(chat_id)
                     continue
                 if result.messages >= self._total:
                     log.warning(
@@ -107,8 +112,15 @@ class Catchup:
                     )
                     break
                 await self._catch_up_chat(chat, cursor.last_msg_id, cutoff, result)
+                unfinished.discard(chat_id)
                 await self._sleep(INTER_CHAT_PAUSE)
         finally:
+            # A chat the round never reached (budget, cancellation, an error) may have gathered
+            # a live cursor while it was blocked. Writing that would jump the stored cursor over
+            # the very gap this round was supposed to examine, so drop it: the live messages are
+            # already durable in the outbox, and re-fetching them is deduplicated.
+            for chat_id in unfinished:
+                self._listener.cursors.drop(chat_id)
             for chat_id in todo:
                 self._listener.cursors.unblock(chat_id)
             await self._listener.cursors.flush()
@@ -147,17 +159,28 @@ class Catchup:
 
         if probing:
             result.recovered.append(chat.id)
-            if await self._storage.set_chat_available(chat.id, True) and self._on_recovered:
+            changed = await self._storage.set_chat_available(chat.id, True)
+            # The matcher's monitored set still excludes this chat, so refresh it *before*
+            # replaying — otherwise every replayed message is dropped and the cursor advances
+            # past the backlog we just recovered.
+            if self._on_available is not None:
+                await self._on_available(chat.id)
+            if changed and self._on_recovered:
                 await self._on_recovered(chat.id)
 
         result.chats += 1
         skipped = self._per_chat if capped else 0
         if capped:
             result.capped_chats.append(chat.id)
-        await self._replay(chat.id, buffered, skipped, result)
+        failed_at = await self._replay(chat.id, buffered, skipped, result)
         if newest is not None:
-            # Advance even when everything was filtered out, so the next round starts here.
-            self._listener.cursors.note(chat.id, newest[0], newest[1])
+            # Advance even when everything was filtered out, so the next round starts here —
+            # but never past a message the replay could not handle, or that message would be
+            # below the cursor next time and lost for good.
+            highest = newest[0] if failed_at is None else min(newest[0], failed_at - 1)
+            self._listener.cursors.note(chat.id, highest, newest[1])
+            if failed_at is not None:
+                self._listener.cursors.cap(chat.id, failed_at - 1)
 
     async def _fetch_guarded(
         self, chat: ChatRow, min_id: int, cutoff: dt.datetime, result: CatchupResult
@@ -193,7 +216,9 @@ class Catchup:
 
     async def _replay(
         self, chat_id: int, buffered: list[tl.Message], skipped: int, result: CatchupResult
-    ) -> None:
+    ) -> int | None:
+        """Replay in chronological order; returns the lowest id we could not handle."""
+        failed_at: int | None = None
         for index, message in enumerate(reversed(buffered)):
             try:
                 claimed = await self._listener.handle(
@@ -207,10 +232,12 @@ class Catchup:
             except Exception:
                 # One bad message must not abandon the rest of the round.
                 log.exception("catch-up could not replay %s/%s", chat_id, message.id)
+                failed_at = message.id if failed_at is None else min(failed_at, message.id)
                 continue
             result.claimed += len(claimed)
             if index % YIELD_EVERY == 0:
                 await asyncio.sleep(0)
+        return failed_at
 
     async def _fetch(
         self, chat: ChatRow, min_id: int, cutoff: dt.datetime, result: CatchupResult

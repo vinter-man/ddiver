@@ -54,6 +54,7 @@ async def listener(store, clock):
     listener = Listener(store, matcher, SenderCache(None), deliver=deliver, clock=clock)
     await listener.prime_chat_cache()
     listener.delivered = delivered
+    listener.matcher = matcher
     return listener
 
 
@@ -395,3 +396,80 @@ class TestInputPeers:
 
         unknown = ChatRow(ChatRef(-1009, "U", None, "supergroup"), True, True, None)
         assert input_peer_for(unknown) == -1009  # fall back to Telethon's own resolution
+
+
+class TestCursorHonesty:
+    async def test_a_failed_replay_holds_the_cursor_back(self, store, listener, clock, sleeps):
+        """A message we could not handle must be re-fetched, not skipped."""
+        await store.upsert_cursors([Cursor(CHAT_ID, 0, T0)])
+        history = FakeHistory(
+            {
+                CHAT_ID: history_of(
+                    CHAT, [(3, "казино три"), (2, "казино два"), (1, "казино")], step=1
+                )
+            }
+        )
+        original = listener.handle
+
+        async def flaky(message, **kwargs):
+            if message.id == 2:
+                raise RuntimeError("database is locked")
+            return await original(message, **kwargs)
+
+        listener.handle = flaky
+        await Catchup(store, listener, history, clock=clock, sleep=sleeps).run({CHAT_ID})
+        assert (await store.get_cursors())[CHAT_ID].last_msg_id == 1  # not 3
+        assert [i.msg_id for i in listener.delivered] == [1, 3]
+
+    async def test_an_unfinished_chat_keeps_its_stored_cursor(self, store, listener, clock, sleeps):
+        """The budget break must not let a live cursor jump over the unexamined gap."""
+        await store.upsert_cursors([Cursor(CHAT_ID, 100, T0), Cursor(OTHER_ID, 100, T0)])
+        history = FakeHistory(
+            {
+                CHAT_ID: history_of(CHAT, [(i, "казино") for i in range(200, 100, -1)], step=1),
+                OTHER_ID: history_of(OTHER, [(i, "казино") for i in range(200, 100, -1)], step=1),
+            }
+        )
+        catchup = Catchup(store, listener, history, clock=clock, sleep=sleeps, total=5)
+
+        # a live message lands in the chat the round will not reach
+        live = make_event("казино", chat=CHAT, msg_id=5000)
+        original_run = catchup.run
+
+        async def run_with_live_traffic(chat_ids):
+            listener.cursors.note(CHAT_ID, 5000, T0)
+            listener.cursors.note(OTHER_ID, 5000, T0)
+            return await original_run(chat_ids)
+
+        del live
+        await run_with_live_traffic({CHAT_ID, OTHER_ID})
+        cursors = await store.get_cursors()
+        # the chat the round examined keeps its live cursor; the one it never reached stays put
+        examined = [c for c in (CHAT_ID, OTHER_ID) if cursors[c].last_msg_id == 5000]
+        skipped = [c for c in (CHAT_ID, OTHER_ID) if cursors[c].last_msg_id == 100]
+        assert len(examined) == 1, cursors
+        assert len(skipped) == 1, cursors
+
+    async def test_recovery_refreshes_the_monitored_set_before_replaying(
+        self, store, listener, clock, sleeps
+    ):
+        invalidated = []
+
+        async def on_available(chat_id):
+            invalidated.append(chat_id)
+            await listener.matcher.invalidate(chat_id)
+
+        await store.upsert_cursors([Cursor(CHAT_ID, 1, T0)])
+        await store.set_chat_available(CHAT_ID, False)
+        await listener.matcher.reload()
+        assert not listener.matcher.is_monitored(CHAT_ID)
+
+        history = FakeHistory({CHAT_ID: history_of(CHAT, [(9, "казино")])})
+        catchup = Catchup(
+            store, listener, history, clock=clock, sleep=sleeps, on_available=on_available
+        )
+        clock.tick(7 * 3600)
+        result = await catchup.reprobe_unavailable()
+        assert invalidated == [CHAT_ID]
+        assert result.claimed == 1  # the backlog was actually delivered, not dropped
+        assert [i.msg_id for i in listener.delivered] == [9]

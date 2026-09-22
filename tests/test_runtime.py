@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from telethon import errors
+from telethon import errors, events
 from telethon.tl import types as tl
 
 from ddiver.bot import menus
@@ -39,16 +39,24 @@ class FakeBot:
         self.sent.append({"peer": peer, "text": text, **kwargs})
 
 
-class FakeEvent:
-    """A callback-query-like event: it can answer and edit."""
+class FakeEvent(events.CallbackQuery.Event):
+    """A real CallbackQuery event, so the adapter's isinstance dispatch is exercised."""
 
     def __init__(self, sender_id: int = 1) -> None:
-        self.sender_id = sender_id
+        query = tl.UpdateBotCallbackQuery(
+            query_id=1,
+            user_id=sender_id,
+            peer=tl.PeerUser(sender_id),
+            msg_id=7,
+            chat_instance=0,
+            data=b"menu",
+        )
+        super().__init__(query, tl.PeerUser(sender_id), 7)
         self.answers: list[tuple[str, bool]] = []
         self.edits: list[str] = []
         self.error: BaseException | None = None
 
-    async def answer(self, text: str = "", *, alert: bool = False) -> None:
+    async def answer(self, text: str = "", *, alert: bool = False, **_kwargs: Any) -> None:
         if self.error is not None:
             error, self.error = self.error, None
             raise error
@@ -62,10 +70,19 @@ class FakeEvent:
 
 
 class FakeMessageEvent:
-    """A plain message event: it can neither answer nor edit."""
+    """A real message event delegates `edit` to its Message, so the adapter must not use it."""
 
     def __init__(self, sender_id: int = 1) -> None:
         self.sender_id = sender_id
+        self.edits: list[str] = []
+
+    async def edit(self, *_args: Any, **_kwargs: Any) -> None:
+        # Telethon would try to edit the *user's* message here and fail; the adapter must
+        # never take this path.
+        self.edits.append("must not happen")
+
+    async def answer(self, *_args: Any, **_kwargs: Any) -> None:
+        self.edits.append("must not happen")
 
 
 class TestBotAdapter:
@@ -81,11 +98,25 @@ class TestBotAdapter:
         await BotAdapter(bot).perform(event, actions, "ru")
         assert event.edits == ["Что делаем?"]
 
-    async def test_edit_falls_back_to_a_reply_when_the_event_cannot_edit(self):
+    async def test_a_message_event_gets_a_reply_not_an_edit(self):
+        """A NewMessage event has .edit, but it edits the *user's* message — never use it."""
         bot, event = FakeBot(), FakeMessageEvent(sender_id=5)
         await BotAdapter(bot).perform(event, [Edit("bot.menu.title")], "en")
+        assert event.edits == []
         assert bot.sent[0]["peer"] == 5
         assert bot.sent[0]["text"] == "What would you like to do?"
+
+    async def test_a_message_event_never_gets_a_toast(self):
+        bot, event = FakeBot(), FakeMessageEvent(sender_id=5)
+        await BotAdapter(bot).perform(event, [Toast("bot.cancelled")], "en")
+        assert event.edits == [] and bot.sent == []
+
+    async def test_text_is_sent_literally(self):
+        """Telethon defaults to markdown, which would eat __init__ out of a rule pattern."""
+        bot, event = FakeBot(), FakeEvent()
+        await BotAdapter(bot).perform(event, [Reply("re:__init__ **x**", literal=True)], "en")
+        assert bot.sent[0]["text"] == "re:__init__ **x**"
+        assert bot.sent[0]["parse_mode"] is None
 
     async def test_reply_goes_to_the_sender_with_no_link_preview(self):
         bot, event = FakeBot(), FakeEvent(sender_id=9)
@@ -352,5 +383,62 @@ class TestHeartbeatContents:
             assert beat is not None and beat.written_at is not None
             assert beat.queue == 0
             assert beat.degraded is False
+        finally:
+            await app.storage.close()
+
+
+class TestSenderResolution:
+    async def test_a_basic_group_member_is_found_after_loading_the_member_list(
+        self, tmp_path, monkeypatch
+    ):
+        """Basic-group updates carry no entities, so a bare get_entity cannot work."""
+        from ddiver.links import ChatRef
+
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+            await app.storage.upsert_chat(ChatRef(-555, "Группа", None, "group"))
+            calls: list[str] = []
+            known: dict[int, object] = {}
+
+            async def get_entity(peer_id):
+                calls.append(f"get_entity({peer_id})")
+                if peer_id not in known:
+                    raise ValueError("Could not find the input entity")
+                return known[peer_id]
+
+            async def get_participants(chat_id):
+                calls.append(f"get_participants({chat_id})")
+                known[4242] = make_user(4242, "Сергей", "serge", min_=False)
+                return list(known.values())
+
+            app.user_client.get_entity = get_entity
+            app.user_client.get_participants = get_participants
+
+            entity = await app._resolve_entity(4242, -555)
+            assert entity.first_name == "Сергей"
+            assert calls == ["get_entity(4242)", "get_participants(-555)", "get_entity(4242)"]
+
+            # the member list is loaded once per chat, not per message
+            calls.clear()
+            await app._resolve_entity(4242, -555)
+            assert calls == ["get_entity(4242)"]
+        finally:
+            await app.storage.close()
+
+    async def test_a_supergroup_failure_is_not_retried_with_participants(
+        self, tmp_path, monkeypatch
+    ):
+        from ddiver.links import ChatRef
+
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+            await app.storage.upsert_chat(ChatRef(-1001, "Супергруппа", None, "supergroup"))
+
+            async def get_entity(peer_id):
+                raise ValueError("Could not find the input entity")
+
+            app.user_client.get_entity = get_entity
+            with pytest.raises(ValueError, match="input entity"):
+                await app._resolve_entity(4242, -1001)
         finally:
             await app.storage.close()

@@ -482,7 +482,12 @@ class Storage:
 
     async def migrate_chat(self, old_id: int, new_ref: ChatRef, access_hash: int | None) -> None:
         """Move subscriptions, rules and ignores from a basic group to its supergroup."""
+        old = await self.get_chat(old_id)
         await self.upsert_chat(new_ref, access_hash=access_hash)
+        if old is not None and old.shared:
+            # Carry the grant across, or the moderators keep receiving notifications from a
+            # chat every UI path now calls "not found".
+            await self.set_chat_shared(new_ref.id, True)
         now = self._now()
         await self.db.execute(
             """INSERT OR IGNORE INTO subscriptions (user_id, chat_id, created_at)
