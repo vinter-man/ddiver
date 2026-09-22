@@ -1,3 +1,4 @@
+import asyncio
 import datetime as dt
 import stat
 
@@ -6,6 +7,7 @@ import pytest
 from ddiver.__main__ import (
     InstanceLock,
     build_parser,
+    cmd_check_config,
     cmd_health,
     harden_data_dir,
     main,
@@ -109,3 +111,28 @@ class TestInstanceLock:
         assert lock.acquire() is True
         lock.release()
         lock.release()
+
+
+class TestCheckConfigPermissionHints:
+    def test_directory_hint_uses_700(self, tmp_path, monkeypatch, capsys):
+        """A directory needs the execute bit, so `chmod 600` on it would break ddiver."""
+        data = tmp_path / "data"
+        data.mkdir(mode=0o755)
+        (data / "user.session").write_text("x")
+        for key, value in {**ENV, "DATA_DIR": str(data)}.items():
+            monkeypatch.setenv(key, value)
+        settings = Settings.load(None)
+
+        class DeadClient:
+            async def start(self, **_kwargs):
+                raise ConnectionError("offline")
+
+            async def disconnect(self):
+                return None
+
+        monkeypatch.setattr("ddiver.clients.make_bot_client", lambda *a, **k: DeadClient())
+        assert asyncio.run(cmd_check_config(settings)) == EXIT_ERROR
+        out = capsys.readouterr().out
+        assert "chmod 600" not in out or "chmod 700" in out
+        # hardening runs first, so the directory is no longer world readable
+        assert stat.S_IMODE(data.stat().st_mode) == 0o700

@@ -89,38 +89,96 @@ class InstanceLock:
             self._handle = None
 
 
-async def cmd_login(settings: Settings) -> int:
+async def cmd_login(settings: Settings, args: argparse.Namespace) -> int:
+    from telethon.errors import RPCError
+
     from ddiver.clients import make_user_client
-    from ddiver.runtime import refresh_dialogs
+    from ddiver.login import (
+        LoginError,
+        clear_state,
+        request_code,
+        sign_in_with_code,
+        sign_in_with_password,
+    )
+    from ddiver.timeutil import utcnow
 
     harden_data_dir(settings.data_dir)
     age = heartbeat_age(settings.heartbeat_path)
     if age is not None and age < LOGIN_BLOCK_SECONDS:
-        print("ddiver looks like it is running. Stop it first: two processes on one session")
+        print("ddiver looks like it is running. Stop it first — two processes on one session")
         print("file make Telegram invalidate it.")
         return EXIT_LOCKED
     lock = InstanceLock(settings.data_dir / LOCK_NAME)
     if not lock.acquire():
         print("Another ddiver process holds the lock; stop it first.")
         return EXIT_LOCKED
+
     client = make_user_client(settings)
     try:
+        await client.connect()
+        if await client.is_user_authorized():
+            me = await client.get_me()
+            print(f"Already logged in as {me.first_name} (id {me.id}).")
+            clear_state(settings.data_dir)
+            return await _finish_login(client, settings, me)
+
+        if args.phone:
+            try:
+                await request_code(client, settings.data_dir, args.phone, utcnow())
+            except RPCError as exc:
+                print(f"Telegram refused the request: {type(exc).__name__}: {exc}")
+                return EXIT_ERROR
+            print(f"Telegram sent a code to {args.phone}.")
+            print("Next: ddiver login --code 12345")
+            print("(the code expires in a few minutes; 2FA accounts add --password afterwards)")
+            return EXIT_OK
+
+        if args.code or args.password:
+            try:
+                if args.code:
+                    me = await sign_in_with_code(client, settings.data_dir, args.code, utcnow())
+                else:
+                    me = await sign_in_with_password(client, settings.data_dir, args.password)
+            except LoginError as exc:
+                print(str(exc))
+                return EXIT_ERROR
+            except RPCError as exc:
+                print(f"Telegram refused the sign-in: {type(exc).__name__}: {exc}")
+                return EXIT_ERROR
+            print(f"Logged in as {me.first_name} (id {me.id}).")
+            return await _finish_login(client, settings, me)
+
+        if not sys.stdin.isatty():
+            print("No terminal available, so use the step-by-step flow:")
+            print("  ddiver login --phone +380…")
+            print("  ddiver login --code 12345")
+            print("  ddiver login --password '<2FA password>'   # only if you have 2FA")
+            return EXIT_ERROR
+
         await client.start()  # interactive: phone, code, 2FA password
         me = await client.get_me()
         print(f"Logged in as {me.first_name} (id {me.id}).")
-        if me.id != settings.owner_id:
-            print(f"⚠️  OWNER_ID is {settings.owner_id} but this account is {me.id}.")
-        storage = Storage(settings.db_path, owner_id=settings.owner_id)
-        await storage.open()
-        try:
-            count = await refresh_dialogs(client, storage)
-            print(f"Cached {count} chats.")
-        finally:
-            await storage.close()
+        return await _finish_login(client, settings, me)
     finally:
         await client.disconnect()
         lock.release()
         harden_data_dir(settings.data_dir)
+
+
+async def _finish_login(client: Any, settings: Settings, me: Any) -> int:
+    """Warn about a mismatched OWNER_ID and cache the account's chats."""
+    from ddiver.runtime import refresh_dialogs
+
+    if me.id != settings.owner_id:
+        print(f"⚠️  OWNER_ID is {settings.owner_id} but this account is {me.id}.")
+        print("   The bot will answer OWNER_ID, not this account — fix .env if that is wrong.")
+    storage = Storage(settings.db_path, owner_id=settings.owner_id)
+    await storage.open()
+    try:
+        count = await refresh_dialogs(client, storage)
+        print(f"Cached {count} chats. Now run: ddiver run")
+    finally:
+        await storage.close()
     return EXIT_OK
 
 
@@ -160,8 +218,9 @@ async def cmd_check_config(settings: Settings) -> int:
     print(f"Bot id: {settings.bot_id}")
     if not settings.user_session.exists():
         problems.append("no user session yet — run `ddiver login`")
+    harden_data_dir(settings.data_dir)
     problems.extend(
-        f"{path} is readable by other users; run `chmod 600 {path}`"
+        f"{path} is readable by other users; run `chmod {700 if path.is_dir() else 600} {path}`"
         for path in (settings.data_dir, settings.user_session, settings.db_path, Path(".env"))
         if path.exists() and world_readable(path)
     )
@@ -214,7 +273,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="ddiver", description=__doc__)
     parser.add_argument("--env-file", default=".env", help="path to the .env file")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("login", help="log the listener account in (interactive)")
+    login = sub.add_parser("login", help="log the listener account in")
+    login.add_argument("--phone", help="send the login code to this number, e.g. +380501112233")
+    login.add_argument("--code", help="the code Telegram sent you")
+    login.add_argument("--password", help="2FA password, if the account has one")
     sub.add_parser("run", help="run the monitor")
     sub.add_parser("health", help="check the heartbeat (for Docker HEALTHCHECK)")
     sub.add_parser("check-config", help="validate configuration and permissions")
@@ -234,7 +296,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "health":
         return cmd_health(settings)
     if args.command == "login":
-        return asyncio.run(cmd_login(settings))
+        return asyncio.run(cmd_login(settings, args))
     if args.command == "check-config":
         return asyncio.run(cmd_check_config(settings))
     code = asyncio.run(cmd_run(settings))

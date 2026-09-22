@@ -9,7 +9,7 @@ from ddiver.i18n import t
 from ddiver.links import ChatRef
 from ddiver.matcher import Matcher
 from ddiver.rules import RuleKind
-from ddiver.storage import ALL_CHATS, Role, Storage
+from ddiver.storage import ALL_CHATS, ChatRow, IgnoredSender, Role, Rule, Storage
 from tests.fakes import T0, FakeClock
 
 OWNER = 1
@@ -470,8 +470,6 @@ class TestMenus:
 
 class TestMenuRendering:
     def test_shared_menu_marks_state(self):
-        from ddiver.storage import ChatRow
-
         rows = [
             ChatRow(CHAT_A, available=True, shared=True, access_hash=None),
             ChatRow(CHAT_B, available=True, shared=False, access_hash=None),
@@ -485,16 +483,12 @@ class TestMenuRendering:
         assert f"share:{CHAT_B.id}:1" in data
 
     def test_chats_menu_flags_unavailable_chats(self):
-        from ddiver.storage import ChatRow
-
         rows = [ChatRow(CHAT_A, available=False, shared=True, access_hash=None)]
         keyboard = menus.chats_menu(rows, {CHAT_A.id}, 0)
         label = menus.unwrap(keyboard[0][0][0])
         assert label.startswith("✅") and label.endswith("⚠️")
 
     def test_chats_menu_paginates(self):
-        from ddiver.storage import ChatRow
-
         rows = [
             ChatRow(ChatRef(-1000 - i, f"Chat {i}", None, "supergroup"), True, True, None)
             for i in range(20)
@@ -507,8 +501,6 @@ class TestMenuRendering:
         assert {"chats:0", "chats:2"} <= set(nav)
 
     def test_rules_menu_navigation_keeps_chat_and_kind(self):
-        from ddiver.storage import Rule
-
         rules = [
             Rule(i, OWNER, CHAT_A.id, RuleKind.INCLUDE, f"rule{i}", None, 0) for i in range(25)
         ]
@@ -520,8 +512,6 @@ class TestMenuRendering:
         assert f"rules:{CHAT_A.id}:exclude:0" in data
 
     def test_rules_menu_truncates_long_patterns_and_marks_disabled(self):
-        from ddiver.storage import Rule
-
         long_rule = Rule(1, OWNER, 0, RuleKind.INCLUDE, "x" * 120, "timeout", 0)
         label = menus.unwrap(menus.rules_menu([long_rule], ["🧩"], 0, "include", 0)[0][0][0])
         assert label.startswith("❌ ⏸")
@@ -529,8 +519,6 @@ class TestMenuRendering:
         assert len(label) < 80
 
     def test_ignored_menu_shows_scope(self):
-        from ddiver.storage import IgnoredSender
-
         entries = [
             IgnoredSender(OWNER, ALL_CHATS, 500, None),
             IgnoredSender(OWNER, CHAT_A.id, 600, "spammer"),
@@ -547,8 +535,6 @@ class TestMenuRendering:
         assert "revoke:5" in data
 
     def test_rules_chat_menu_always_offers_all_chats(self):
-        from ddiver.storage import ChatRow
-
         rows = [ChatRow(CHAT_A, True, True, None)]
         keyboard = menus.rules_chat_menu(rows, 0)
         assert keyboard[0][0][1] == f"rules:{ALL_CHATS}:include:0"

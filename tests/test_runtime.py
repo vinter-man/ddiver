@@ -149,7 +149,7 @@ class TestBotAdapter:
 
 class TestNotificationButtons:
     def test_both_buttons_when_the_sender_is_known(self):
-        item = OutboxItem(1, -1001, 7, 3, "pending", 0, PAYLOAD, T0)  # type: ignore[arg-type]
+        item = OutboxItem(1, -1001, 7, 3, "pending", 0, PAYLOAD, T0)
         rows = notification_buttons_factory(None)(item, "ru")
         labels = [button.text for button in rows[0]]
         assert labels == ["🚫 Игнорировать отправителя", "➖ Добавить исключение"]
@@ -158,12 +158,12 @@ class TestNotificationButtons:
 
     def test_only_exclude_when_the_sender_is_unknown(self):
         payload = {**PAYLOAD, "sender_id": None}
-        item = OutboxItem(1, -1001, 7, 3, "pending", 0, payload, T0)  # type: ignore[arg-type]
+        item = OutboxItem(1, -1001, 7, 3, "pending", 0, payload, T0)
         rows = notification_buttons_factory(None)(item, "en")
         assert [b.type.data.decode() for b in rows[0]] == ["ex:-1001:7"]
 
     def test_payload_of_parses_the_row(self):
-        item = OutboxItem(1, -1001, 7, 3, "pending", 0, PAYLOAD, T0)  # type: ignore[arg-type]
+        item = OutboxItem(1, -1001, 7, 3, "pending", 0, PAYLOAD, T0)
         assert payload_of(item).chat_title == "Чат"
 
 
