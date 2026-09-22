@@ -70,6 +70,8 @@ ignore = [
 "ddiver/__main__.py" = ["PLC0415", "BLE001", "T201", "TRY400", "TRY300", "PLR0915"]
 # Telethon's decorators are untyped; the handlers themselves are typed.
 "ddiver/runtime.py" = ["PLC0415"]
+# The live E2E script is an operator tool: it prints, and it is meant to be read top to bottom.
+"scripts/e2e_live.py" = ["T201", "E402", "PLR0915", "PLR0912", "BLE001", "S101", "INP001", "PLC0415", "ASYNC109"]
 "ddiver/app.py" = ["BLE001"]
 # Tests import lazily on purpose: some fixtures build objects the module under test
 # would otherwise import at collection time.
