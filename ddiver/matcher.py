@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
@@ -22,7 +23,11 @@ RuleDisabledHook = Callable[[Rule, str], Awaitable[None]]
 class Match:
     user_id: int
     rule: Rule
-    span: Span
+    spans: list[Span]
+
+    @property
+    def span(self) -> Span:
+        return self.spans[0]
 
 
 @dataclass(slots=True)
@@ -59,9 +64,20 @@ class Matcher:
         self._monitored: set[int] = set()
         self._cache: dict[int, _ChatRuleSet] = {}
         self._timeouts: dict[int, int] = {}
+        self._hits: Counter[int] = Counter()
         self.stats_evaluated = 0
         self.stats_matched = 0
         self.stats_timeouts = 0
+
+    def note_hit(self, rule_id: int) -> None:
+        """Count a delivered match; flushed to storage together with the cursors."""
+        self._hits[rule_id] += 1
+
+    async def flush_hits(self) -> None:
+        if not self._hits:
+            return
+        hits, self._hits = dict(self._hits), Counter()
+        await self._storage.flush_rule_hits(hits)
 
     # -- monitored set ---------------------------------------------------------------------
 
@@ -105,9 +121,9 @@ class Matcher:
             if await self._any_excluded(user, text):
                 continue
             for rule, compiled in user.includes:
-                span = await self._search(rule, compiled, text)
-                if span is not None:
-                    matches.append(Match(user.user_id, rule, span))
+                spans = await self._search_all(rule, compiled, text)
+                if spans:
+                    matches.append(Match(user.user_id, rule, spans))
                     break
         if matches:
             self.stats_matched += 1
@@ -115,13 +131,13 @@ class Matcher:
 
     async def _any_excluded(self, user: _UserRules, text: str) -> bool:
         for rule, compiled in user.excludes:
-            if await self._search(rule, compiled, text) is not None:
+            if await self._search_all(rule, compiled, text):
                 return True
         return False
 
-    async def _search(self, rule: Rule, compiled: CompiledRule, text: str) -> Span | None:
+    async def _search_all(self, rule: Rule, compiled: CompiledRule, text: str) -> list[Span]:
         try:
-            return compiled.search(text, self._timeout)
+            return compiled.search_all(text, self._timeout)
         except RuleTimeout:
             self.stats_timeouts += 1
             count = self._timeouts.get(rule.id, 0) + 1
@@ -129,7 +145,7 @@ class Matcher:
             log.warning("rule %s timed out (%d/%d)", rule.id, count, TIMEOUTS_BEFORE_DISABLE)
             if count >= TIMEOUTS_BEFORE_DISABLE:
                 await self._disable(rule, DISABLED_TIMEOUT)
-            return None
+            return []
 
     async def _disable(self, rule: Rule, reason: str) -> None:
         await self._storage.disable_rule(rule.id, reason)

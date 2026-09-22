@@ -78,14 +78,26 @@ class SentMessage:
 
 
 class FakeBotClient:
-    """Captures ``send_message`` calls; ``responses`` can queue exceptions to raise."""
+    """Captures ``send_message`` calls.
+
+    ``fail_next`` queues exceptions to raise; ``hold``/``release`` block sending so a test can
+    build up a backlog deterministically.
+    """
 
     def __init__(self) -> None:
         self.sent: list[SentMessage] = []
         self.errors: list[BaseException | None] = []
+        self._gate = asyncio.Event()
+        self._gate.set()
 
     def fail_next(self, *errors: BaseException | None) -> None:
         self.errors.extend(errors)
+
+    def hold(self) -> None:
+        self._gate.clear()
+
+    def release(self) -> None:
+        self._gate.set()
 
     async def send_message(
         self,
@@ -96,6 +108,7 @@ class FakeBotClient:
         buttons: Any = None,
         link_preview: bool = True,
     ) -> SentMessage:
+        await self._gate.wait()
         if self.errors:
             error = self.errors.pop(0)
             if error is not None:

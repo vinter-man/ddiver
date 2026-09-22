@@ -1,0 +1,238 @@
+import datetime as dt
+
+import pytest
+from telethon.tl import types as tl
+
+from ddiver.links import ChatRef
+from ddiver.listener import CursorTracker, Listener, chat_ref_of, should_consider
+from ddiver.matcher import Matcher
+from ddiver.rules import RuleKind
+from ddiver.senders import SenderCache
+from ddiver.storage import ALL_CHATS, Cursor, Role, Storage
+from tests.fakes import T0, FakeClock, make_channel, make_event, make_user
+
+OWNER = 1
+MOD = 2
+CHAT = make_channel(-1001234567890, "Чат модерации")
+FORUM = make_channel(-1009876543210, "Forum", forum=True)
+
+
+@pytest.fixture
+def clock():
+    return FakeClock()
+
+
+@pytest.fixture
+async def store(tmp_path, clock):
+    s = Storage(tmp_path / "db.sqlite3", owner_id=OWNER, clock=clock)
+    await s.open()
+    await s.ensure_user(OWNER)
+    await s.update_user(OWNER, lang="ru", tz="Europe/Kyiv")
+    await s.ensure_user(MOD)
+    await s.update_user(MOD, role=Role.ALLOWED, lang="en", tz="UTC")
+    await s.upsert_chat(ChatRef.from_entity(CHAT))
+    await s.upsert_chat(ChatRef.from_entity(FORUM))
+    await s.subscribe(OWNER, -1001234567890)
+    await s.subscribe(OWNER, -1009876543210)
+    await s.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "казино")
+    yield s
+    await s.close()
+
+
+@pytest.fixture
+async def listener(store, clock):
+    matcher = Matcher(store, timeout=0.2)
+    await matcher.reload()
+    delivered = []
+
+    async def deliver(item):
+        delivered.append(item)
+
+    listener = Listener(
+        store, matcher, SenderCache(None), deliver=deliver, clock=clock, ignore_own=True
+    )
+    await listener.prime_chat_cache()
+    listener.delivered = delivered
+    listener.matcher = matcher
+    return listener
+
+
+class TestShouldConsider:
+    def test_plain_message(self):
+        assert should_consider(make_event("казино").message)
+
+    def test_service_message_is_ignored(self):
+        service = tl.MessageService(
+            id=1,
+            peer_id=tl.PeerChannel(1),
+            date=T0,
+            action=tl.MessageActionChatJoinedByLink(inviter_id=1),
+        )
+        assert not should_consider(service)
+
+    def test_media_without_caption_is_ignored(self):
+        message = make_event("").message
+        message.message = None
+        assert not should_consider(message)
+        message.message = ""
+        assert not should_consider(message)
+
+    def test_outgoing_is_ignored_unless_the_test_flag_is_set(self):
+        message = make_event("казино", out=True).message
+        assert not should_consider(message)
+        assert should_consider(message, ignore_own=False)
+
+
+class TestHandle:
+    async def test_match_claims_an_outbox_row_and_delivers(self, listener, store, clock):
+        event = make_event("Заходи в казино", chat=CHAT)
+        items = await listener.handle(event.message, chat=event.chat)
+        assert len(items) == 1
+        item = items[0]
+        assert item.user_id == OWNER
+        assert item.payload["chat_title"] == "Чат модерации"
+        assert item.payload["spans"] == [[9, 15]]
+        assert item.payload["sender_name"] == "Иван"
+        assert item.payload["sender_username"] == "ivan"
+        assert item.payload["catchup"] is False
+        assert listener.delivered == items
+        # the cursor only advances after the row exists
+        assert listener.cursors.pending[-1001234567890][0] == event.message.id
+
+    async def test_no_match_still_advances_the_cursor(self, listener):
+        event = make_event("ничего интересного", chat=CHAT)
+        assert await listener.handle(event.message, chat=event.chat) == []
+        assert listener.cursors.pending[-1001234567890][0] == event.message.id
+
+    async def test_unmonitored_chat_is_ignored(self, listener):
+        other = make_channel(-1005555555555, "Other")
+        event = make_event("казино", chat=other)
+        assert await listener.handle(event.message, chat=event.chat) == []
+        assert listener.cursors.pending == {}
+
+    async def test_private_chat_is_never_monitored(self, listener, store):
+        message = make_event("казино").message
+        message.peer_id = tl.PeerUser(4242)
+        assert await listener.handle(message) == []
+        assert listener.metrics.skipped_private == 1
+
+    async def test_bot_senders_are_dropped_after_matching(self, listener):
+        bot_user = make_user(77, "Spam Bot", "spambot", bot=True)
+        event = make_event("казино", chat=CHAT, sender=bot_user)
+        assert await listener.handle(event.message, chat=event.chat) == []
+        assert listener.metrics.skipped_bot == 1
+        assert listener.cursors.pending[-1001234567890][0] == event.message.id
+
+    async def test_own_messages_are_skipped(self, listener):
+        event = make_event("казино", chat=CHAT, out=True)
+        assert await listener.handle(event.message, chat=event.chat) == []
+        assert listener.metrics.skipped_own == 1
+
+    async def test_forwarded_and_topic_metadata(self, listener):
+        event = make_event("казино", chat=FORUM, topic_id=7, fwd_from_name="Someone")
+        items = await listener.handle(event.message, chat=event.chat)
+        assert items[0].payload["topic_id"] == 7
+        assert items[0].payload["is_forwarded"] is True
+
+    async def test_duplicate_message_is_claimed_once(self, listener):
+        event = make_event("казино", chat=CHAT)
+        assert len(await listener.handle(event.message, chat=event.chat)) == 1
+        assert await listener.handle(event.message, chat=event.chat) == []
+        assert listener.metrics.duplicates == 1
+
+    async def test_every_subscriber_gets_their_own_row(self, listener, store):
+        await store.subscribe(MOD, -1001234567890)
+        await store.add_rule(MOD, ALL_CHATS, RuleKind.INCLUDE, "казино")
+        await listener.matcher.invalidate()
+        event = make_event("казино", chat=CHAT)
+        items = await listener.handle(event.message, chat=event.chat)
+        assert {i.user_id for i in items} == {OWNER, MOD}
+
+    async def test_all_occurrences_are_highlighted(self, listener):
+        event = make_event("казино и ещё казино", chat=CHAT)
+        items = await listener.handle(event.message, chat=event.chat)
+        assert items[0].payload["spans"] == [[0, 6], [13, 19]]
+
+    async def test_zero_width_text_maps_spans_back_to_the_original(self, listener):
+        event = make_event("реклама ка\u200bзино тут", chat=CHAT)
+        items = await listener.handle(event.message, chat=event.chat)
+        start, end = items[0].payload["spans"][0]
+        assert event.message.message[start:end] == "ка\u200bзино"
+
+    async def test_anonymous_admin_sender(self, listener):
+        event = make_event("казино", chat=CHAT, sender=CHAT)
+        items = await listener.handle(event.message, chat=event.chat)
+        assert items[0].payload["sender_id"] == -1001234567890
+        assert items[0].payload["sender_is_channel"] is True
+
+    async def test_chat_metadata_is_refreshed_when_it_changes(self, listener, store):
+        renamed = make_channel(-1001234567890, "Новое название", username="newname")
+        event = make_event("казино", chat=renamed)
+        await listener.handle(event.message, chat=event.chat)
+        row = await store.get_chat(-1001234567890)
+        assert row.ref.title == "Новое название"
+        assert row.ref.username == "newname"
+
+    async def test_rule_hits_are_counted_and_flushed(self, listener, store):
+        rules = await store.list_rules(OWNER)
+        for i in range(3):
+            event = make_event("казино", chat=CHAT, msg_id=100 + i)
+            await listener.handle(event.message, chat=event.chat)
+        await listener.matcher.flush_hits()
+        assert (await store.get_rule(rules[0].id, OWNER)).hits == 3
+
+    async def test_on_message_never_raises(self, listener, caplog):
+        class Broken:
+            @property
+            def message(self):
+                raise RuntimeError("boom")
+
+            chat = None
+
+        await listener.on_message(Broken())
+        assert "listener failed" in caplog.text
+
+
+class TestCursorTracker:
+    async def test_keeps_the_highest_id_and_flushes(self, store):
+        tracker = CursorTracker(store)
+        tracker.note(-1001, 10, T0)
+        tracker.note(-1001, 5, T0)
+        tracker.note(-1002, 3, T0)
+        assert await tracker.flush() == 2
+        cursors = await store.get_cursors()
+        assert cursors[-1001].last_msg_id == 10
+        assert tracker.pending == {}
+
+    async def test_blocked_chats_are_withheld(self, store):
+        tracker = CursorTracker(store)
+        tracker.note(-1001, 10, T0)
+        tracker.note(-1002, 4, T0)
+        tracker.block(-1001)
+        assert await tracker.flush() == 1
+        assert set(await store.get_cursors()) == {-1002}
+        assert -1001 in tracker.pending
+        tracker.unblock(-1001)
+        assert await tracker.flush() == 1
+        assert set(await store.get_cursors()) == {-1001, -1002}
+
+    async def test_flush_with_nothing_pending(self, store):
+        assert await CursorTracker(store).flush() == 0
+
+    async def test_existing_cursor_is_never_regressed(self, store):
+        await store.upsert_cursors([Cursor(-1001, 50, T0)])
+        tracker = CursorTracker(store)
+        tracker.note(-1001, 20, T0 + dt.timedelta(seconds=5))
+        await tracker.flush()
+        assert (await store.get_cursors())[-1001].last_msg_id == 50
+
+
+class TestChatRefOf:
+    def test_users_and_none_are_rejected(self):
+        assert chat_ref_of(None) is None
+        assert chat_ref_of(make_user()) is None
+
+    def test_channel_and_forbidden(self):
+        assert chat_ref_of(CHAT).title == "Чат модерации"
+        forbidden = tl.ChannelForbidden(id=5, access_hash=0, title="Gone", megagroup=True)
+        assert chat_ref_of(forbidden).kind == "supergroup"

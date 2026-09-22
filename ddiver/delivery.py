@@ -150,7 +150,9 @@ class Delivery:
         except asyncio.QueueFull:
             state.overflow += 1
             self.metrics.dropped_overflow += 1
-            log.warning("delivery queue full for user %s (%d dropped)", item.user_id, state.overflow)
+            log.warning(
+                "delivery queue full for user %s (%d dropped)", item.user_id, state.overflow
+            )
             return False
         state.enqueued_at[item.key] = self._clock()
         return True
@@ -174,30 +176,36 @@ class Delivery:
         while not state.queue.empty():
             state.queue.get_nowait()
 
+    async def wait_idle(self, timeout: float = 5.0) -> bool:
+        """Wait until every queue is empty and its worker finished the item it was holding."""
+
+        async def join_all() -> None:
+            while True:
+                pending = [s.queue.join() for s in list(self._queues.values())]
+                if not pending:
+                    return
+                await asyncio.gather(*pending)
+                if all(s.queue.empty() for s in self._queues.values()):
+                    return
+
+        try:
+            await asyncio.wait_for(join_all(), timeout)
+        except TimeoutError:
+            return False
+        return True
+
     async def drain(self, timeout: float = 15.0) -> int:
         """Give the workers a bounded chance to finish; returns how many items were left."""
         self._stopping = True
-        tasks = [s.worker for s in self._queues.values() if s.worker is not None]
-        if tasks:
-            done_waiter = asyncio.gather(*(self._wait_empty(s) for s in self._queues.values()))
-            try:
-                await asyncio.wait_for(done_waiter, timeout)
-            except TimeoutError:
-                log.warning("shutdown: %d notifications left in queues", self.total_queued())
-            finally:
-                done_waiter.cancel()
-                with contextlib.suppress(asyncio.CancelledError, Exception):
-                    await done_waiter
+        if not await self.wait_idle(timeout):
+            log.warning("shutdown: %d notifications left in queues", self.total_queued())
+        left = self.total_queued()
         for state in self._queues.values():
             if state.worker is not None:
                 state.worker.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await state.worker
-        return self.total_queued()
-
-    @staticmethod
-    async def _wait_empty(state: _UserQueue) -> None:
-        await state.queue.join()
+        return left
 
     # -- internals -------------------------------------------------------------------------
 
@@ -271,14 +279,14 @@ class Delivery:
         """Decide whether ``item`` starts a digest and, if so, drain the queue into it."""
         if threshold <= 0:
             return None
-        queued = state.queue.qsize()
+        backlog = state.queue.qsize() + 1  # the item we just popped counts too
         oldest = min(state.enqueued_at.values(), default=None)
         aged = (
             oldest is not None
-            and queued >= DIGEST_MIN_QUEUE
+            and backlog >= DIGEST_MIN_QUEUE
             and self._clock() - oldest >= DIGEST_AGE
         )
-        if queued + 1 < threshold and not aged:
+        if backlog < threshold and not aged:
             return None
         batch = [item]
         while len(batch) < DIGEST_MAX_ITEMS and not state.queue.empty():
