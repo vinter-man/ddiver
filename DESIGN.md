@@ -90,7 +90,9 @@ is unit-testable with injected clients, clock, sleep and rng:
 - Single instance: `fcntl.flock` on `DATA_DIR/ddiver.lock`; `login` refuses while the lock is
   held or the heartbeat is fresh (two processes on one session file get the key invalidated).
 - Boot-rate guard: ≥3 boots in 10 minutes delays catch-up by 5 minutes (crash loops otherwise
-  repeat 50–100 `GetHistory` calls per boot).
+  repeat 50–100 `GetHistory` calls per boot). Only the backfill waits — listening, delivery and
+  the heartbeat start immediately, because a silent heartbeat would make the orchestrator
+  restart the container and feed the very loop the delay is damping.
 - Shutdown order (SIGTERM/SIGINT via `loop.add_signal_handler`): stop accepting → disconnect the
   listener → flush cursors and rule hits → drain workers with a 15 s budget → disconnect the bot
   → close the DB. Compose sets `stop_grace_period: 30s`.
@@ -368,6 +370,30 @@ ignore per chat vs global · private chat never monitored · callback with a for
 threshold and by age · outbox dedupe live vs catch-up · crash before send re-delivers exactly
 once · catch-up direction, cap and cutoff · cursor withheld during catch-up · migration to
 supergroup · tz resolution and DST folds · relative time with clock skew · heartbeat staleness.
+
+## Verified against real Telegram
+
+Besides the offline suite, the following was exercised on a real account and real chats.
+
+* **Live path**: a marker posted from a second account arrived as a notification within
+  seconds — chat title, sender, date, highlight and buttons all as designed (12/12 checks in
+  `scripts/e2e_live.py`). The listener then ran unattended for ~5 hours over 1301 messages
+  with no failures and no flood waits.
+* **Message links**, replayed through the production pipeline over real history:
+
+  | chat kind | shape | checked |
+  | --- | --- | --- |
+  | public supergroup | `t.me/<name>/<id>` | 22/22 |
+  | private supergroup | `t.me/c/<bare id>/<id>` | 387/387 |
+  | public forum topic | `t.me/<name>/<topic>/<id>` | 266/266 |
+  | basic group | no link at all | confirmed — none is invented |
+
+  Every link was also confirmed to be present in the rendered notification, not merely built.
+  The private-forum shape (`t.me/c/<bare id>/<topic>/<id>`) has no live counterpart in this
+  account's dialogs and rests on the unit tests.
+* **Bot senders are dropped** — a forum whose messages all come from a news bot produced 40
+  considered messages and zero notifications, which is the intended behaviour and the reason
+  the first forum replay looked empty.
 
 ## Borrowed ideas (attribution)
 

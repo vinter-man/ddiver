@@ -307,11 +307,23 @@ class Application:
         boots = await self.storage.record_boot()
         assert self.delivery is not None  # noqa: S101
         await self.delivery.replay_pending()
-        await boot_delay(boots, stop=self.supervisor.stop_event)
         self._start_background_tasks()
-        self._spawn(self._catch_up(), "catchup-boot")
+        self._spawn(self._boot_catch_up(boots), "catchup-boot")
         self._spawn(self._watch_reconnects(), "reconnect-watch")
         return await self.supervisor.run()
+
+    async def _boot_catch_up(self, boots: int) -> None:
+        """Catch up once the process has proved it is not crash-looping.
+
+        Only the backfill waits. Listening, delivery and the heartbeat start immediately: a
+        silent heartbeat would make an orchestrator's health check restart the container,
+        which is the very loop this delay exists to damp.
+        """
+        assert self.supervisor is not None  # noqa: S101
+        await boot_delay(boots, stop=self.supervisor.stop_event)
+        if self.supervisor.stop_event.is_set():
+            return
+        await self._catch_up()
 
     def _spawn(self, coro: Any, name: str) -> asyncio.Task[Any]:
         """Start a task we own, so shutdown can cancel it instead of leaving it running."""
@@ -460,8 +472,15 @@ class Application:
         self._tasks = [
             PeriodicTask("cursor-flush", self._flush_state, CURSOR_FLUSH_SECONDS),
             PeriodicTask("heartbeat", self._heartbeat, HEARTBEAT_SECONDS),
-            PeriodicTask("ping", self._ping, PING_SECONDS),
-            PeriodicTask("reconcile", self._reconcile, RECONCILE_SECONDS),
+            PeriodicTask("ping", self._ping, PING_SECONDS, first_delay=PING_SECONDS),
+            # The first ping waits a full interval: at t=0 the listener may still be
+            # connecting, and the heartbeat already reports the transport meanwhile.
+            PeriodicTask(
+                "reconcile",
+                self._reconcile,
+                RECONCILE_SECONDS,
+                first_delay=RECONCILE_SECONDS,
+            ),  # the boot catch-up covers t=0, and running both would double the work
             PeriodicTask("summary", self._log_summary, SUMMARY_SECONDS),
             PeriodicTask("prune", self._prune, PRUNE_SECONDS),
             PeriodicTask("reprobe", self._reprobe, REPROBE_SECONDS),

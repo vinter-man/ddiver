@@ -12,7 +12,13 @@ from telethon.tl import types as tl
 from ddiver.bot import menus
 from ddiver.bot.router import Edit, Reply, Send, Toast
 from ddiver.links import ChatRef
-from ddiver.runtime import BotAdapter, notification_buttons_factory, payload_of, refresh_dialogs
+from ddiver.runtime import (
+    RECONCILE_SECONDS,
+    BotAdapter,
+    notification_buttons_factory,
+    payload_of,
+    refresh_dialogs,
+)
 from ddiver.storage import OutboxItem, Storage
 from tests.fakes import T0, make_channel, make_user
 
@@ -538,5 +544,158 @@ class TestCallbackAnswers:
             event = Event(sender_id=1)
             await app._on_bot_update(event, data="menu")
             assert answered == [""]  # the menu edit carries no toast of its own
+        finally:
+            await app.storage.close()
+
+
+class TestChatActionMembership:
+    """Losing and regaining access to a chat, in the shapes Telegram actually sends.
+
+    Verified against Telethon 1.45: ``user_ids`` carries the whole batch while ``user_id`` is
+    only the first of them, and a kick that arrives as ``UpdateChannelParticipant`` has no
+    action message at all.
+    """
+
+    @staticmethod
+    def _service_event(action: Any, *, peer: Any, me: int) -> Any:
+        service = tl.MessageService(
+            id=5, peer_id=peer, date=T0, action=action, from_id=tl.PeerUser(111)
+        )
+        return events.ChatAction.build(tl.UpdateNewMessage(service, 1, 1), None, me)
+
+    async def test_a_re_add_alongside_other_users_is_noticed(self, tmp_path, monkeypatch):
+        """Telegram reports the whole batch; user_id alone is just the first of them."""
+        app = await make_app(tmp_path, monkeypatch)
+        app.user_client._self_id = 999
+        try:
+            await app.storage.upsert_chat(ChatRef(-555, "Группа", None, "group"))
+            await app.storage.set_chat_available(-555, False)
+
+            event = self._service_event(
+                tl.MessageActionChatAddUser(users=[111, 222, 999]),
+                peer=tl.PeerChat(555),
+                me=999,
+            )
+            await app._on_chat_action(event)
+
+            chat = await app.storage.get_chat(-555)
+            assert chat is not None
+            assert chat.available is True
+        finally:
+            await app.storage.close()
+
+    async def test_a_kick_without_an_action_message_is_handled(self, tmp_path, monkeypatch):
+        """UpdateChannelParticipant carries no service message; only chat_id is available."""
+        app = await make_app(tmp_path, monkeypatch)
+        app.user_client._self_id = 999
+        try:
+            await app.storage.upsert_chat(ChatRef(-1001234567890, "Чат", None, "supergroup"))
+            update = tl.UpdateChannelParticipant(
+                channel_id=1234567890,
+                date=T0,
+                actor_id=1,
+                user_id=999,
+                prev_participant=tl.ChannelParticipant(user_id=999, date=T0),
+                new_participant=None,
+                qts=1,
+            )
+            event = events.ChatAction.build(update, None, 999)
+            assert event.action_message is None  # the shape that used to raise
+            await app._on_chat_action(event)
+
+            chat = await app.storage.get_chat(-1001234567890)
+            assert chat is not None
+            assert chat.available is False
+        finally:
+            await app.storage.close()
+
+    async def test_somebody_elses_membership_change_is_ignored(self, tmp_path, monkeypatch):
+        app = await make_app(tmp_path, monkeypatch)
+        app.user_client._self_id = 999
+        try:
+            await app.storage.upsert_chat(ChatRef(-555, "Группа", None, "group"))
+            event = self._service_event(
+                tl.MessageActionChatDeleteUser(user_id=111), peer=tl.PeerChat(555), me=999
+            )
+            await app._on_chat_action(event)
+
+            chat = await app.storage.get_chat(-555)
+            assert chat is not None
+            assert chat.available is True
+        finally:
+            await app.storage.close()
+
+
+class TestBootStormDelay:
+    """The crash-loop damper must slow the backfill down without silencing the process."""
+
+    async def test_the_backfill_waits_but_the_heartbeat_does_not(self, tmp_path, monkeypatch):
+        import ddiver.runtime as runtime_module
+
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+            waited: list[int] = []
+            released = asyncio.Event()
+
+            async def fake_boot_delay(boots, stop=None):
+                waited.append(boots)
+                await released.wait()
+                return 300.0
+
+            rounds: list[int] = []
+
+            async def fake_catch_up():
+                rounds.append(1)
+
+            monkeypatch.setattr(runtime_module, "boot_delay", fake_boot_delay)
+            monkeypatch.setattr(app, "_catch_up", fake_catch_up)
+
+            task = asyncio.create_task(app._boot_catch_up(9))
+            await asyncio.sleep(0)
+            assert waited == [9]
+            assert rounds == []  # the backfill is held back...
+
+            # ...while the heartbeat keeps reporting, which is what keeps an orchestrator
+            # from restarting the container mid-delay.
+            await app._heartbeat()
+            assert app.settings.heartbeat_path.exists()
+
+            released.set()
+            await task
+            assert rounds == [1]
+        finally:
+            await app.storage.close()
+
+    async def test_a_stop_during_the_delay_cancels_the_backfill(self, tmp_path, monkeypatch):
+        import ddiver.runtime as runtime_module
+
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+
+            async def fake_boot_delay(boots, stop=None):
+                app.supervisor.stop_event.set()
+                return 300.0
+
+            rounds: list[int] = []
+
+            async def fake_catch_up():
+                rounds.append(1)
+
+            monkeypatch.setattr(runtime_module, "boot_delay", fake_boot_delay)
+            monkeypatch.setattr(app, "_catch_up", fake_catch_up)
+
+            await app._boot_catch_up(9)
+            assert rounds == []  # shutting down: no point starting a backfill now
+        finally:
+            await app.storage.close()
+
+    async def test_reconcile_does_not_double_the_boot_catch_up(self, tmp_path, monkeypatch):
+        """The boot catch-up covers t=0; a reconcile there would only repeat it."""
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+            app._start_background_tasks()
+            reconcile = next(t for t in app._tasks if t._name == "reconcile")
+            assert reconcile._first_delay == RECONCILE_SECONDS
+            await asyncio.gather(*(t.stop() for t in app._tasks))
         finally:
             await app.storage.close()

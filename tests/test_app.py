@@ -275,6 +275,28 @@ class TestPeriodicTask:
         assert task.runs >= 2
         assert sleeps[:2] == [5.0, 5.0]
 
+    async def test_the_first_run_can_wait_out_the_startup_race(self):
+        """The ping must not fire while the listener is still connecting."""
+        calls: list[int] = []
+        sleeps: list[float] = []
+
+        async def work():
+            calls.append(len(calls))
+
+        async def sleep(seconds):
+            sleeps.append(seconds)
+            if len(sleeps) >= 3:
+                raise asyncio.CancelledError
+            await asyncio.sleep(0)
+
+        task = PeriodicTask("test", work, 5.0, sleep=sleep, first_delay=60.0)
+        task.start()
+        await asyncio.sleep(0.05)
+        await task.stop()
+        assert sleeps[0] == 60.0  # waited before the first run, not after it
+        assert sleeps[1:] == [5.0, 5.0]
+        assert len(calls) == 2  # one run per interval, none at t=0
+
     async def test_stop_is_idempotent(self):
         async def work():
             await asyncio.sleep(0)

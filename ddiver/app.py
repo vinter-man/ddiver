@@ -254,11 +254,13 @@ class PeriodicTask:
         interval: float,
         *,
         sleep: Sleeper = asyncio.sleep,
+        first_delay: float = 0.0,
     ) -> None:
         self._name = name
         self._work = work
         self._interval = interval
         self._sleep = sleep
+        self._first_delay = first_delay
         self._task: asyncio.Task[None] | None = None
         self.runs = 0
         self.failures = 0
@@ -276,6 +278,10 @@ class PeriodicTask:
         self._task = None
 
     async def _loop(self) -> None:
+        if self._first_delay:
+            # Some work is meaningless until the clients have settled; running it at t=0 would
+            # only report the startup race back as a failure.
+            await self._sleep(self._first_delay)
         while True:
             try:
                 await self._work()
