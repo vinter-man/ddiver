@@ -175,9 +175,11 @@ class Application:
         self.router: Router | None = None
         self.supervisor: Supervisor | None = None
         # No resolver: the listener must never make an RPC from a message handler. Entities
-        # attached to updates carry everything a notification needs; the dialog cache fills in
-        # the rest at startup.
+        # attached to updates carry everything a notification needs most of the time.
         self.senders = SenderCache(None, clock=clock)
+        # Delivery runs off the ingestion path, so it may resolve the names the listener could
+        # not — rate-limited to one lookup per second and cached for an hour.
+        self.delivery_senders = SenderCache(self._resolve_entity, clock=clock)
         self._tasks: list[PeriodicTask] = []
         self._owned: list[asyncio.Task[Any]] = []
         self._last_ping_ok: dt.datetime | None = None
@@ -210,6 +212,7 @@ class Application:
             clock=self.clock,
             buttons=notification_buttons_factory(None),
             default_threshold=self.settings.digest_threshold,
+            senders=self.delivery_senders,
         )
         self.listener = Listener(
             self.storage,
@@ -580,6 +583,9 @@ class Application:
                 log.exception("catch-up after a reconnect failed")
 
     # -- helpers ---------------------------------------------------------------------------
+
+    async def _resolve_entity(self, peer_id: int) -> Any:
+        return await self.user_client.get_entity(peer_id)
 
     async def _tell(self, user_id: int, text: str) -> None:
         with contextlib.suppress(errors.RPCError, ValueError, ConnectionError):

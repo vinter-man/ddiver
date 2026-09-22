@@ -222,3 +222,26 @@ class TestPayloadJson:
         p = Payload.from_json(minimal)
         assert (p.text, p.spans, p.sender_id, p.catchup) == ("", [], None, False)
         assert p.date == T0
+
+
+class TestSenderWithoutAName:
+    def test_the_id_is_shown_instead_of_unknown(self):
+        """A basic group's update has no entities; the id is all we have, and it is enough."""
+        r = render_notification(
+            payload(sender_name="", sender_username=None, sender_id=4242),
+            lang="ru",
+            tz="UTC",
+            now=NOW,
+        )
+        assert "Пользователь 4242" in r.text
+        assert "Неизвестный отправитель" not in r.text
+        assert "4242" in codes(r)
+
+    def test_unknown_only_when_there_is_no_id_at_all(self):
+        r = render_notification(
+            payload(sender_name="", sender_username=None, sender_id=None),
+            lang="ru",
+            tz="UTC",
+            now=NOW,
+        )
+        assert "Неизвестный отправитель" in r.text

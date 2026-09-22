@@ -16,7 +16,7 @@ import contextlib
 import datetime as dt
 import logging
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
 from telethon import errors
@@ -24,6 +24,7 @@ from telethon.tl import types as tl
 
 from ddiver.formatter import DigestEntry, Payload, Rendered, render_digest, render_notification
 from ddiver.i18n import DEFAULT_LANG
+from ddiver.senders import SenderCache
 from ddiver.storage import DeliveryStatus, OutboxItem, Storage
 from ddiver.timeutil import Clock, utcnow
 
@@ -113,6 +114,7 @@ class Delivery:
         sleep: Sleeper = asyncio.sleep,
         buttons: ButtonFactory | None = None,
         default_threshold: int = 20,
+        senders: SenderCache | None = None,
     ) -> None:
         self._bot = bot
         self._storage = storage
@@ -121,6 +123,7 @@ class Delivery:
         self._sleep = sleep
         self._buttons = buttons
         self._default_threshold = default_threshold
+        self._senders = senders
         self._queues: dict[int, _UserQueue] = {}
         self._global_bucket = TokenBucket(GLOBAL_RATE, monotonic=self._monotonic, sleep=sleep)
         self._user_buckets: dict[int, TokenBucket] = {}
@@ -320,12 +323,32 @@ class Delivery:
                     self.metrics.failed += 1
             return
 
-        payload = Payload.from_json(item.payload)
+        payload = await self._with_sender_name(Payload.from_json(item.payload))
         rendered = render_notification(payload, lang=lang, tz=tz, now=self._clock())
         buttons = self._buttons(item, lang) if self._buttons else None
         if await self._send(user_id, rendered, buttons=buttons, item=item):
             await self._storage.set_delivery_status(*item.key, DeliveryStatus.SENT)
             self.metrics.delivered += 1
+
+    async def _with_sender_name(self, payload: Payload) -> Payload:
+        """Fill in a missing sender name.
+
+        Basic groups deliver updates with no entities, so the listener — which is forbidden
+        from making RPCs — can only record the id. Here we are already off the ingestion path
+        and behind a rate limit, so one cached lookup is affordable.
+        """
+        if payload.sender_name or payload.sender_id is None or self._senders is None:
+            return payload
+        info = await self._senders.resolve(payload.sender_id)
+        if info is None or not info.display_name:
+            return payload
+        return replace(
+            payload,
+            sender_name=info.display_name,
+            sender_username=info.username or payload.sender_username,
+            sender_is_deleted=info.is_deleted,
+            sender_is_channel=info.is_channel,
+        )
 
     def _collect_digest(
         self, state: _UserQueue, item: OutboxItem, threshold: int

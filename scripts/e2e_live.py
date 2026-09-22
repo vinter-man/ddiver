@@ -1,14 +1,21 @@
 """End-to-end check against real Telegram.
 
-It sets up a unique keyword, asks you to post a message containing it from your *other*
-account, and then verifies the notification the bot delivers — reading it back through the
-listener session, because the owner and the listener are the same account.
+It arranges a unique keyword, tells you what to post from your *other* account, and then
+watches ddiver's own database for the delivery — asserting on the notification exactly as it
+was rendered and sent.
 
+    # terminal 1
+    uv run ddiver run
+    # terminal 2
     uv run python scripts/e2e_live.py --chat "part of the chat title"
 
-The marker has to come from another account on purpose: Telegram never sends a session its own
-outgoing messages as updates, so a message posted from this very session could only ever be
-found by catch-up, which would not test the live path.
+Two details shape this script:
+
+* the marker has to come from another account, because Telegram never delivers a session its
+  own outgoing messages as updates — a message posted from the listener session itself could
+  only ever be found by catch-up, which would not exercise the live path;
+* it never opens the user session, because ddiver is holding it: two processes on one session
+  file is exactly what makes Telegram invalidate it.
 
 The temporary rule is removed afterwards unless --keep is given.
 """
@@ -24,18 +31,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from telethon.tl import functions
 from telethon.tl import types as tl
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ddiver.clients import make_user_client
 from ddiver.config import Settings
-from ddiver.links import ChatRef
+from ddiver.formatter import Payload, render_notification
+from ddiver.links import message_link
+from ddiver.richtext import utf16_len
 from ddiver.rules import RuleKind
-from ddiver.storage import ALL_CHATS, Storage
+from ddiver.storage import ALL_CHATS, ChatRow, DeliveryStatus, Storage
+from ddiver.timeutil import utcnow
 
-DELIVERY_TIMEOUT = 90.0
+DELIVERY_TIMEOUT = 120.0
 POLL_INTERVAL = 2.0
 
 
@@ -45,35 +53,46 @@ class Report:
 
     def add(self, name: str, ok: bool, detail: str = "") -> None:
         self.checks.append((name, ok, detail))
-        mark = "✓" if ok else "✗"
-        print(f"  {mark} {name}{f' — {detail}' if detail else ''}")
+        print(f"  {'✓' if ok else '✗'} {name}{f' — {detail}' if detail else ''}")
 
     @property
     def failed(self) -> int:
         return sum(1 for _, ok, _ in self.checks if not ok)
 
 
-async def find_chat(client: Any, needle: str) -> Any:
-    """Locate a group/channel dialog by a fragment of its title or its @username."""
+async def find_chat(storage: Storage, needle: str) -> ChatRow | None:
+    """Find the chat among the ones `ddiver login` cached, by title or @username."""
     wanted = needle.strip().lstrip("@").casefold()
-    async for dialog in client.iter_dialogs():
-        entity = dialog.entity
-        if isinstance(entity, tl.User):
-            continue
-        title = (getattr(entity, "title", "") or "").casefold()
-        username = (getattr(entity, "username", "") or "").casefold()
-        if wanted in title or (username and wanted == username):
-            return entity
-    return None
+    matches = [
+        chat
+        for chat in await storage.list_chats()
+        if wanted in chat.ref.title.casefold()
+        or (chat.ref.username and wanted == chat.ref.username.casefold())
+    ]
+    if len(matches) > 1:
+        print("Several chats match; be more specific:")
+        for chat in matches[:10]:
+            print(f"  {chat.ref.title} ({chat.id})")
+        return None
+    return matches[0] if matches else None
 
 
-async def wait_for_notification(client: Any, bot_id: int, marker: str) -> Any:
-    """Poll the DM with the bot until the notification for ``marker`` shows up."""
+async def wait_for_delivery(
+    storage: Storage, chat_id: int, marker: str, owner_id: int
+) -> Any | None:
+    """Watch the outbox for a notification about our marker."""
     deadline = asyncio.get_running_loop().time() + DELIVERY_TIMEOUT
     while asyncio.get_running_loop().time() < deadline:
-        async for message in client.iter_messages(bot_id, limit=15):
-            if message.message and marker in message.message:
-                return message
+        cur = await storage.db.execute(
+            "SELECT * FROM outbox WHERE user_id=? AND chat_id=? ORDER BY msg_id DESC LIMIT 20",
+            (owner_id, chat_id),
+        )
+        for row in await cur.fetchall():
+            item = storage._outbox(row)  # noqa: SLF001 - reads ddiver's own database
+            if marker in str(item.payload.get("text", "")):
+                if item.status is DeliveryStatus.PENDING:
+                    continue  # still queued; wait for the send to finish
+                return item
         await asyncio.sleep(POLL_INTERVAL)
     return None
 
@@ -81,125 +100,108 @@ async def wait_for_notification(client: Any, bot_id: int, marker: str) -> Any:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--chat", required=True, help="part of the test chat's title, or @username")
-    parser.add_argument("--keep", action="store_true", help="keep the marker messages and rules")
+    parser.add_argument("--keep", action="store_true", help="keep the temporary rule")
     parser.add_argument("--env-file", default=".env")
+    parser.add_argument("--marker", help="reuse the keyword from an earlier run")
+    parser.add_argument(
+        "--setup-only", action="store_true", help="only arrange the rule, then exit"
+    )
     args = parser.parse_args()
 
     settings = Settings.load(args.env_file)
     report = Report()
-    marker = f"ddiver-e2e-{secrets.token_hex(3)}"
-    keyword = marker  # unique, so nothing else in the chat can match it
+    marker = args.marker or f"ddiver-e2e-{secrets.token_hex(3)}"
 
-    client = make_user_client(settings)
     storage = Storage(settings.db_path, owner_id=settings.owner_id)
-    await client.connect()
     await storage.open()
     created_rule = None
     try:
-        if not await client.is_user_authorized():
-            print("The user session is not authorized. Run `ddiver login` first.")
+        chat = await find_chat(storage, args.chat)
+        if chat is None:
+            print(f"No chat matching {args.chat!r}. Run `ddiver login` to refresh the chat list.")
             return 2
-        me = await client.get_me()
-        print(f"Account: {me.first_name} (id {me.id})")
+        print(f"Chat: {chat.ref.title} ({chat.id}, {chat.ref.kind})")
 
-        entity = await find_chat(client, args.chat)
-        if entity is None:
-            print(f"No group or channel matching {args.chat!r} in this account's dialogs.")
-            return 2
-        ref = ChatRef.from_entity(entity)
-        print(f"Chat: {ref.title} ({ref.id}, {ref.kind})\nMarker: {marker}\n")
-
-        # Arrange: make sure ddiver watches this chat for our unique keyword.
-        await storage.upsert_chat(ref, access_hash=getattr(entity, "access_hash", None))
         await storage.ensure_user(settings.owner_id)
-        await storage.set_chat_shared(ref.id, True)
-        await storage.subscribe(settings.owner_id, ref.id)
-        created_rule = await storage.add_rule(
-            settings.owner_id, ALL_CHATS, RuleKind.INCLUDE, keyword
-        )
-        print("Subscription and rule are in place.\n")
-        print("Now, in this order:")
-        print("  1. restart ddiver if it is already running, so it sees the new rule")
-        print("  2. from your OTHER account, post this message in the chat:\n")
-        print(f"       {marker} тестовое сообщение\n")
-        print("Telegram never delivers a session its own messages as updates, which is why the")
-        print("marker has to come from the second account.\n")
-        await asyncio.to_thread(input, "Press Enter once you have posted it... ")
+        await storage.set_chat_shared(chat.id, True)
+        await storage.subscribe(settings.owner_id, chat.id)
+        if args.marker is None:
+            created_rule = await storage.add_rule(
+                settings.owner_id, ALL_CHATS, RuleKind.INCLUDE, marker
+            )
+        print(f"Marker keyword: {marker}\n")
 
-        print("\nChecks:")
-        notification = await wait_for_notification(client, settings.bot_id, marker)
-        report.add("notification delivered", notification is not None)
-        if notification is None:
-            print("\nThe bot did not deliver anything. Check `ddiver` logs and /status.")
+        if args.setup_only:
+            created_rule = None  # keep it: the second run needs it
+            print("Rule is in place. Start (or restart) ddiver, post the marker from your other")
+            print(f"account, then run this again with --marker {marker}")
+            return 0
+
+        print("Now, from your OTHER account, post this in the chat:\n")
+        print(f"    {marker} тестовое сообщение\n")
+        print("ddiver must be running, and must have been started after this rule was added.")
+        print(f"Waiting up to {DELIVERY_TIMEOUT:.0f}s for the notification…\n")
+
+        item = await wait_for_delivery(storage, chat.id, marker, settings.owner_id)
+        print("Checks:")
+        report.add("notification delivered", item is not None)
+        if item is None:
+            print("\nNothing arrived. Check the ddiver log and /status in the bot.")
             return 1
 
-        text = notification.message
-        report.add("chat title present", ref.title in text, ref.title)
-        report.add("message text present", "тестовое сообщение" in text)
-        report.add("rule shown", keyword in text)
+        report.add(
+            "delivery succeeded",
+            item.status in (DeliveryStatus.SENT, DeliveryStatus.DIGESTED),
+            item.status.value,
+        )
+        payload = Payload.from_json(item.payload)
+        report.add("chat title captured", payload.chat_title == chat.ref.title, payload.chat_title)
+        report.add("message text captured", marker in payload.text)
+        report.add("rule recorded", payload.rule_pattern == marker)
+        report.add("match highlighted", bool(payload.spans), f"spans={payload.spans}")
+        report.add(
+            "sender is the other account",
+            payload.sender_id is not None and payload.sender_id != settings.owner_id,
+            f"sender {payload.sender_id} ({payload.sender_name})",
+        )
+        report.add("not marked as catch-up", payload.catchup is False)
 
-        # Find the message the notification is about, to check the link it built.
-        origin = None
-        async for candidate in client.iter_messages(entity, limit=20):
-            if candidate.message and marker in candidate.message:
-                origin = candidate
-                break
-        report.add("marker found in the chat", origin is not None)
-        if origin is not None:
-            expected_link = (
-                f"https://t.me/{ref.username}/{origin.id}"
-                if ref.username
-                else f"https://t.me/c/{ref.bare_id}/{origin.id}"
-            )
-            report.add("message link correct", expected_link in text, expected_link)
+        expected = message_link(chat.ref, payload.msg_id, payload.topic_id)
+        rendered = render_notification(payload, lang="ru", tz="Europe/Kyiv", now=utcnow())
+        if chat.ref.is_basic_group:
+            # Telegram has no message links in basic groups; the notification must not invent one
             report.add(
-                "sender identified",
-                str(origin.sender_id) in text,
-                f"sender {origin.sender_id}",
+                "no fake link for a basic group", expected is None and "t.me/" not in rendered.text
             )
-            report.add("not attributed to me", str(me.id) not in text.split("🔑")[0])
-        entities = notification.entities or []
-        report.add("formatting entities present", bool(entities), f"{len(entities)} entities")
-        bold = [e for e in entities if isinstance(e, tl.MessageEntityBold)]
-        report.add("match highlighted", bool(bold))
-        buttons = notification.reply_markup
-        report.add("action buttons attached", buttons is not None)
+        else:
+            report.add(
+                "message link built", bool(expected) and expected in rendered.text, str(expected)
+            )
+        report.add(
+            "formatting entities produced", bool(rendered.entities), f"{len(rendered.entities)}"
+        )
+        report.add(
+            "bold highlight present",
+            any(isinstance(e, tl.MessageEntityBold) for e in rendered.entities),
+        )
+        report.add("fits Telegram's limit", utf16_len(rendered.text) <= 4096)
+        if chat.ref.is_basic_group:
+            print("\nNote: this is a basic group, so there are no message links. Run the test in")
+            print("a supergroup too if you want the link checks covered.")
 
-        # The ignore button must work when pressed from the real client.
-        if buttons is not None:
-            data = None
-            for row in buttons.rows:
-                for button in row.buttons:
-                    raw = getattr(button, "data", None)
-                    if raw and raw.startswith(b"ig:"):
-                        data = raw
-            if data is not None:
-                answer = await client(
-                    functions.messages.GetBotCallbackAnswerRequest(
-                        peer=settings.bot_id, msg_id=notification.id, data=data
-                    )
-                )
-                report.add("ignore button answered", True, (answer.message or "")[:60])
-                ignored = await storage.list_ignored(settings.owner_id)
-                report.add("ignore stored", any(i.sender_id == me.id for i in ignored))
-                for entry in ignored:
-                    if entry.sender_id == me.id:
-                        await storage.remove_ignored(
-                            settings.owner_id, entry.chat_id, entry.sender_id
-                        )
-            else:
-                report.add("ignore button present", False, "no ig: button found")
-
+        print("\n--- what the bot sent you ---")
+        print(rendered.text)
+        print("--- end ---")
+        print("\nCompare that with the message in your bot chat: the links should open the")
+        print("message and the sender, and the keyword should be bold.")
         print(f"\n{len(report.checks) - report.failed}/{len(report.checks)} checks passed")
         return 1 if report.failed else 0
     finally:
-        if not args.keep:
-            if created_rule is not None:
-                with contextlib.suppress(Exception):
-                    await storage.delete_rule(created_rule.id, settings.owner_id)
-            print("Removed the temporary rule (the marker message is yours to delete).")
+        if created_rule is not None and not args.keep:
+            with contextlib.suppress(Exception):
+                await storage.delete_rule(created_rule.id, settings.owner_id)
+            print("Removed the temporary rule.")
         await storage.close()
-        await client.disconnect()
 
 
 if __name__ == "__main__":

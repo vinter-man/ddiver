@@ -67,7 +67,9 @@ ignore = [
 "ddiver/bot/handlers.py" = ["PLR0915"]
 # The CLI imports heavy modules lazily so `ddiver health` does not pull in Telethon, and it
 # reports configuration problems instead of raising.
-"ddiver/__main__.py" = ["PLC0415", "BLE001", "T201", "TRY400", "TRY300", "PLR0915"]
+"ddiver/__main__.py" = [
+  "PLC0415", "BLE001", "T201", "TRY400", "TRY300", "PLR0915", "PLR0912", "ASYNC240",
+]
 # Telethon's decorators are untyped; the handlers themselves are typed.
 "ddiver/runtime.py" = ["PLC0415"]
 # The live E2E script is an operator tool: it prints, and it is meant to be read top to bottom.

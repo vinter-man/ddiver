@@ -443,3 +443,72 @@ class TestShutdownUnderLoad:
         statuses = [(await store.get_delivery(*i.key)).status for i in items]
         assert DeliveryStatus.PENDING in statuses  # recoverable on the next start
         bot.release()
+
+
+class TestSenderEnrichment:
+    async def test_a_missing_name_is_resolved_at_send_time(self, bot, store, clock, sleeps):
+        """Basic groups deliver no entities, so the listener can only record the id."""
+        from ddiver.senders import SenderCache
+        from tests.fakes import make_user
+
+        resolved = []
+
+        async def resolver(peer_id):
+            resolved.append(peer_id)
+            return make_user(peer_id, "Сергей", "serge", min_=False)
+
+        delivery = Delivery(
+            bot,
+            store,
+            clock=clock,
+            monotonic=sleeps.monotonic,
+            sleep=sleeps.sleep,
+            senders=SenderCache(resolver, clock=clock, min_interval=0),
+        )
+        item = await claim(store, MOD, 1, sender_name="", sender_username=None, sender_id=4242)
+        await delivery.enqueue(item)
+        await settle(delivery)
+        assert resolved == [4242]
+        assert "Сергей" in bot.sent[0].text
+        assert "Неизвестный" not in bot.sent[0].text
+
+    async def test_a_known_name_is_not_resolved_again(self, bot, store, clock, sleeps):
+        from ddiver.senders import SenderCache
+
+        resolved = []
+
+        async def resolver(peer_id):
+            resolved.append(peer_id)
+
+        delivery = Delivery(
+            bot,
+            store,
+            clock=clock,
+            monotonic=sleeps.monotonic,
+            sleep=sleeps.sleep,
+            senders=SenderCache(resolver, clock=clock, min_interval=0),
+        )
+        await delivery.enqueue(await claim(store, MOD, 1))  # the payload already has a name
+        await settle(delivery)
+        assert resolved == []
+
+    async def test_a_failed_resolve_still_delivers(self, bot, store, clock, sleeps):
+        from ddiver.senders import SenderCache
+
+        async def resolver(peer_id):
+            raise ValueError("Could not find the input entity")
+
+        delivery = Delivery(
+            bot,
+            store,
+            clock=clock,
+            monotonic=sleeps.monotonic,
+            sleep=sleeps.sleep,
+            senders=SenderCache(resolver, clock=clock, min_interval=0),
+        )
+        item = await claim(store, MOD, 1, sender_name="", sender_username=None, sender_id=4242)
+        await delivery.enqueue(item)
+        await settle(delivery)
+        assert len(bot.sent) == 1
+        assert "4242" in bot.sent[0].text  # at least the id, so the ignore button makes sense
+        assert (await store.get_delivery(*item.key)).status is DeliveryStatus.SENT

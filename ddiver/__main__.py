@@ -90,6 +90,17 @@ class InstanceLock:
             self._handle = None
 
 
+def read_password(args: argparse.Namespace) -> str | None:
+    """The 2FA password, from the flag, a file, or the environment.
+
+    A file or an environment variable keeps it out of shell history — which matters here,
+    because this password is the last thing standing between a leaked session and the account.
+    """
+    if getattr(args, "password_file", None):
+        return Path(args.password_file).read_text().strip()
+    return args.password or os.environ.get("DDIVER_LOGIN_PASSWORD") or None
+
+
 async def cmd_login(settings: Settings, args: argparse.Namespace) -> int:
     from telethon.errors import RPCError
 
@@ -134,12 +145,18 @@ async def cmd_login(settings: Settings, args: argparse.Namespace) -> int:
             print("(the code expires in a few minutes; 2FA accounts add --password afterwards)")
             return EXIT_OK
 
-        if args.code or args.password:
+        try:
+            password = read_password(args)
+        except OSError as exc:
+            print(f"Cannot read the password file: {exc}")
+            return EXIT_ERROR
+
+        if args.code or password:
             try:
                 if args.code:
                     me = await sign_in_with_code(client, settings.data_dir, args.code, utcnow())
                 else:
-                    me = await sign_in_with_password(client, settings.data_dir, args.password)
+                    me = await sign_in_with_password(client, settings.data_dir, password or "")
             except LoginError as exc:
                 print(str(exc))
                 return EXIT_ERROR
@@ -154,6 +171,7 @@ async def cmd_login(settings: Settings, args: argparse.Namespace) -> int:
             print("  ddiver login --phone +380…")
             print("  ddiver login --code 12345")
             print("  ddiver login --password '<2FA password>'   # only if you have 2FA")
+            print("  (or --password-file /path/to/file, or DDIVER_LOGIN_PASSWORD=…)")
             return EXIT_ERROR
 
         await client.start()  # interactive: phone, code, 2FA password
@@ -272,6 +290,10 @@ def build_parser() -> argparse.ArgumentParser:
     login.add_argument("--phone", help="send the login code to this number, e.g. +380501112233")
     login.add_argument("--code", help="the code Telegram sent you")
     login.add_argument("--password", help="2FA password, if the account has one")
+    login.add_argument(
+        "--password-file",
+        help="read the 2FA password from this file instead, so it stays out of shell history",
+    )
     sub.add_parser("run", help="run the monitor")
     sub.add_parser("health", help="check the heartbeat (for Docker HEALTHCHECK)")
     sub.add_parser("check-config", help="validate configuration and permissions")

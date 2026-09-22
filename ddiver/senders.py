@@ -171,9 +171,12 @@ class SenderCache:
 
 
 async def sender_of(message: Any, cache: SenderCache) -> SenderInfo | None:
-    """Sender of a Telethon message: entity attached to the update, else cache/resolve.
+    """Sender of a Telethon message, without ever making a network call of its own.
 
-    Returns ``None`` only when the sender is unknown and cannot be resolved cheaply.
+    Basic groups arrive as ``UpdateShortChatMessage``, which carries no entities at all, so
+    there is often nothing to build a name from. The id is still known, and that is what the
+    notification's ignore button and the copyable id line need — the display name is filled in
+    later, in the delivery worker, where an RPC is affordable.
     """
     info = sender_from_entity(getattr(message, "sender", None))
     if info is not None:
@@ -182,7 +185,10 @@ async def sender_of(message: Any, cache: SenderCache) -> SenderInfo | None:
     sender_id = getattr(message, "sender_id", None)
     if sender_id is None:
         return None
-    return await cache.resolve(int(sender_id))
+    cached = cache.get(int(sender_id))
+    if cached is not None:
+        return cached
+    return SenderInfo(id=int(sender_id))
 
 
 def suppress_rpc() -> contextlib.AbstractContextManager[None]:

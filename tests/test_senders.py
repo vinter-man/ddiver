@@ -73,7 +73,8 @@ async def test_sender_of_uses_attached_entity_without_resolving():
     assert cache.get(42) is not None  # warmed for later messages
 
 
-async def test_sender_of_falls_back_to_resolver_once_then_caches():
+async def test_sender_of_never_resolves_on_the_hot_path():
+    """The listener must not make RPCs; an id-only SenderInfo is the honest answer."""
     calls = []
 
     async def resolver(peer_id):
@@ -86,11 +87,20 @@ async def test_sender_of_falls_back_to_resolver_once_then_caches():
     message._sender = None
     message._entities = {}
     info = await sender_of(message, cache)
-    assert info.display_name == "Resolved"
-    clock.tick(5)
-    assert (await sender_of(message, cache)).display_name == "Resolved"
-    assert calls == [42]
-    assert cache.stats_resolves == 1 and cache.stats_hits == 1
+    assert info is not None
+    assert info.id == 42
+    assert info.display_name == ""  # the delivery worker fills this in later
+    assert calls == []  # nothing was resolved from the handler
+
+
+async def test_sender_of_uses_a_name_the_cache_already_knows():
+    cache = SenderCache(None, clock=FakeClock())
+    cache.put(sender_from_entity(make_user(42, "Иван", "ivan", min_=False)))
+    message = make_event().message
+    message._sender = None
+    message._entities = {}
+    info = await sender_of(message, cache)
+    assert info.display_name == "Иван"
 
 
 async def test_resolver_is_rate_limited():

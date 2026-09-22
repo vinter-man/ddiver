@@ -16,6 +16,7 @@ STRINGS: dict[str, str] = {
     "notif.missed": "⏪ пропущено, поки бот був офлайн",
     "notif.sender.deleted": "Видалений акаунт",
     "notif.sender.unknown": "Невідомий відправник",
+    "notif.sender.by_id": "Користувач {id}",
     "notif.sender.anonymous": "Анонімний адмін",
     "notif.truncated": "… [+{n} символів]",
     "notif.btn.ignore": "🚫 Ігнорувати відправника",

@@ -132,6 +132,9 @@ def sender_label(payload: Payload, lang: str) -> str:
         return payload.sender_name
     if payload.sender_is_channel:
         return t(lang, "notif.sender.anonymous")
+    if payload.sender_id is not None:
+        # We know who it was, just not their name (a basic group's update carries no entity).
+        return t(lang, "notif.sender.by_id", id=payload.sender_id)
     return t(lang, "notif.sender.unknown")
 
 
