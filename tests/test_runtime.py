@@ -233,3 +233,124 @@ class TestRefreshDialogs:
 )
 def test_static_menus(keyboard, expected_first):
     assert keyboard[0][0][0] == expected_first
+
+
+class FakeStorageClient:
+    """Minimal user client for the Application helpers that touch Telethon."""
+
+    def __init__(self, me_id: int = 999) -> None:
+        self._me = type("User", (), {"id": me_id, "first_name": "Me"})()
+        self.handlers: list[tuple[object, object]] = []
+
+    def on(self, event):
+        def register(func):
+            self.handlers.append((event, func))
+            return func
+
+        return register
+
+    async def get_me(self):
+        return self._me
+
+    def is_connected(self) -> bool:
+        return True
+
+
+class FakeBotForApp(FakeBot):
+    """The bot client the Application builds its adapter around."""
+
+    def on(self, event):
+        def register(func):
+            return func
+
+        return register
+
+
+async def make_app(tmp_path, monkeypatch, *, owner=1):
+    """An Application wired to fakes, without connecting anything."""
+    import ddiver.runtime as runtime_module
+    from ddiver.config import Settings
+
+    for key, value in {
+        "API_ID": "1",
+        "API_HASH": "0" * 32,
+        "BOT_TOKEN": "123456789:AAExampleTokenWithEnoughLength_xyz",
+        "OWNER_ID": str(owner),
+        "DATA_DIR": str(tmp_path),
+    }.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setattr(runtime_module, "make_user_client", lambda *a, **k: FakeStorageClient())
+    monkeypatch.setattr(runtime_module, "make_bot_client", lambda *a, **k: FakeBotForApp())
+    app = runtime_module.Application(Settings.load(None))
+    await app.setup()
+    return app
+
+
+class TestMigration:
+    async def test_group_upgrade_moves_subscriptions_and_tells_subscribers(
+        self, tmp_path, monkeypatch
+    ):
+        from telethon import utils
+        from telethon.tl import types as tl_types
+
+        from ddiver.links import ChatRef
+        from ddiver.rules import RuleKind
+
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+            old_ref = ChatRef(-555, "Старая группа", None, "group")
+            await app.storage.upsert_chat(old_ref)
+            await app.storage.subscribe(1, -555)
+            rule = await app.storage.add_rule(1, -555, RuleKind.INCLUDE, "казино")
+
+            new_channel = make_channel(-1001234567890, "Старая группа")
+            new_channel.access_hash = 77
+            action = tl_types.MessageActionChatMigrateTo(channel_id=1234567890)
+            service = tl_types.MessageService(
+                id=9, peer_id=tl_types.PeerChat(555), date=T0, action=action
+            )
+            update = tl_types.UpdateNewMessage(service, pts=1, pts_count=1)
+            update._entities = {utils.get_peer_id(new_channel): new_channel}
+
+            await app._on_service_message(service, update)
+
+            assert [c.id for c in await app.storage.list_subscriptions(1)] == [-1001234567890]
+            assert (await app.storage.get_rule(rule.id, 1)).chat_id == -1001234567890
+            assert (await app.storage.get_chat(-1001234567890)).access_hash == 77
+            assert (await app.storage.get_chat(-555)).available is False
+            assert any(
+                "supergroup" in m["text"] or "супергруп" in m["text"] for m in app.bot._client.sent
+            )
+        finally:
+            await app.storage.close()
+
+    async def test_other_service_messages_are_ignored(self, tmp_path, monkeypatch):
+        from telethon.tl import types as tl_types
+
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+            service = tl_types.MessageService(
+                id=1,
+                peer_id=tl_types.PeerChat(555),
+                date=T0,
+                action=tl_types.MessageActionChatJoinedByLink(inviter_id=1),
+            )
+            await app._on_service_message(service, tl_types.UpdateNewMessage(service, 1, 1))
+            await app._on_service_message(None, None)  # must not raise
+        finally:
+            await app.storage.close()
+
+
+class TestHeartbeatContents:
+    async def test_carries_the_listener_state(self, tmp_path, monkeypatch):
+        from ddiver.health import read_heartbeat
+
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+            await app._heartbeat()
+            beat = read_heartbeat(app.settings.heartbeat_path)
+            assert beat is not None and beat.written_at is not None
+            assert beat.queue == 0
+            assert beat.degraded is False
+        finally:
+            await app.storage.close()

@@ -33,10 +33,10 @@ from ddiver.clients import connect_with_timeout, make_bot_client, make_user_clie
 from ddiver.config import Settings
 from ddiver.delivery import Delivery
 from ddiver.formatter import Payload
-from ddiver.health import write_heartbeat
+from ddiver.health import Heartbeat, write_heartbeat
 from ddiver.i18n import DEFAULT_LANG, t
 from ddiver.links import ChatRef
-from ddiver.listener import CURSOR_FLUSH_SECONDS, Listener
+from ddiver.listener import CURSOR_FLUSH_SECONDS, Listener, chat_ref_of
 from ddiver.matcher import Matcher
 from ddiver.senders import SenderCache
 from ddiver.storage import OutboxItem, Rule, Storage, safe_write
@@ -50,6 +50,8 @@ PING_TIMEOUT = 15.0
 RECONCILE_SECONDS = 15 * 60
 SUMMARY_SECONDS = 60.0
 PRUNE_SECONDS = 24 * 3600
+REPROBE_SECONDS = 6 * 3600
+RESCAN_SECONDS = 300
 SILENCE_WARN = dt.timedelta(minutes=10)
 
 
@@ -172,7 +174,10 @@ class Application:
         self.catchup: Catchup | None = None
         self.router: Router | None = None
         self.supervisor: Supervisor | None = None
-        self.senders = SenderCache(self._resolve_entity, clock=clock)
+        # No resolver: the listener must never make an RPC from a message handler. Entities
+        # attached to updates carry everything a notification needs; the dialog cache fills in
+        # the rest at startup.
+        self.senders = SenderCache(None, clock=clock)
         self._tasks: list[PeriodicTask] = []
         self._owned: list[asyncio.Task[Any]] = []
         self._last_ping_ok: dt.datetime | None = None
@@ -223,6 +228,7 @@ class Application:
             hours=self.settings.catchup_hours,
             per_chat=self.settings.catchup_max_per_chat,
             on_unavailable=self._notify_lost_access,
+            on_recovered=self._notify_regained_access,
         )
         self.router = build_router(
             self.storage,
@@ -311,6 +317,12 @@ class Application:
         async def on_chat_action(event: Any) -> None:
             await self._on_chat_action(event)
 
+        @self.user_client.on(events.Raw((tl.UpdateNewMessage, tl.UpdateNewChannelMessage)))
+        async def on_raw_message(update: Any) -> None:
+            # events.NewMessage never fires for MessageService, and a group upgrading to a
+            # supergroup is exactly that: without this the chat keeps its dead id forever.
+            await self._on_service_message(getattr(update, "message", None), update)
+
         @self.bot_client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
         async def on_bot_message(event: Any) -> None:
             await self._on_bot_update(event, text=event.raw_text)
@@ -344,19 +356,47 @@ class Application:
     async def _on_chat_action(self, event: Any) -> None:
         try:
             me = await self.user_client.get_me()
-            if event.user_id != me.id:
-                return
-            chat_id = int(utils.get_peer_id(event.action_message.peer_id))
+            affected = list(getattr(event, "user_ids", None) or [])
+            if event.user_id is not None:
+                affected.append(event.user_id)
+            if me.id not in affected:
+                return  # somebody else joined or left; not our membership
+            chat_id = int(event.chat_id)
             if event.user_kicked or event.user_left:
                 if await self.storage.set_chat_available(chat_id, False):
                     await self._notify_lost_access(chat_id, "left")
-                await self._invalidate(chat_id)
             elif event.user_added or event.user_joined:
                 if await self.storage.set_chat_available(chat_id, True):
                     await self._notify_regained_access(chat_id)
-                await self._invalidate(chat_id)
+            else:
+                return
+            await self._invalidate(chat_id)
         except Exception:
             log.debug("chat action handling failed", exc_info=True)
+
+    async def _on_service_message(self, message: Any, update: Any) -> None:
+        action = getattr(message, "action", None)
+        if not isinstance(action, tl.MessageActionChatMigrateTo):
+            return
+        try:
+            old_id = int(utils.get_peer_id(message.peer_id))
+            new_id = int(utils.get_peer_id(tl.PeerChannel(action.channel_id)))
+            entity = (getattr(update, "_entities", None) or {}).get(new_id)
+            ref = chat_ref_of(entity) or ChatRef(new_id, str(new_id), None, "supergroup")
+            old = await self.storage.get_chat(old_id)
+            if old is None:
+                return
+            log.info("chat %s migrated to supergroup %s", old_id, new_id)
+            await self.storage.migrate_chat(old_id, ref, getattr(entity, "access_hash", None))
+            await self._invalidate(None)
+            if self.listener is not None:
+                await self.listener.prime_chat_cache()
+            for user_id in await self.storage.subscribers_of(new_id):
+                user = await self.storage.get_user(user_id)
+                lang = (user.lang if user else None) or DEFAULT_LANG
+                await self._tell(user_id, t(lang, "bot.chats.migrated", chat=ref.title))
+        except Exception:
+            log.exception("could not migrate a chat")
 
     async def _check_channel_access(self, update: Any) -> None:
         """``UpdateChannel`` is what Telegram sends when our membership changed."""
@@ -394,6 +434,8 @@ class Application:
             PeriodicTask("reconcile", self._reconcile, RECONCILE_SECONDS),
             PeriodicTask("summary", self._log_summary, SUMMARY_SECONDS),
             PeriodicTask("prune", self._prune, PRUNE_SECONDS),
+            PeriodicTask("reprobe", self._reprobe, REPROBE_SECONDS),
+            PeriodicTask("outbox-rescan", self._rescan_outbox, RESCAN_SECONDS),
         ]
         for task in self._tasks:
             task.start()
@@ -405,7 +447,31 @@ class Application:
             await safe_write(self.matcher.flush_hits(), "rule hits")
 
     async def _heartbeat(self) -> None:
-        write_heartbeat(self.settings.heartbeat_path, self.clock())
+        sender = getattr(self.user_client, "_sender", None)
+        transport: bool | None = None
+        reconnecting: bool | None = None
+        with contextlib.suppress(Exception):  # private API: never let it break the heartbeat
+            transport = bool(sender._transport_connected()) if sender else None  # noqa: SLF001
+            reconnecting = bool(getattr(sender, "_reconnecting", False)) if sender else None
+        listener = self.listener
+        supervisor = self.supervisor
+        write_heartbeat(
+            self.settings.heartbeat_path,
+            self.clock(),
+            Heartbeat(
+                ts="",  # filled in by write_heartbeat
+                ping_ok_at=self._last_ping_ok.isoformat() if self._last_ping_ok else None,
+                last_update_at=(
+                    listener.last_update_at.isoformat()
+                    if listener and listener.last_update_at
+                    else None
+                ),
+                transport=transport,
+                reconnecting=reconnecting,
+                degraded=bool(supervisor and supervisor.state.degraded),
+                queue=self.delivery.total_queued() if self.delivery else 0,
+            ),
+        )
 
     async def _ping(self) -> None:
         try:
@@ -460,6 +526,20 @@ class Application:
                 await self.user_client.catch_up()
             await self._catch_up()
 
+    async def _reprobe(self) -> None:
+        """Give chats we lost access to another chance; one bad round must not be permanent."""
+        if self.catchup is None:
+            return
+        async with self._catchup_lock:
+            result = await self.catchup.reprobe_unavailable()
+        if result.recovered:
+            log.info("regained access to %d chats", len(result.recovered))
+
+    async def _rescan_outbox(self) -> None:
+        """Pick up rows that could not be queued earlier (a full queue, a paused user)."""
+        if self.delivery is not None:
+            await self.delivery.replay_pending(quiet=True)
+
     async def _prune(self) -> None:
         removed = await self.storage.prune_outbox()
         if removed:
@@ -501,9 +581,6 @@ class Application:
 
     # -- helpers ---------------------------------------------------------------------------
 
-    async def _resolve_entity(self, peer_id: int) -> Any:
-        return await self.user_client.get_entity(peer_id)
-
     async def _tell(self, user_id: int, text: str) -> None:
         with contextlib.suppress(errors.RPCError, ValueError, ConnectionError):
             await self.bot.send(user_id, text)
@@ -541,7 +618,7 @@ class Application:
         if listener is not None and listener.last_update_at is not None:
             last_update = relative(listener.last_update_at, now, DEFAULT_LANG)
         return StatusInfo(
-            listener_ok=not (supervisor.state.degraded if supervisor else False),
+            listener_ok=supervisor.state.listener_ok if supervisor else True,
             uptime=format_uptime(supervisor.state.started_at if supervisor else None, now),
             monitored=len(self.matcher.monitored) if self.matcher else 0,
             unavailable=sum(1 for c in chats if not c.available),

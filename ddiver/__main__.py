@@ -21,7 +21,8 @@ from ddiver.app import (
     EXIT_OK,
 )
 from ddiver.config import Settings
-from ddiver.health import MAX_AGE_SECONDS, heartbeat_age, is_healthy
+from ddiver.health import check as health_check
+from ddiver.health import heartbeat_age
 from ddiver.storage import DatabaseCorruptError, Storage
 
 log = logging.getLogger("ddiver")
@@ -258,15 +259,9 @@ async def cmd_check_config(settings: Settings) -> int:
 
 
 def cmd_health(settings: Settings) -> int:
-    age = heartbeat_age(settings.heartbeat_path)
-    if age is None:
-        print("no heartbeat file")
-        return EXIT_ERROR
-    if not is_healthy(settings.heartbeat_path, MAX_AGE_SECONDS):
-        print(f"heartbeat is {age:.0f}s old")
-        return EXIT_ERROR
-    print(f"ok ({age:.0f}s)")
-    return EXIT_OK
+    report = health_check(settings.heartbeat_path)
+    print(report.reason)
+    return EXIT_OK if report.healthy else EXIT_ERROR
 
 
 def build_parser() -> argparse.ArgumentParser:

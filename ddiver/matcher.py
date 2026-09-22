@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from collections import Counter
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -13,6 +15,15 @@ from ddiver.storage import Rule, Storage
 log = logging.getLogger(__name__)
 
 TIMEOUTS_BEFORE_DISABLE = 3
+OFFLOAD_ABOVE_RULES = 20
+"""Above this many rules for one chat, matching moves off the event loop.
+
+The ``regex`` module releases the GIL while matching, so a worker thread keeps the listener,
+the bot UI and the heartbeat responsive even when somebody installs hundreds of patterns.
+"""
+
+MESSAGE_BUDGET = 0.5
+"""Seconds of matching per message, after which the remaining rules are skipped."""
 DISABLED_TIMEOUT = "timeout"
 DISABLED_INVALID = "invalid"
 
@@ -43,6 +54,10 @@ class _ChatRuleSet:
     chat_id: int
     users: list[_UserRules]
 
+    @property
+    def rule_count(self) -> int:
+        return sum(len(u.includes) + len(u.excludes) for u in self.users)
+
 
 class Matcher:
     """Evaluates messages against every subscribed user's rules for a chat.
@@ -68,6 +83,7 @@ class Matcher:
         self.stats_evaluated = 0
         self.stats_matched = 0
         self.stats_timeouts = 0
+        self.stats_budget_exceeded = 0
 
     def note_hit(self, rule_id: int) -> None:
         """Count a delivered match; flushed to storage together with the cursors."""
@@ -114,38 +130,64 @@ class Matcher:
             return []
         self.stats_evaluated += 1
         ruleset = await self._get(chat_id)
-        matches: list[Match] = []
-        for user in ruleset.users:
-            if sender_id is not None and sender_id in user.ignored:
-                continue
-            if await self._any_excluded(user, text):
-                continue
-            for rule, compiled in user.includes:
-                spans = await self._search_all(rule, compiled, text)
-                if spans:
-                    matches.append(Match(user.user_id, rule, spans))
-                    break
+        if ruleset.rule_count > OFFLOAD_ABOVE_RULES:
+            matches, timed_out = await asyncio.to_thread(
+                self._evaluate_sync, ruleset, text, sender_id
+            )
+        else:
+            matches, timed_out = self._evaluate_sync(ruleset, text, sender_id)
+        for rule in timed_out:
+            await self._note_timeout(rule)
         if matches:
             self.stats_matched += 1
         return matches
 
-    async def _any_excluded(self, user: _UserRules, text: str) -> bool:
-        for rule, compiled in user.excludes:
-            if await self._search_all(rule, compiled, text):
-                return True
-        return False
+    def _evaluate_sync(
+        self, ruleset: _ChatRuleSet, text: str, sender_id: int | None
+    ) -> tuple[list[Match], list[Rule]]:
+        """The pure matching work, safe to run in a worker thread."""
+        deadline = time.monotonic() + MESSAGE_BUDGET
+        matches: list[Match] = []
+        timed_out: list[Rule] = []
+        for user in ruleset.users:
+            if sender_id is not None and sender_id in user.ignored:
+                continue
+            if self._first_hit(user.excludes, text, deadline, timed_out) is not None:
+                continue
+            hit = self._first_hit(user.includes, text, deadline, timed_out)
+            if hit is not None:
+                rule, spans = hit
+                matches.append(Match(user.user_id, rule, spans))
+        return matches, timed_out
 
-    async def _search_all(self, rule: Rule, compiled: CompiledRule, text: str) -> list[Span]:
-        try:
-            return compiled.search_all(text, self._timeout)
-        except RuleTimeout:
-            self.stats_timeouts += 1
-            count = self._timeouts.get(rule.id, 0) + 1
-            self._timeouts[rule.id] = count
-            log.warning("rule %s timed out (%d/%d)", rule.id, count, TIMEOUTS_BEFORE_DISABLE)
-            if count >= TIMEOUTS_BEFORE_DISABLE:
-                await self._disable(rule, DISABLED_TIMEOUT)
-            return []
+    def _first_hit(
+        self,
+        rules: list[tuple[Rule, CompiledRule]],
+        text: str,
+        deadline: float,
+        timed_out: list[Rule],
+    ) -> tuple[Rule, list[Span]] | None:
+        for rule, compiled in rules:
+            if time.monotonic() > deadline:
+                self.stats_budget_exceeded += 1
+                log.warning("matching budget exhausted; skipping the remaining rules")
+                return None
+            try:
+                spans = compiled.search_all(text, self._timeout)
+            except RuleTimeout:
+                timed_out.append(rule)
+                continue
+            if spans:
+                return rule, spans
+        return None
+
+    async def _note_timeout(self, rule: Rule) -> None:
+        self.stats_timeouts += 1
+        count = self._timeouts.get(rule.id, 0) + 1
+        self._timeouts[rule.id] = count
+        log.warning("rule %s timed out (%d/%d)", rule.id, count, TIMEOUTS_BEFORE_DISABLE)
+        if count >= TIMEOUTS_BEFORE_DISABLE:
+            await self._disable(rule, DISABLED_TIMEOUT)
 
     async def _disable(self, rule: Rule, reason: str) -> None:
         await self._storage.disable_rule(rule.id, reason)

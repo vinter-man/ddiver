@@ -63,7 +63,7 @@ class FakeHistory:
     def __init__(self, messages: dict[int, list[tl.Message]]) -> None:
         self.messages = messages
         self.calls: list[tuple[int, int, int]] = []
-        self.peers: list = []
+        self.peers: list[object] = []
         self.errors: dict[int, BaseException] = {}
 
     def __call__(self, chat, min_id: int, limit: int):

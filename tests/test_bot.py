@@ -82,6 +82,19 @@ async def cb(router, user_id, data, **kw):
     return await router.dispatch(Incoming(user_id=user_id, data=data, **kw))
 
 
+async def snapshot(store):
+    """Everything an owner-only action could change, for before/after comparison."""
+    users = [(u.id, u.role, u.lang, u.tz) for u in await store.list_users()]
+    chats = [(c.id, c.shared, c.available) for c in await store.list_chats()]
+    subs = {
+        u.id: [c.id for c in await store.list_subscriptions(u.id)] for u in await store.list_users()
+    }
+    rules = {
+        u.id: [r.pattern for r in await store.list_rules(u.id)] for u in await store.list_users()
+    }
+    return users, chats, subs, rules
+
+
 class TestGate:
     async def test_stranger_gets_one_reply_and_the_owner_one_card(self, router, store, clock):
         actions = await msg(router, STRANGER, "/start")
@@ -121,10 +134,12 @@ class TestGate:
 class TestOwnerOnly:
     @pytest.mark.parametrize("data", ["allow:3", "deny:3", "revoke:1", "shared:0", "share:-1001:1"])
     async def test_moderators_cannot_run_owner_actions(self, router, store, data):
+        await store.ensure_user(STRANGER)
+        before = await snapshot(store)
         actions = await cb(router, MOD, data)
         assert kinds(actions) == ["Toast"]
         assert actions[0].key_or_text == "bot.err.owner_only"
-        assert (await store.get_user(STRANGER)) is None or True
+        assert await snapshot(store) == before  # nothing was mutated
 
     async def test_owner_can_allow_and_revoke(self, router, store):
         await store.ensure_user(STRANGER)
@@ -209,10 +224,12 @@ class TestChatsAndSharing:
     async def test_unsharing_drops_moderator_subscriptions_and_notifies(self, router, store):
         await store.set_chat_shared(CHAT_A.id, True)
         await cb(router, MOD, f"sub:{CHAT_A.id}:1")
-        await cb(router, OWNER, f"share:{CHAT_A.id}:0")
+        actions = await cb(router, OWNER, f"share:{CHAT_A.id}:0")
         assert await store.list_subscriptions(MOD) == []
-        notices = [a for a in await cb(router, OWNER, "shared:0") if isinstance(a, Send)]
-        assert notices == []  # the notice was sent by the share callback, not the listing
+        notices = [a for a in actions if isinstance(a, Send)]
+        assert [n.user_id for n in notices] == [MOD]
+        assert "Модерация" in notices[0].key_or_text  # in the moderator's own language
+        assert notices[0].literal
 
     async def test_chat_search_matches_title_and_username(self, router, store):
         await store.set_chat_shared(CHAT_A.id, True)
@@ -538,3 +555,59 @@ class TestMenuRendering:
         rows = [ChatRow(CHAT_A, True, True, None)]
         keyboard = menus.rules_chat_menu(rows, 0)
         assert keyboard[0][0][1] == f"rules:{ALL_CHATS}:include:0"
+
+
+class TestForgedChatIds:
+    """A moderator must not learn anything about a chat the owner did not share."""
+
+    async def test_rules_view_of_an_unshared_chat_is_not_found(self, router, store):
+        actions = await cb(router, MOD, f"rules:{CHAT_B.id}:include:0")
+        assert actions[0].key_or_text == "bot.err.not_found"
+        assert all("Приватный" not in str(a.key_or_text) for a in actions)
+
+    async def test_rules_view_of_a_shared_but_unsubscribed_chat_is_not_found(self, router, store):
+        await store.set_chat_shared(CHAT_B.id, True)
+        actions = await cb(router, MOD, f"rules:{CHAT_B.id}:include:0")
+        assert actions[0].key_or_text == "bot.err.not_found"
+
+    async def test_adding_a_rule_to_an_unshared_chat_is_refused(self, router, store):
+        actions = await cb(router, MOD, f"radd:{CHAT_B.id}:include")
+        assert actions[0].key_or_text == "bot.err.not_found"
+        await msg(router, MOD, "казино")  # no pending state was armed
+        assert await store.list_rules(MOD) == []
+
+    async def test_ignoring_a_sender_in_an_unshared_chat_is_refused(self, router, store):
+        actions = await cb(router, MOD, f"ig:{CHAT_B.id}:500")
+        assert actions[0].key_or_text == "bot.err.not_found"
+        assert await store.list_ignored(MOD) == []
+
+    async def test_custom_exclusion_for_an_unshared_chat_is_refused(self, router, store):
+        actions = await cb(router, MOD, f"excustom:{CHAT_B.id}")
+        assert actions[0].key_or_text == "bot.err.not_found"
+
+    async def test_the_owner_still_reaches_their_own_chats(self, router, store):
+        actions = await cb(router, OWNER, f"rules:{CHAT_B.id}:include:0")
+        assert "Приватный семейный" in actions[0].key_or_text
+
+    async def test_a_subscribed_shared_chat_works_for_moderators(self, router, store):
+        await store.set_chat_shared(CHAT_B.id, True)
+        await cb(router, MOD, f"sub:{CHAT_B.id}:1")
+        actions = await cb(router, MOD, f"rules:{CHAT_B.id}:include:0")
+        assert "Приватный семейный" in actions[0].key_or_text
+
+
+class TestOnboardingTimezoneInput:
+    async def test_typed_timezone_during_onboarding_is_accepted(self, router, store):
+        """The prompt invites free text, so the pending state has to be armed."""
+        await store.update_user(MOD, lang=None, tz=None)
+        await msg(router, MOD, "/start")
+        await cb(router, MOD, "lang:en")
+        actions = await msg(router, MOD, "Tashkent")
+        assert (await store.get_user(MOD)).tz == "Asia/Tashkent"
+        assert any("Asia/Tashkent" in text for text in texts(actions, "en"))
+
+    async def test_start_alone_also_arms_the_prompt(self, router, store):
+        await store.update_user(MOD, tz=None)
+        await msg(router, MOD, "/start")
+        await msg(router, MOD, "kyiv")
+        assert (await store.get_user(MOD)).tz == "Europe/Kyiv"

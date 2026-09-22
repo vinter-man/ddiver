@@ -44,6 +44,7 @@ class ListenerMetrics:
     skipped_bot: int = 0
     skipped_private: int = 0
     skipped_own: int = 0
+    unknown_sender: int = 0
 
 
 @dataclass(slots=True)
@@ -173,6 +174,11 @@ class Listener:
             self.metrics.skipped_bot += 1
             self.cursors.note(chat_id, message.id, moment)
             return []
+        if sender is None:
+            # No entity came with the update and we refuse to make an RPC here, so we cannot
+            # tell a human from a bot. Notify anyway — a missed spammer is worse than a
+            # notification that says "unknown sender" — but count it.
+            self.metrics.unknown_sender += 1
 
         self.metrics.matched += 1
         since = await self._storage.subscribed_since(chat_id)

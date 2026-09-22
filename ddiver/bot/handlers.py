@@ -98,6 +98,8 @@ def build_router(
         if ctx.user.lang is None:
             return [Reply("bot.start.language", buttons=menus.language_menu())]
         if ctx.user.tz is None:
+            # the prompt invites free text, so be ready to receive it
+            router.set_pending(ctx.user_id, "timezone")
             return [Reply("bot.start.timezone", buttons=menus.timezone_menu())]
         return menu_actions(ctx)
 
@@ -131,6 +133,7 @@ def build_router(
             return [Toast("bot.err.unknown_action")]
         user = await storage.update_user(ctx.user_id, lang=lang)
         if user.tz is None:
+            router.set_pending(ctx.user_id, "timezone")
             return [Edit("bot.start.timezone", buttons=menus.timezone_menu())]
         return [Toast("bot.settings.saved"), *menu_actions(ctx, edit=True)]
 
@@ -172,6 +175,23 @@ def build_router(
     async def visible_chats(user: User) -> list[ChatRow]:
         """The owner sees every known chat; moderators only the shared ones."""
         return await storage.list_chats(shared_only=not user.is_owner)
+
+    async def accessible_chat(ctx: Context, chat_id: int) -> ChatRow | None:
+        """The one place that decides whether a user may act on a chat id.
+
+        Callback payloads are attacker-controlled, so a moderator who guesses the id of the
+        owner's private chat must get the same answer as for an id that does not exist.
+        """
+        if chat_id == ALL_CHATS:
+            return None
+        chat = await storage.get_chat(chat_id)
+        if chat is None:
+            return None
+        if ctx.is_owner:
+            return chat
+        if not chat.shared or not await storage.is_subscribed(ctx.user_id, chat_id):
+            return None
+        return chat
 
     @router.callback("chats")
     async def chats(ctx: Context) -> list[Action]:
@@ -348,13 +368,15 @@ def build_router(
         return t(lang, KIND_ICONS[mode])
 
     async def rules_view(ctx: Context, chat_id: int, kind: RuleKind, page: int) -> list[Action]:
-        rules = await storage.list_rules(ctx.user_id, chat_id, kind)
-        icons = [icon_for(r.pattern, ctx.lang) for r in rules]
         if chat_id == ALL_CHATS:
             title = ctx.t("bot.rules.title_global")
         else:
-            chat = await storage.get_chat(chat_id)
-            title = ctx.t("bot.rules.title", chat=chat.ref.title if chat else chat_id)
+            chat = await accessible_chat(ctx, chat_id)
+            if chat is None:
+                return [Toast("bot.err.not_found")]
+            title = ctx.t("bot.rules.title", chat=chat.ref.title)
+        rules = await storage.list_rules(ctx.user_id, chat_id, kind)
+        icons = [icon_for(r.pattern, ctx.lang) for r in rules]
         body = title if rules else f"{title}\n{ctx.t('bot.rules.empty')}"
         return [
             Edit(
@@ -384,6 +406,9 @@ def build_router(
     @router.callback("radd")
     async def rules_add_prompt(ctx: Context) -> list[Action]:
         _, raw_chat, raw_kind = (ctx.incoming.data or "").split(":")
+        chat_id = _int(raw_chat)
+        if chat_id != ALL_CHATS and await accessible_chat(ctx, chat_id) is None:
+            return [Toast("bot.err.not_found")]
         router.set_pending(ctx.user_id, "rules_add", {"chat_id": _int(raw_chat), "kind": raw_kind})
         return [Reply("bot.rules.prompt")]
 
@@ -479,7 +504,9 @@ def build_router(
     async def ignore_sender(ctx: Context) -> list[Action]:
         _, raw_chat, raw_sender = (ctx.incoming.data or "").split(":")
         chat_id, sender_id = _int(raw_chat), _int(raw_sender)
-        chat = await storage.get_chat(chat_id)
+        chat = await accessible_chat(ctx, chat_id)
+        if chat is None:
+            return [Toast("bot.err.not_found")]
         anonymous = sender_id == chat_id
         note = ctx.t("bot.ignored.anonymous") if anonymous else str(sender_id)
         await storage.add_ignored(ctx.user_id, chat_id, sender_id, note)
@@ -490,7 +517,7 @@ def build_router(
                     ctx.lang,
                     "bot.ignored.added",
                     sender=note,
-                    chat=chat.ref.title if chat else chat_id,
+                    chat=chat.ref.title,
                 ),
                 literal=True,
             ),
@@ -560,6 +587,8 @@ def build_router(
     @router.callback("excustom")
     async def exclude_custom(ctx: Context) -> list[Action]:
         chat_id = _int((ctx.incoming.data or "").split(":", 1)[1])
+        if chat_id != ALL_CHATS and await accessible_chat(ctx, chat_id) is None:
+            return [Toast("bot.err.not_found")]
         router.set_pending(ctx.user_id, "exclude_custom", {"chat_id": chat_id})
         return [Reply("bot.rules.prompt")]
 

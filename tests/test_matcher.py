@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 import regex
 
@@ -19,6 +21,8 @@ async def store(tmp_path):
     await s.update_user(2, role=Role.ALLOWED)
     await s.upsert_chat(CHAT_A)
     await s.upsert_chat(CHAT_B)
+    await s.set_chat_shared(CHAT_A.id, True)  # moderators only see chats the owner shared
+    await s.set_chat_shared(CHAT_B.id, True)
     await s.subscribe(1, CHAT_A.id)
     await s.subscribe(2, CHAT_A.id)
     await s.subscribe(1, CHAT_B.id)
@@ -132,3 +136,45 @@ async def test_timeout_counts_and_disables_after_threshold(store, monkeypatch):
     # after disabling, the rule is gone from the (rebuilt) rule set
     monkeypatch.undo()
     assert await m.evaluate(CHAT_A.id, "slow", 1) == []
+
+
+class TestOffloadAndBudget:
+    async def test_many_rules_keep_the_event_loop_responsive(self, store, matcher):
+        """A hostile moderator with hundreds of slow rules must not freeze everything."""
+        from ddiver.matcher import OFFLOAD_ABOVE_RULES
+
+        for i in range(OFFLOAD_ABOVE_RULES + 5):
+            await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, f"needle{i}")
+        await matcher.invalidate()
+
+        ticks = 0
+
+        async def ticker():
+            nonlocal ticks
+            for _ in range(200):
+                ticks += 1
+                await asyncio.sleep(0)
+
+        task = asyncio.create_task(ticker())
+        await matcher.evaluate(CHAT_A.id, "ничего похожего " * 200, 1)
+        await task
+        assert ticks == 200  # the loop kept running while matching happened elsewhere
+
+    async def test_budget_stops_a_pathological_rule_set(self, store, monkeypatch):
+        m = Matcher(store, timeout=0.02)
+        await m.reload()
+        for i in range(30):
+            await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, f"re:slow{i}")
+        monkeypatch.setattr(
+            "ddiver.matcher.compile_rule",
+            lambda raw, timeout: CompiledRule(raw, MatchMode.REGEX, regex.compile("((a|aa)+)+b")),
+        )
+        monkeypatch.setattr("ddiver.matcher.MESSAGE_BUDGET", 0.05)
+        await m.invalidate()
+        assert await m.evaluate(CHAT_A.id, "a" * 40, 1) == []
+        assert m.stats_budget_exceeded >= 1
+
+    async def test_small_rule_sets_stay_on_the_loop(self, store, matcher):
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "казино")
+        await matcher.invalidate()
+        assert len(await matcher.evaluate(CHAT_A.id, "казино", 1)) == 1

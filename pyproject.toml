@@ -71,7 +71,12 @@ ignore = [
 # Telethon's decorators are untyped; the handlers themselves are typed.
 "ddiver/runtime.py" = ["PLC0415"]
 "ddiver/app.py" = ["BLE001"]
-"tests/**" = ["S101", "PLR2004", "ARG", "SLF001", "INP001", "PLR0915", "FBT003", "DTZ001", "S105", "S106"]
+# Tests import lazily on purpose: some fixtures build objects the module under test
+# would otherwise import at collection time.
+"tests/**" = [
+  "S101", "PLR2004", "ARG", "SLF001", "INP001", "PLR0915", "FBT003",
+  "DTZ001", "S105", "S106", "PLC0415",
+]
 "ddiver/i18n/*.py" = ["E501"]
 
 [tool.ruff.lint.isort]
