@@ -12,10 +12,11 @@ CHAT_B = ChatRef(-1002, "Beta", None, "supergroup")
 
 @pytest.fixture
 async def store(tmp_path):
-    s = Storage(tmp_path / "db.sqlite3")
+    s = Storage(tmp_path / "db.sqlite3", owner_id=1)
     await s.open()
-    await s.ensure_user(1, role=Role.OWNER)
-    await s.ensure_user(2, role=Role.ALLOWED)
+    await s.ensure_user(1)
+    await s.ensure_user(2)
+    await s.update_user(2, role=Role.ALLOWED)
     await s.upsert_chat(CHAT_A)
     await s.upsert_chat(CHAT_B)
     await s.subscribe(1, CHAT_A.id)
@@ -104,7 +105,7 @@ async def test_invalid_stored_rule_is_disabled_with_hook(store):
     matches = await m.evaluate(CHAT_A.id, "ok (unclosed", 1)
     assert [x.rule.id for x in matches] == [good.id]
     assert disabled == [(bad.id, "invalid:rule.err.invalid_regex")]
-    row = await store.get_rule(bad.id)
+    row = await store.get_rule(bad.id, 1)
     assert row is not None and row.disabled_reason == "invalid:rule.err.invalid_regex"
 
 
@@ -126,7 +127,7 @@ async def test_timeout_counts_and_disables_after_threshold(store, monkeypatch):
         assert await m.evaluate(CHAT_A.id, "a" * 40, 1) == []
         assert m.stats_timeouts == i + 1
     assert disabled == [(slow.id, "timeout")]
-    row = await store.get_rule(slow.id)
+    row = await store.get_rule(slow.id, 1)
     assert row is not None and row.disabled_reason == "timeout"
     # after disabling, the rule is gone from the (rebuilt) rule set
     monkeypatch.undo()
