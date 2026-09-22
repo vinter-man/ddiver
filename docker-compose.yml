@@ -1,0 +1,18 @@
+services:
+  ddiver:
+    build: .
+    image: ddiver:latest
+    container_name: ddiver
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"

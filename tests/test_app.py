@@ -163,13 +163,13 @@ class TestSupervisor:
         assert sup.state.attempts == 3
 
     async def test_stop_request_ends_the_loop(self, clock, sleeps):
-        sup = None
+        holder: dict[str, Supervisor] = {}
 
         async def run_listener():
-            assert sup is not None
-            sup.request_stop()
+            holder["sup"].request_stop()
 
         sup = Supervisor(run_listener=run_listener, clock=clock, sleep=sleeps)
+        holder["sup"] = sup
         assert await sup.run() == EXIT_OK
         assert sup.stopped
         assert sleeps.calls == []
@@ -207,8 +207,8 @@ class TestUptime:
 
 class TestPeriodicTask:
     async def test_runs_and_survives_failures(self):
-        calls = []
-        sleeps = []
+        calls: list[int] = []
+        sleeps: list[float] = []
 
         async def work():
             calls.append(len(calls))

@@ -65,6 +65,12 @@ ignore = [
 # build_router is one long registration function on purpose: every handler is a closure over
 # the same storage/matcher, and splitting it would only add indirection.
 "ddiver/bot/handlers.py" = ["PLR0915"]
+# The CLI imports heavy modules lazily so `ddiver health` does not pull in Telethon, and it
+# reports configuration problems instead of raising.
+"ddiver/__main__.py" = ["PLC0415", "BLE001", "T201", "TRY400", "TRY300"]
+# Telethon's decorators are untyped; the handlers themselves are typed.
+"ddiver/runtime.py" = ["PLC0415"]
+"ddiver/app.py" = ["BLE001"]
 "tests/**" = ["S101", "PLR2004", "ARG", "SLF001", "INP001", "PLR0915", "FBT003", "DTZ001", "S105", "S106"]
 "ddiver/i18n/*.py" = ["E501"]
 
@@ -85,6 +91,11 @@ files = ["ddiver", "tests"]
 [[tool.mypy.overrides]]
 module = ["telethon", "telethon.*", "cryptg", "cryptg.*"]
 ignore_missing_imports = true
+
+# Telethon's event decorators are untyped, so mypy cannot see through @client.on(...).
+[[tool.mypy.overrides]]
+module = ["ddiver.runtime"]
+disallow_untyped_decorators = false
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]

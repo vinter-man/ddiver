@@ -80,7 +80,7 @@ async def connect_with_timeout(client: TelegramClient, timeout: float = CONNECT_
         log.warning("connect() timed out after %.0fs; disconnecting before retrying", timeout)
         try:
             await client.disconnect()
-        except Exception:  # noqa: BLE001 - best effort cleanup
+        except Exception:
             log.debug("disconnect after a failed connect also failed", exc_info=True)
         raise
 

@@ -1,0 +1,538 @@
+"""The only module that talks to Telethon at runtime: adapters plus the assembled application.
+
+Everything below the adapters (matcher, listener, catch-up, delivery, bot UI, supervisor) is
+plain objects with injected dependencies and is covered by offline tests; this module wires
+them to real clients, registers the Telethon event handlers and runs the background tasks.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import datetime as dt
+import logging
+from pathlib import Path
+from typing import Any
+
+from telethon import Button, TelegramClient, errors, events, utils
+from telethon.tl import types as tl
+from telethon.tl.functions.updates import GetStateRequest
+
+from ddiver.app import (
+    EXIT_OK,
+    PeriodicTask,
+    Supervisor,
+    boot_delay,
+    format_uptime,
+)
+from ddiver.bot import menus
+from ddiver.bot.handlers import StatusInfo, build_router
+from ddiver.bot.router import Edit, Incoming, Reply, Router, Send, Toast
+from ddiver.catchup import Catchup, telethon_history
+from ddiver.clients import connect_with_timeout, make_bot_client, make_user_client
+from ddiver.config import Settings
+from ddiver.delivery import Delivery
+from ddiver.formatter import Payload
+from ddiver.health import write_heartbeat
+from ddiver.i18n import DEFAULT_LANG, t
+from ddiver.links import ChatRef
+from ddiver.listener import CURSOR_FLUSH_SECONDS, Listener
+from ddiver.matcher import Matcher
+from ddiver.senders import SenderCache
+from ddiver.storage import OutboxItem, Rule, Storage, safe_write
+from ddiver.timeutil import relative, utcnow
+
+log = logging.getLogger(__name__)
+
+HEARTBEAT_SECONDS = 30.0
+PING_SECONDS = 60.0
+PING_TIMEOUT = 15.0
+RECONCILE_SECONDS = 15 * 60
+SUMMARY_SECONDS = 60.0
+PRUNE_SECONDS = 24 * 3600
+SILENCE_WARN = dt.timedelta(minutes=10)
+
+
+class BotAdapter:
+    """Turns :mod:`ddiver.bot.router` actions into Telethon calls."""
+
+    def __init__(self, client: TelegramClient) -> None:
+        self._client = client
+
+    @staticmethod
+    def _buttons(rows: Any, lang: str) -> Any:
+        if not rows:
+            return None
+        return [
+            [
+                Button.inline(
+                    menus.unwrap(label) if menus.is_literal(label) else t(lang, label), data
+                )
+                for label, data in row
+            ]
+            for row in rows
+        ]
+
+    @staticmethod
+    def _text(action: Any, lang: str) -> str:
+        if action.literal:
+            return str(action.key_or_text)
+        return t(lang, action.key_or_text, **action.params)
+
+    async def perform(self, event: Any, actions: list[Any], lang: str) -> None:
+        for action in actions:
+            try:
+                await self._one(event, action, lang)
+            except errors.QueryIdInvalidError:
+                log.debug("callback answer arrived too late")
+            except (errors.RPCError, ValueError):
+                log.warning("could not perform %s", type(action).__name__, exc_info=True)
+
+    async def _one(self, event: Any, action: Any, lang: str) -> None:
+        if isinstance(action, Toast):
+            if hasattr(event, "answer"):
+                await event.answer(self._text(action, lang), alert=action.alert)
+            return
+        if isinstance(action, Edit):
+            if hasattr(event, "edit"):
+                with contextlib.suppress(errors.MessageNotModifiedError):
+                    await event.edit(
+                        self._text(action, lang),
+                        buttons=self._buttons(action.buttons, lang),
+                        link_preview=False,
+                    )
+                return
+            action = Reply(action.key_or_text, action.params, action.buttons, action.literal)
+        if isinstance(action, Reply):
+            await self._client.send_message(
+                await self._peer(event),
+                self._text(action, lang),
+                buttons=self._buttons(action.buttons, lang),
+                link_preview=False,
+            )
+            return
+        if isinstance(action, Send):
+            await self._client.send_message(
+                action.user_id,
+                self._text(action, lang),
+                buttons=self._buttons(action.buttons, lang),
+                link_preview=False,
+            )
+
+    @staticmethod
+    async def _peer(event: Any) -> int:
+        return int(event.sender_id)
+
+    async def send(
+        self,
+        user_id: int,
+        text: str,
+        *,
+        formatting_entities: list[tl.TypeMessageEntity] | None = None,
+        buttons: Any = None,
+        link_preview: bool = False,
+    ) -> Any:
+        return await self._client.send_message(
+            user_id,
+            text,
+            formatting_entities=formatting_entities,
+            buttons=buttons,
+            link_preview=link_preview,
+        )
+
+    # Delivery's BotPort protocol
+    send_message = send
+
+
+def notification_buttons_factory(lang_of: Any) -> Any:
+    """Build the inline keyboard under a notification from its outbox row."""
+
+    def factory(item: OutboxItem, lang: str) -> Any:
+        payload = item.payload
+        rows = menus.notification_buttons(item.chat_id, item.msg_id, payload.get("sender_id"))
+        return [[Button.inline(t(lang, label), data) for label, data in row] for row in rows]
+
+    del lang_of
+    return factory
+
+
+class Application:
+    """Everything wired together, with a lifecycle the CLI drives."""
+
+    def __init__(self, settings: Settings, *, clock: Any = utcnow) -> None:
+        self.settings = settings
+        self.clock = clock
+        self.storage = Storage(settings.db_path, owner_id=settings.owner_id, clock=clock)
+        self.user_client = make_user_client(settings)
+        self.bot_client = make_bot_client(settings)
+        self.bot = BotAdapter(self.bot_client)
+        self.matcher: Matcher | None = None
+        self.listener: Listener | None = None
+        self.delivery: Delivery | None = None
+        self.catchup: Catchup | None = None
+        self.router: Router | None = None
+        self.supervisor: Supervisor | None = None
+        self.senders = SenderCache(self._resolve_entity, clock=clock)
+        self._tasks: list[PeriodicTask] = []
+        self._last_ping_ok: dt.datetime | None = None
+        self._catchup_lock = asyncio.Lock()
+
+    # -- lifecycle -------------------------------------------------------------------------
+
+    async def setup(self) -> None:
+        await self.storage.open()
+        await self.storage.ensure_user(self.settings.owner_id)
+
+        async def on_rule_disabled(rule: Rule, reason: str) -> None:
+            user = await self.storage.get_user(rule.user_id)
+            lang = (user.lang if user else None) or DEFAULT_LANG
+            await self._tell(
+                rule.user_id, t(lang, "bot.rules.disabled", pattern=rule.pattern, reason=reason)
+            )
+
+        self.matcher = Matcher(
+            self.storage,
+            timeout=self.settings.regex_timeout,
+            on_rule_disabled=on_rule_disabled,
+        )
+        await self.matcher.reload()
+
+        self.delivery = Delivery(
+            self.bot,
+            self.storage,
+            clock=self.clock,
+            buttons=notification_buttons_factory(None),
+            default_threshold=self.settings.digest_threshold,
+        )
+        self.listener = Listener(
+            self.storage,
+            self.matcher,
+            self.senders,
+            deliver=self.delivery.enqueue,
+            clock=self.clock,
+            ignore_own=self.settings.ignore_own_messages,
+        )
+        await self.listener.prime_chat_cache()
+        self.catchup = Catchup(
+            self.storage,
+            self.listener,
+            telethon_history(self.user_client),
+            clock=self.clock,
+            hours=self.settings.catchup_hours,
+            per_chat=self.settings.catchup_max_per_chat,
+            on_unavailable=self._notify_lost_access,
+        )
+        self.router = build_router(
+            self.storage,
+            matcher=self.matcher,
+            status=self._status,
+            regex_timeout=self.settings.regex_timeout,
+            clock=self.clock,
+        )
+        self.supervisor = Supervisor(
+            run_listener=self._run_listener,
+            notify_owner=self._notify_degraded,
+            clock=self.clock,
+        )
+        self._register_handlers()
+
+    async def close(self) -> None:
+        for task in self._tasks:
+            await task.stop()
+        with contextlib.suppress(Exception):
+            await self.user_client.disconnect()
+        if self.listener is not None:
+            await self.listener.cursors.flush()
+        if self.matcher is not None:
+            await self.matcher.flush_hits()
+        if self.delivery is not None:
+            left = await self.delivery.drain()
+            if left:
+                log.warning("%d notifications stay pending for the next start", left)
+        with contextlib.suppress(Exception):
+            await self.bot_client.disconnect()
+        await self.storage.close()
+
+    async def run(self) -> int:
+        assert self.supervisor is not None  # noqa: S101 - set up in setup()
+        await connect_with_timeout(self.bot_client)
+        await self.bot_client.start(bot_token=self.settings.bot_token.get_secret_value())
+        await connect_with_timeout(self.user_client)
+        if not await self.user_client.is_user_authorized():
+            log.error("the user session is not authorized; run `ddiver login`")
+            return 3
+        boots = await self.storage.record_boot()
+        assert self.delivery is not None  # noqa: S101
+        await self.delivery.replay_pending()
+        self._start_background_tasks()
+        await boot_delay(boots)
+        asyncio.create_task(self._catch_up(), name="catchup-boot")  # noqa: RUF006
+        return await self.supervisor.run()
+
+    def request_stop(self) -> None:
+        if self.supervisor is not None:
+            self.supervisor.request_stop()
+        with contextlib.suppress(Exception):
+            self.user_client.disconnect()
+
+    # -- handlers --------------------------------------------------------------------------
+
+    def _register_handlers(self) -> None:
+        listener = self.listener
+        assert listener is not None  # noqa: S101
+
+        @self.user_client.on(events.NewMessage())
+        async def on_message(event: Any) -> None:
+            await listener.on_message(event)
+
+        @self.user_client.on(events.Raw(tl.UpdateChannel))
+        async def on_channel_update(update: Any) -> None:
+            await self._check_channel_access(update)
+
+        @self.user_client.on(events.ChatAction())
+        async def on_chat_action(event: Any) -> None:
+            await self._on_chat_action(event)
+
+        @self.bot_client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
+        async def on_bot_message(event: Any) -> None:
+            await self._on_bot_update(event, text=event.raw_text)
+
+        @self.bot_client.on(events.CallbackQuery(func=lambda e: e.is_private))
+        async def on_bot_callback(event: Any) -> None:
+            data = event.data.decode("utf-8", "replace") if event.data else ""
+            await self._on_bot_update(event, data=data)
+
+    async def _on_bot_update(
+        self, event: Any, *, text: str | None = None, data: str | None = None
+    ) -> None:
+        assert self.router is not None  # noqa: S101
+        try:
+            sender = await event.get_sender()
+            incoming = Incoming(
+                user_id=int(event.sender_id),
+                text=text,
+                data=data,
+                msg_id=getattr(event, "message_id", None),
+                lang_code=getattr(sender, "lang_code", None),
+                is_private=True,
+            )
+            actions = await self.router.dispatch(incoming)
+            user = await self.storage.get_user(incoming.user_id)
+            lang = (user.lang if user else None) or DEFAULT_LANG
+            await self.bot.perform(event, actions, lang)
+        except Exception:
+            log.exception("bot update failed")
+
+    async def _on_chat_action(self, event: Any) -> None:
+        try:
+            me = await self.user_client.get_me()
+            if event.user_id != me.id:
+                return
+            chat_id = int(utils.get_peer_id(event.action_message.peer_id))
+            if event.user_kicked or event.user_left:
+                if await self.storage.set_chat_available(chat_id, False):
+                    await self._notify_lost_access(chat_id, "left")
+                await self._invalidate(chat_id)
+            elif event.user_added or event.user_joined:
+                if await self.storage.set_chat_available(chat_id, True):
+                    await self._notify_regained_access(chat_id)
+                await self._invalidate(chat_id)
+        except Exception:
+            log.debug("chat action handling failed", exc_info=True)
+
+    async def _check_channel_access(self, update: Any) -> None:
+        """``UpdateChannel`` is what Telegram sends when our membership changed."""
+        try:
+            bare = int(getattr(update, "channel_id", 0))
+            if not bare:
+                return
+            chat_id = int(utils.get_peer_id(tl.PeerChannel(bare)))
+            entity = (getattr(update, "_entities", None) or {}).get(chat_id)
+            if entity is None:
+                return
+            lost = isinstance(entity, tl.ChannelForbidden) or bool(getattr(entity, "left", False))
+            if lost:
+                if await self.storage.set_chat_available(chat_id, False):
+                    await self._notify_lost_access(chat_id, type(entity).__name__)
+            elif await self.storage.set_chat_available(chat_id, True):
+                await self._notify_regained_access(chat_id)
+            await self._invalidate(chat_id)
+        except Exception:
+            log.debug("channel update handling failed", exc_info=True)
+
+    async def _invalidate(self, chat_id: int | None = None) -> None:
+        if self.matcher is not None:
+            await self.matcher.invalidate(chat_id)
+
+    # -- background tasks ------------------------------------------------------------------
+
+    def _start_background_tasks(self) -> None:
+        listener = self.listener
+        assert listener is not None  # noqa: S101
+        self._tasks = [
+            PeriodicTask("cursor-flush", self._flush_state, CURSOR_FLUSH_SECONDS),
+            PeriodicTask("heartbeat", self._heartbeat, HEARTBEAT_SECONDS),
+            PeriodicTask("ping", self._ping, PING_SECONDS),
+            PeriodicTask("reconcile", self._reconcile, RECONCILE_SECONDS),
+            PeriodicTask("summary", self._log_summary, SUMMARY_SECONDS),
+            PeriodicTask("prune", self._prune, PRUNE_SECONDS),
+        ]
+        for task in self._tasks:
+            task.start()
+
+    async def _flush_state(self) -> None:
+        if self.listener is not None:
+            await self.listener.cursors.flush()
+        if self.matcher is not None:
+            await safe_write(self.matcher.flush_hits(), "rule hits")
+
+    async def _heartbeat(self) -> None:
+        write_heartbeat(self.settings.heartbeat_path, self.clock())
+
+    async def _ping(self) -> None:
+        try:
+            async with asyncio.timeout(PING_TIMEOUT):
+                await self.user_client(GetStateRequest())
+            self._last_ping_ok = self.clock()
+        except (TimeoutError, errors.RPCError, ConnectionError):
+            log.warning("listener ping failed")
+
+    async def _reconcile(self) -> None:
+        """Telethon can silently drop a channel gap; re-check the tail of every chat."""
+        await self._catch_up()
+
+    async def _catch_up(self) -> None:
+        if self.catchup is None:
+            return
+        async with self._catchup_lock:
+            try:
+                result = await self.catchup.run()
+            except Exception:
+                log.exception("catch-up round failed")
+                return
+        if result.chats:
+            log.info(
+                "catch-up: %d chats, %d messages, %d notifications",
+                result.chats,
+                result.messages,
+                result.claimed,
+            )
+
+    async def _log_summary(self) -> None:
+        if self.listener is None or self.delivery is None:
+            return
+        metrics = self.listener.metrics
+        delivery = self.delivery.metrics
+        log.info(
+            "seen=%d matched=%d claimed=%d queued=%d delivered=%d digested=%d failed=%d "
+            "floodwait_s=%.0f",
+            metrics.seen,
+            metrics.matched,
+            metrics.claimed,
+            self.delivery.total_queued(),
+            delivery.delivered,
+            delivery.digested,
+            delivery.failed,
+            delivery.flood_seconds,
+        )
+        last = self.listener.last_update_at
+        if last is not None and self.clock() - last > SILENCE_WARN:
+            log.warning("no updates for over 10 minutes; forcing a catch-up")
+            with contextlib.suppress(Exception):
+                await self.user_client.catch_up()
+            await self._catch_up()
+
+    async def _prune(self) -> None:
+        removed = await self.storage.prune_outbox()
+        if removed:
+            log.info("pruned %d old outbox rows", removed)
+
+    async def _run_listener(self) -> None:
+        if self.user_client.reconnected.is_set():
+            self.user_client.reconnected.clear()
+            await self._catch_up()
+        await self.user_client.run_until_disconnected()
+
+    # -- helpers ---------------------------------------------------------------------------
+
+    async def _resolve_entity(self, peer_id: int) -> Any:
+        return await self.user_client.get_entity(peer_id)
+
+    async def _tell(self, user_id: int, text: str) -> None:
+        with contextlib.suppress(errors.RPCError, ValueError, ConnectionError):
+            await self.bot.send(user_id, text)
+
+    async def _notify_lost_access(self, chat_id: int, reason: str) -> None:
+        log.warning("lost access to chat %s (%s)", chat_id, reason)
+        await self._broadcast(chat_id, "bot.chats.lost_access")
+
+    async def _notify_regained_access(self, chat_id: int) -> None:
+        await self._broadcast(chat_id, "bot.chats.regained_access")
+
+    async def _broadcast(self, chat_id: int, key: str) -> None:
+        chat = await self.storage.get_chat(chat_id)
+        title = chat.ref.title if chat else str(chat_id)
+        for user_id in await self.storage.subscribers_of(chat_id):
+            user = await self.storage.get_user(user_id)
+            lang = (user.lang if user else None) or DEFAULT_LANG
+            await self._tell(user_id, t(lang, key, chat=title))
+
+    async def _notify_degraded(self, reason: str) -> None:
+        user = await self.storage.get_user(self.settings.owner_id)
+        lang = (user.lang if user else None) or DEFAULT_LANG
+        await self._tell(
+            self.settings.owner_id,
+            f"{t(lang, 'bot.status.listener_degraded')} ({reason})",
+        )
+
+    async def _status(self) -> StatusInfo:
+        chats = await self.storage.list_chats()
+        listener = self.listener
+        delivery = self.delivery
+        supervisor = self.supervisor
+        now = self.clock()
+        last_update = "—"
+        if listener is not None and listener.last_update_at is not None:
+            last_update = relative(listener.last_update_at, now, DEFAULT_LANG)
+        return StatusInfo(
+            listener_ok=not (supervisor.state.degraded if supervisor else False),
+            uptime=format_uptime(supervisor.state.started_at if supervisor else None, now),
+            monitored=len(self.matcher.monitored) if self.matcher else 0,
+            unavailable=sum(1 for c in chats if not c.available),
+            seen=listener.metrics.seen if listener else 0,
+            matched=listener.metrics.matched if listener else 0,
+            delivered=delivery.metrics.delivered if delivery else 0,
+            digested=delivery.metrics.digested if delivery else 0,
+            failed=delivery.metrics.failed if delivery else 0,
+            queue=delivery.total_queued() if delivery else 0,
+            last_update=last_update,
+        )
+
+
+async def refresh_dialogs(client: TelegramClient, storage: Storage) -> int:
+    """Load the account's group-like dialogs so catch-up can build input peers offline."""
+    count = 0
+    async for dialog in client.iter_dialogs():
+        entity = dialog.entity
+        if isinstance(entity, tl.User):
+            continue
+        ref = ChatRef.from_entity(entity)
+        await storage.upsert_chat(ref, access_hash=getattr(entity, "access_hash", None))
+        count += 1
+    with contextlib.suppress(Exception):
+        client.session.save()  # commit entities now, not in a minute
+    return count
+
+
+def payload_of(item: OutboxItem) -> Payload:
+    return Payload.from_json(item.payload)
+
+
+__all__ = [
+    "EXIT_OK",
+    "Application",
+    "BotAdapter",
+    "Path",
+    "payload_of",
+    "refresh_dialogs",
+]

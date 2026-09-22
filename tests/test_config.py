@@ -27,7 +27,7 @@ def test_defaults_and_paths(monkeypatch):
     assert s.user_session == Path("/srv/dd/user.session")
     assert s.db_path == Path("/srv/dd/ddiver.sqlite3")
     assert s.catchup_hours == 24
-    assert s.regex_timeout == pytest.approx(0.2)
+    assert s.regex_timeout == pytest.approx(0.02)
     assert s.ignore_own_messages is True
     assert "AAExample" not in repr(s)  # secrets are masked
 
@@ -47,7 +47,7 @@ def test_bounds(monkeypatch):
     with pytest.raises(ValidationError):
         make(monkeypatch, DIGEST_THRESHOLD="1")
     with pytest.raises(ValidationError):
-        make(monkeypatch, REGEX_TIMEOUT_MS="5")
+        make(monkeypatch, REGEX_TIMEOUT_MS="1")
 
 
 def test_missing_required(monkeypatch):

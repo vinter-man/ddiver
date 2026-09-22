@@ -59,19 +59,15 @@ def kinds(actions):
 
 
 def texts(actions, lang="ru"):
-    out = []
-    for action in actions:
-        if isinstance(action, Toast | Reply | Edit | Send):
-            out.append(
-                action.key_or_text
-                if action.literal
-                else t(lang, action.key_or_text, **action.params)
-            )
-    return out
+    return [
+        action.key_or_text if action.literal else t(lang, action.key_or_text, **action.params)
+        for action in actions
+        if isinstance(action, Toast | Reply | Edit | Send)
+    ]
 
 
-def callbacks(actions):
-    data = []
+def callbacks(actions) -> list[str]:
+    data: list[str] = []
     for action in actions:
         for row in getattr(action, "buttons", None) or []:
             data.extend(callback for _, callback in row)
@@ -470,3 +466,89 @@ class TestMenus:
         mod_rows = menus.main_menu(is_owner=False)
         assert len(owner_rows) == len(mod_rows) + 1
         assert any("users" in cb for row in owner_rows for _, cb in row)
+
+
+class TestMenuRendering:
+    def test_shared_menu_marks_state(self):
+        from ddiver.storage import ChatRow
+
+        rows = [
+            ChatRow(CHAT_A, available=True, shared=True, access_hash=None),
+            ChatRow(CHAT_B, available=True, shared=False, access_hash=None),
+        ]
+        keyboard = menus.shared_menu(rows, 0)
+        labels = [menus.unwrap(label) for row in keyboard for label, _ in row]
+        assert any(label.startswith("🗂") for label in labels)
+        assert any(label.startswith("🔒") for label in labels)
+        data = [cb for row in keyboard for _, cb in row]
+        assert f"share:{CHAT_A.id}:0" in data  # toggling a shared chat turns it off
+        assert f"share:{CHAT_B.id}:1" in data
+
+    def test_chats_menu_flags_unavailable_chats(self):
+        from ddiver.storage import ChatRow
+
+        rows = [ChatRow(CHAT_A, available=False, shared=True, access_hash=None)]
+        keyboard = menus.chats_menu(rows, {CHAT_A.id}, 0)
+        label = menus.unwrap(keyboard[0][0][0])
+        assert label.startswith("✅") and label.endswith("⚠️")
+
+    def test_chats_menu_paginates(self):
+        from ddiver.storage import ChatRow
+
+        rows = [
+            ChatRow(ChatRef(-1000 - i, f"Chat {i}", None, "supergroup"), True, True, None)
+            for i in range(20)
+        ]
+        first = menus.chats_menu(rows, set(), 0)
+        nav = [cb for row in first for _, cb in row if cb.startswith("chats:")]
+        assert "chats:1" in nav and "chats:0" not in nav
+        middle = menus.chats_menu(rows, set(), 1)
+        nav = [cb for row in middle for _, cb in row if cb.startswith("chats:")]
+        assert {"chats:0", "chats:2"} <= set(nav)
+
+    def test_rules_menu_navigation_keeps_chat_and_kind(self):
+        from ddiver.storage import Rule
+
+        rules = [
+            Rule(i, OWNER, CHAT_A.id, RuleKind.INCLUDE, f"rule{i}", None, 0) for i in range(25)
+        ]
+        keyboard = menus.rules_menu(rules, ["🔤"] * 25, CHAT_A.id, "include", 1)
+        data = [cb for row in keyboard for _, cb in row]
+        assert f"rules:{CHAT_A.id}:include:0" in data
+        assert f"rules:{CHAT_A.id}:include:2" in data
+        assert f"radd:{CHAT_A.id}:include" in data
+        assert f"rules:{CHAT_A.id}:exclude:0" in data
+
+    def test_rules_menu_truncates_long_patterns_and_marks_disabled(self):
+        from ddiver.storage import Rule
+
+        long_rule = Rule(1, OWNER, 0, RuleKind.INCLUDE, "x" * 120, "timeout", 0)
+        label = menus.unwrap(menus.rules_menu([long_rule], ["🧩"], 0, "include", 0)[0][0][0])
+        assert label.startswith("❌ ⏸")
+        assert label.endswith("…")
+        assert len(label) < 80
+
+    def test_ignored_menu_shows_scope(self):
+        from ddiver.storage import IgnoredSender
+
+        entries = [
+            IgnoredSender(OWNER, ALL_CHATS, 500, None),
+            IgnoredSender(OWNER, CHAT_A.id, 600, "spammer"),
+        ]
+        keyboard = menus.ignored_menu(entries, 0)
+        labels = [menus.unwrap(label) for row in keyboard for label, _ in row]
+        assert any("🌐" in label for label in labels)
+        assert any("📡" in label and "spammer" in label for label in labels)
+
+    def test_users_menu_lists_actions(self):
+        keyboard = menus.users_menu([3, 4], [5])
+        data = [cb for row in keyboard for _, cb in row]
+        assert data[:2] == ["allow:3", "deny:3"]
+        assert "revoke:5" in data
+
+    def test_rules_chat_menu_always_offers_all_chats(self):
+        from ddiver.storage import ChatRow
+
+        rows = [ChatRow(CHAT_A, True, True, None)]
+        keyboard = menus.rules_chat_menu(rows, 0)
+        assert keyboard[0][0][1] == f"rules:{ALL_CHATS}:include:0"

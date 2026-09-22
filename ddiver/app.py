@@ -71,7 +71,7 @@ class Supervisor:
         self._notify_owner = notify_owner
         self._clock = clock
         self._sleep = sleep
-        self._rng = rng or random.Random(0)  # noqa: S311 - jitter, not cryptography
+        self._rng = rng or random.Random(0)  # jitter for reconnects, not cryptography
         self._max_attempts = max_attempts
         self.state = SupervisorState()
         self._stop = asyncio.Event()

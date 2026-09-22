@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     catchup_hours: int = Field(default=24, ge=0, le=24 * 14)
     catchup_max_per_chat: int = Field(default=500, ge=0, le=5000)
     digest_threshold: int = Field(default=20, ge=2, le=500)
-    regex_timeout_ms: int = Field(default=200, ge=20, le=5000)
+    regex_timeout_ms: int = Field(default=20, ge=5, le=5000)
     ignore_own_messages: bool = Field(default=True, description="set false only for tests")
 
     @field_validator("bot_token")
