@@ -77,6 +77,7 @@ class Metrics:
 class _UserQueue:
     queue: asyncio.Queue[OutboxItem]
     worker: asyncio.Task[None] | None = None
+    stopping: bool = False
     overflow: int = 0
     enqueued_at: dict[tuple[int, int, int], dt.datetime] = field(default_factory=dict)
 
@@ -161,6 +162,11 @@ class Delivery:
             log.warning(
                 "delivery queue full for user %s (%d dropped)", item.user_id, state.overflow
             )
+            # Record it, otherwise the row stays pending with nothing holding it and is only
+            # noticed at the next restart.
+            await self._storage.set_delivery_status(
+                *item.key, DeliveryStatus.FAILED, error="queue_full"
+            )
             return False
         state.enqueued_at[item.key] = self._clock()
         return True
@@ -173,16 +179,40 @@ class Delivery:
         return sum(s.queue.qsize() for s in self._queues.values())
 
     async def drop_user(self, user_id: int) -> None:
-        """Forget everything queued for a user (they blocked the bot or lost access)."""
+        """Forget everything queued for a user (they blocked the bot or lost access).
+
+        Safe to call from inside that user's own worker, which is what the ``UserIsBlocked``
+        path does: the worker is asked to stop instead of being cancelled, because cancelling
+        and awaiting yourself leaves an orphan task waiting on a queue nobody feeds again.
+        Queued rows stay ``pending`` so a later rescan can pick them up.
+        """
         state = self._queues.pop(user_id, None)
+        self._user_buckets.pop(user_id, None)
         if state is None:
             return
-        if state.worker is not None:
+        state.stopping = True
+        self._release_queue(state)
+        current = asyncio.current_task()
+        if state.worker is not None and state.worker is not current:
             state.worker.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 await state.worker
+
+    @staticmethod
+    def _is_stopping(state: _UserQueue) -> bool:
+        """Read through a call: the flag is set from another task while we await."""
+        return state.stopping
+
+    @staticmethod
+    def _release_queue(state: _UserQueue) -> int:
+        """Empty a queue, accounting for every item so ``queue.join()`` cannot hang."""
+        released = 0
         while not state.queue.empty():
-            state.queue.get_nowait()
+            item = state.queue.get_nowait()
+            state.enqueued_at.pop(item.key, None)
+            state.queue.task_done()
+            released += 1
+        return released
 
     async def wait_idle(self, timeout: float = 5.0) -> bool:
         """Wait until every queue is empty and its worker finished the item it was holding."""
@@ -237,11 +267,13 @@ class Delivery:
         """The worker loop. No exception may end it — that would silently stop notifications."""
         while True:
             item = await state.queue.get()
+            if self._is_stopping(state):  # dropped while we were waiting for work
+                state.queue.task_done()
+                return
             try:
                 await self._process(user_id, state, item)
             except asyncio.CancelledError:
-                state.queue.task_done()
-                raise
+                raise  # task_done() runs in the finally, exactly once
             except Exception:
                 log.exception("delivery failed for %s; item marked failed", item.key)
                 self.metrics.failed += 1
@@ -252,6 +284,10 @@ class Delivery:
             finally:
                 state.enqueued_at.pop(item.key, None)
                 state.queue.task_done()
+            if self._is_stopping(state):
+                # the item we just handled dropped this user (they blocked the bot), so the
+                # queue is gone: exit instead of waiting on it forever
+                return
 
     async def _process(self, user_id: int, state: _UserQueue, item: OutboxItem) -> None:
         user = await self._storage.get_user(user_id)

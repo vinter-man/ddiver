@@ -30,6 +30,9 @@ EXIT_DB_CORRUPT = 5
 BACKOFF_BASE = 2.0
 BACKOFF_CAP = 300.0
 OWNER_REMINDER = dt.timedelta(hours=6)
+DEGRADED_TICK = 300.0
+HEALTHY_RUN_SECONDS = 60.0
+MAX_IMMEDIATE_FAILURES = 5
 BOOT_STORM_BOOTS = 3
 BOOT_STORM_DELAY = 300.0
 
@@ -44,9 +47,16 @@ class SupervisorState:
     degraded: bool = False
     degraded_reason: str | None = None
     attempts: int = 0
+    backoff_step: int = 0
     reconnects: int = 0
+    consecutive_failures: int = 0
+    stalled: bool = False
     owner_notified_at: dt.datetime | None = None
     backoffs: list[float] = field(default_factory=list)
+
+    @property
+    def listener_ok(self) -> bool:
+        return not self.degraded and not self.stalled
 
 
 class Supervisor:
@@ -87,6 +97,7 @@ class Supervisor:
         self.state.started_at = self._clock()
         while not self._stop.is_set():
             self.state.attempts += 1
+            started = self._clock()
             try:
                 await self._run_listener()
             except asyncio.CancelledError:
@@ -94,15 +105,16 @@ class Supervisor:
             except Exception as exc:
                 if is_fatal_auth_error(exc):
                     await self._enter_degraded(type(exc).__name__)
-                    return EXIT_OK
+                    return await self._stay_degraded()
                 if is_session_file_error(exc):
                     await self._enter_degraded(f"session file: {exc}")
-                    return EXIT_OK
+                    return await self._stay_degraded()
                 log.warning("listener stopped with %s", type(exc).__name__, exc_info=True)
             else:
                 if self._stop.is_set():
                     break
                 log.info("listener disconnected; reconnecting")
+            self._note_run(started)
             if self._max_attempts is not None and self.state.attempts >= self._max_attempts:
                 return EXIT_ERROR
             if self._stop.is_set():
@@ -110,8 +122,43 @@ class Supervisor:
             await self._backoff()
         return EXIT_OK
 
+    def _note_run(self, started: dt.datetime) -> None:
+        """A run that lasted a while means the connection was real: forget the backoff.
+
+        Without this the delay stays pinned at the cap after one bad night, and a listener that
+        fails instantly every time looks exactly like a healthy one that reconnects rarely.
+        """
+        lasted = (self._clock() - started).total_seconds()
+        if lasted >= HEALTHY_RUN_SECONDS:
+            self.state.backoff_step = 0
+            self.state.consecutive_failures = 0
+            if self.state.stalled:
+                log.info("listener is running again")
+            self.state.stalled = False
+            return
+        self.state.consecutive_failures += 1
+        if self.state.consecutive_failures >= MAX_IMMEDIATE_FAILURES and not self.state.stalled:
+            self.state.stalled = True
+            log.error(
+                "listener failed %d times in a row without staying up; reporting unhealthy",
+                self.state.consecutive_failures,
+            )
+
+    async def _stay_degraded(self) -> int:
+        """Keep the process alive so the bot UI, delivery and the heartbeat keep working.
+
+        Exiting here would be worse than useless: the container policy is
+        ``restart: unless-stopped``, which ignores the exit code, so we would restart every few
+        seconds, re-notify the owner and re-run catch-up — with a session that cannot work.
+        """
+        while not self._stop.is_set():
+            await self._sleep(DEGRADED_TICK)
+            await self.notify_owner_if_due()
+        return EXIT_OK
+
     async def _backoff(self) -> None:
-        delay = min(BACKOFF_CAP, BACKOFF_BASE * 2 ** (self.state.attempts - 1))
+        delay = min(BACKOFF_CAP, BACKOFF_BASE * 2**self.state.backoff_step)
+        self.state.backoff_step += 1
         delay += self._rng.uniform(0, delay / 4)
         self.state.backoffs.append(delay)
         log.info("reconnecting in %.0fs", delay)

@@ -419,3 +419,27 @@ class TestRecoveryFromStrandedRows:
         bot.release()
         await settle(delivery)
         assert len(bot.sent) == 29  # every match sent on its own, as the user asked
+
+
+class TestShutdownUnderLoad:
+    async def test_cancelling_a_busy_worker_does_not_break_shutdown(self, delivery, bot, store):
+        """task_done() must run exactly once, or drain() raises and close() never finishes."""
+        bot.hold()
+        item = await claim(store, MOD, 1)
+        await delivery.enqueue(item)
+        await asyncio.sleep(0)  # let the worker pick it up and block inside send
+        left = await delivery.drain(timeout=0.05)
+        assert left == 0  # the item was in flight, not queued
+        assert (await store.get_delivery(*item.key)).status is DeliveryStatus.PENDING
+        bot.release()
+
+    async def test_drain_with_a_queued_backlog_leaves_rows_pending(self, delivery, bot, store):
+        bot.hold()
+        items = [await claim(store, MOD, i) for i in range(1, 5)]
+        for item in items:
+            await delivery.enqueue(item)
+        await asyncio.sleep(0)
+        assert await delivery.drain(timeout=0.05) >= 1
+        statuses = [(await store.get_delivery(*i.key)).status for i in items]
+        assert DeliveryStatus.PENDING in statuses  # recoverable on the next start
+        bot.release()

@@ -67,7 +67,7 @@ ignore = [
 "ddiver/bot/handlers.py" = ["PLR0915"]
 # The CLI imports heavy modules lazily so `ddiver health` does not pull in Telethon, and it
 # reports configuration problems instead of raising.
-"ddiver/__main__.py" = ["PLC0415", "BLE001", "T201", "TRY400", "TRY300"]
+"ddiver/__main__.py" = ["PLC0415", "BLE001", "T201", "TRY400", "TRY300", "PLR0915"]
 # Telethon's decorators are untyped; the handlers themselves are typed.
 "ddiver/runtime.py" = ["PLC0415"]
 "ddiver/app.py" = ["BLE001"]

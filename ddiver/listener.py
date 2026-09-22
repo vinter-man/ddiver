@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import sqlite3
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -174,8 +175,13 @@ class Listener:
             return []
 
         self.metrics.matched += 1
+        since = await self._storage.subscribed_since(chat_id)
         claimed: list[OutboxItem] = []
         for match in matches:
+            started = since.get(match.user_id)
+            if started is not None and moment < started:
+                # Backfill must not replay what happened before this user subscribed.
+                continue
             item = await self._claim(
                 message,
                 chat_id,
@@ -228,9 +234,20 @@ class Listener:
             catchup=catchup,
             catchup_skipped=catchup_skipped,
         )
-        item = await self._storage.claim_delivery(
-            match.user_id, chat_id, message.id, match.rule.id, payload.to_json()
-        )
+        try:
+            item = await self._storage.claim_delivery(
+                match.user_id, chat_id, message.id, match.rule.id, payload.to_json()
+            )
+        except sqlite3.OperationalError:
+            # The database was busy. Do not advance the cursor for this message: catch-up will
+            # find it again, which is the whole point of writing the row before the cursor.
+            log.warning(
+                "could not claim %s/%s for %s; leaving it to catch-up",
+                chat_id,
+                message.id,
+                match.user_id,
+            )
+            raise
         if item is None:
             self.metrics.duplicates += 1
             return None

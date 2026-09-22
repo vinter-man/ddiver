@@ -174,7 +174,9 @@ class Application:
         self.supervisor: Supervisor | None = None
         self.senders = SenderCache(self._resolve_entity, clock=clock)
         self._tasks: list[PeriodicTask] = []
+        self._owned: list[asyncio.Task[Any]] = []
         self._last_ping_ok: dt.datetime | None = None
+        self._last_update_at: dt.datetime | None = None
         self._catchup_lock = asyncio.Lock()
 
     # -- lifecycle -------------------------------------------------------------------------
@@ -239,6 +241,11 @@ class Application:
     async def close(self) -> None:
         for task in self._tasks:
             await task.stop()
+        for owned in self._owned:
+            owned.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await owned
+        self._owned.clear()
         with contextlib.suppress(Exception):
             await self.user_client.disconnect()
         if self.listener is not None:
@@ -246,9 +253,13 @@ class Application:
         if self.matcher is not None:
             await self.matcher.flush_hits()
         if self.delivery is not None:
-            left = await self.delivery.drain()
-            if left:
-                log.warning("%d notifications stay pending for the next start", left)
+            try:
+                left = await self.delivery.drain()
+            except Exception:
+                log.exception("delivery drain failed during shutdown")
+            else:
+                if left:
+                    log.warning("%d notifications stay pending for the next start", left)
         with contextlib.suppress(Exception):
             await self.bot_client.disconnect()
         await self.storage.close()
@@ -266,8 +277,15 @@ class Application:
         await self.delivery.replay_pending()
         self._start_background_tasks()
         await boot_delay(boots)
-        asyncio.create_task(self._catch_up(), name="catchup-boot")  # noqa: RUF006
+        self._spawn(self._catch_up(), "catchup-boot")
+        self._spawn(self._watch_reconnects(), "reconnect-watch")
         return await self.supervisor.run()
+
+    def _spawn(self, coro: Any, name: str) -> asyncio.Task[Any]:
+        """Start a task we own, so shutdown can cancel it instead of leaving it running."""
+        task = asyncio.create_task(coro, name=name)
+        self._owned.append(task)
+        return task
 
     def request_stop(self) -> None:
         if self.supervisor is not None:
@@ -448,10 +466,38 @@ class Application:
             log.info("pruned %d old outbox rows", removed)
 
     async def _run_listener(self) -> None:
+        """One listener lifetime: connect if needed, then stay until Telethon disconnects.
+
+        ``run_until_disconnected()`` always disconnects the client in its ``finally``, so
+        without reconnecting here every retry after the first would raise "Cannot send requests
+        while disconnected" and the supervisor would spin on a dead client forever.
+        """
+        if not self.user_client.is_connected():
+            await connect_with_timeout(self.user_client)
         if self.user_client.reconnected.is_set():
             self.user_client.reconnected.clear()
             await self._catch_up()
         await self.user_client.run_until_disconnected()
+
+    async def _watch_reconnects(self) -> None:
+        """Catch up after every automatic reconnect.
+
+        Telethon reconnects underneath ``run_until_disconnected()``, and for a user account it
+        asks for at most 100 missed messages per channel: on ``ChannelDifferenceTooLong`` it
+        jumps ``pts`` and returns nothing at all. Waiting for the outer loop would mean the gap
+        is only noticed when the client disconnects for good, by which time the cursor has
+        already moved past it.
+        """
+        while True:
+            await self.user_client.reconnected.wait()
+            self.user_client.reconnected.clear()
+            log.info("reconnected; running a catch-up round")
+            try:
+                await self._catch_up()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("catch-up after a reconnect failed")
 
     # -- helpers ---------------------------------------------------------------------------
 

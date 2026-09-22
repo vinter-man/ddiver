@@ -9,8 +9,10 @@ from telethon.errors import common as common_errors
 
 from ddiver.app import (
     BOOT_STORM_DELAY,
+    DEGRADED_TICK,
     EXIT_ERROR,
     EXIT_OK,
+    MAX_IMMEDIATE_FAILURES,
     PeriodicTask,
     Supervisor,
     boot_delay,
@@ -21,13 +23,24 @@ from tests.fakes import T0, FakeClock
 
 
 class Sleeps:
+    """Virtual sleep: records the delay, advances the clock, never really waits."""
+
     def __init__(self, clock: FakeClock) -> None:
         self.clock = clock
         self.calls: list[float] = []
+        self._stop_target: Supervisor | None = None
+        self._stop_after = 0
+
+    def stop_after(self, supervisor: Supervisor, calls: int) -> None:
+        """Ask the supervisor to stop once it has slept ``calls`` times."""
+        self._stop_target = supervisor
+        self._stop_after = calls
 
     async def __call__(self, seconds: float) -> None:
         self.calls.append(seconds)
         self.clock.tick(seconds)
+        if self._stop_target is not None and len(self.calls) >= self._stop_after:
+            self._stop_target.request_stop()
         await asyncio.sleep(0)
 
 
@@ -94,7 +107,8 @@ class TestFatalClassification:
 
 
 class TestSupervisor:
-    async def test_fatal_auth_parks_in_degraded_mode_without_exiting(self, clock, sleeps):
+    async def test_fatal_auth_stays_alive_in_degraded_mode(self, clock, sleeps):
+        """Exiting here would restart-loop forever under `restart: unless-stopped`."""
         notes = []
 
         async def notify(reason):
@@ -103,12 +117,15 @@ class TestSupervisor:
         sup = make_supervisor(
             [errors.SessionRevokedError(request=None)], clock, sleeps, notify=notify
         )
-        assert await sup.run() == EXIT_OK  # never a restart loop under `restart: unless-stopped`
+        sleeps.stop_after(sup, 3)
+        assert await sup.run() == EXIT_OK
         assert sup.state.degraded and sup.state.degraded_reason == "SessionRevokedError"
-        assert notes == ["SessionRevokedError"]
-        assert sleeps.calls == []  # no backoff, no reconnect attempts
+        assert not sup.state.listener_ok
+        assert notes == ["SessionRevokedError"]  # once now, then only every six hours
+        assert sleeps.calls == [DEGRADED_TICK] * 3  # it waited instead of exiting
+        assert sup.state.attempts == 1  # no reconnect attempts on a dead session
 
-    async def test_owner_reminder_is_rate_limited(self, clock, sleeps):
+    async def test_degraded_mode_reminds_the_owner_every_six_hours(self, clock, sleeps):
         notes = []
 
         async def notify(reason):
@@ -117,11 +134,10 @@ class TestSupervisor:
         sup = make_supervisor(
             [errors.AuthKeyDuplicatedError(request=None)], clock, sleeps, notify=notify
         )
-        await sup.run()
-        assert await sup.notify_owner_if_due() is False
-        clock.tick(6 * 3600 + 1)
-        assert await sup.notify_owner_if_due() is True
-        assert len(notes) == 2
+        ticks = int(7 * 3600 / DEGRADED_TICK)
+        sleeps.stop_after(sup, ticks)
+        assert await sup.run() == EXIT_OK
+        assert len(notes) == 2  # the immediate one plus one reminder after six hours
 
     async def test_notification_failure_does_not_break_degraded_mode(self, clock, sleeps):
         async def notify(_reason):
@@ -130,14 +146,43 @@ class TestSupervisor:
         sup = make_supervisor(
             [errors.SessionRevokedError(request=None)], clock, sleeps, notify=notify
         )
+        sleeps.stop_after(sup, 2)
         assert await sup.run() == EXIT_OK
         assert sup.state.degraded
 
     async def test_session_file_error_is_treated_as_fatal(self, clock, sleeps):
         sup = make_supervisor([sqlite3.OperationalError("database is locked")], clock, sleeps)
+        sleeps.stop_after(sup, 2)
         assert await sup.run() == EXIT_OK
         assert sup.state.degraded
         assert "session file" in sup.state.degraded_reason
+
+    async def test_a_long_healthy_run_resets_the_backoff(self, clock, sleeps):
+        """Otherwise one bad night pins the delay at the cap for the rest of the process."""
+
+        async def run_listener():
+            clock.tick(120)  # the listener stayed up for two minutes
+            raise ConnectionError("network blip")
+
+        sup = Supervisor(
+            run_listener=run_listener,
+            clock=clock,
+            sleep=sleeps,
+            rng=random.Random(1),
+            max_attempts=4,
+        )
+        await sup.run()
+        assert all(2.0 <= delay < 2.5 for delay in sleeps.calls)  # never grows
+        assert sup.state.consecutive_failures == 0
+        assert sup.state.listener_ok
+
+    async def test_a_listener_that_fails_instantly_is_reported_unhealthy(self, clock, sleeps):
+        sup = make_supervisor(
+            [ConnectionError("x")] * 12, clock, sleeps, max_attempts=MAX_IMMEDIATE_FAILURES + 1
+        )
+        await sup.run()
+        assert sup.state.stalled
+        assert not sup.state.listener_ok
 
     async def test_transient_errors_back_off_with_jitter(self, clock, sleeps):
         sup = make_supervisor(

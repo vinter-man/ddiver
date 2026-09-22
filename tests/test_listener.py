@@ -26,6 +26,7 @@ def clock():
 async def store(tmp_path, clock):
     s = Storage(tmp_path / "db.sqlite3", owner_id=OWNER, clock=clock)
     await s.open()
+    clock.now = T0 - dt.timedelta(days=30)  # subscriptions predate every test message
     await s.ensure_user(OWNER)
     await s.update_user(OWNER, lang="ru", tz="Europe/Kyiv")
     await s.ensure_user(MOD)
@@ -35,6 +36,7 @@ async def store(tmp_path, clock):
     await s.subscribe(OWNER, -1001234567890)
     await s.subscribe(OWNER, -1009876543210)
     await s.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "казино")
+    clock.now = T0
     yield s
     await s.close()
 
@@ -140,8 +142,11 @@ class TestHandle:
         assert await listener.handle(event.message, chat=event.chat) == []
         assert listener.metrics.duplicates == 1
 
-    async def test_every_subscriber_gets_their_own_row(self, listener, store):
+    async def test_every_subscriber_gets_their_own_row(self, listener, store, clock):
+        clock.now = T0 - dt.timedelta(days=1)  # subscribe before the message we will send
+        await store.set_chat_shared(-1001234567890, True)
         await store.subscribe(MOD, -1001234567890)
+        clock.now = T0
         await store.add_rule(MOD, ALL_CHATS, RuleKind.INCLUDE, "казино")
         await listener.matcher.invalidate()
         event = make_event("казино", chat=CHAT)
@@ -236,3 +241,36 @@ class TestChatRefOf:
         assert chat_ref_of(CHAT).title == "Чат модерации"
         forbidden = tl.ChannelForbidden(id=5, access_hash=0, title="Gone", megagroup=True)
         assert chat_ref_of(forbidden).kind == "supergroup"
+
+
+class TestSubscriptionBoundary:
+    async def test_messages_from_before_a_subscription_are_not_delivered(
+        self, listener, store, clock
+    ):
+        """Someone else's cursor can reach back further than this user's subscription."""
+        clock.now = T0
+        await store.set_chat_shared(-1001234567890, True)
+        await store.subscribe(MOD, -1001234567890)
+        await store.add_rule(MOD, ALL_CHATS, RuleKind.INCLUDE, "казино")
+        await listener.matcher.invalidate()
+
+        old = make_event("казино", chat=CHAT, msg_id=500, date=T0 - dt.timedelta(hours=2))
+        items = await listener.handle(old.message, chat=old.chat)
+        assert {i.user_id for i in items} == {OWNER}  # the owner subscribed 30 days ago
+
+        fresh = make_event("казино", chat=CHAT, msg_id=501, date=T0 + dt.timedelta(minutes=1))
+        items = await listener.handle(fresh.message, chat=fresh.chat)
+        assert {i.user_id for i in items} == {OWNER, MOD}
+
+    async def test_a_busy_database_does_not_advance_the_cursor(self, listener, store, monkeypatch):
+        """The row has to exist before the cursor moves, or catch-up cannot find the message."""
+        import sqlite3
+
+        async def busy(*_args, **_kwargs):
+            raise sqlite3.OperationalError("database is locked")
+
+        monkeypatch.setattr(store, "claim_delivery", busy)
+        event = make_event("казино", chat=CHAT, msg_id=900)
+        with pytest.raises(sqlite3.OperationalError):
+            await listener.handle(event.message, chat=event.chat)
+        assert listener.cursors.pending == {}

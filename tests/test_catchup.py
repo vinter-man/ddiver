@@ -29,6 +29,7 @@ def clock():
 async def store(tmp_path, clock):
     s = Storage(tmp_path / "db.sqlite3", owner_id=OWNER, clock=clock)
     await s.open()
+    clock.now = T0 - dt.timedelta(days=30)  # subscriptions predate every test message
     await s.ensure_user(OWNER)
     await s.update_user(OWNER, lang="ru", tz="UTC")
     await s.upsert_chat(ChatRef.from_entity(CHAT))
@@ -36,6 +37,7 @@ async def store(tmp_path, clock):
     await s.subscribe(OWNER, CHAT_ID)
     await s.subscribe(OWNER, OTHER_ID)
     await s.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "казино")
+    clock.now = T0
     yield s
     await s.close()
 
@@ -61,10 +63,13 @@ class FakeHistory:
     def __init__(self, messages: dict[int, list[tl.Message]]) -> None:
         self.messages = messages
         self.calls: list[tuple[int, int, int]] = []
+        self.peers: list = []
         self.errors: dict[int, BaseException] = {}
 
-    def __call__(self, chat_id: int, min_id: int, limit: int):
+    def __call__(self, chat, min_id: int, limit: int):
+        chat_id = chat.id
         self.calls.append((chat_id, min_id, limit))
+        self.peers.append(chat)
         error = self.errors.get(chat_id)
 
         async def gen():
@@ -267,3 +272,126 @@ class TestCatchup:
 
 def catchup_of(store, listener, history, clock, sleeps) -> Catchup:
     return Catchup(store, listener, history, clock=clock, sleep=sleeps)
+
+
+class TestRoundSafety:
+    async def test_every_chat_in_the_round_holds_its_cursor(self, store, listener, clock):
+        """A live message in a chat still queued must not flush a cursor past the gap."""
+        await store.upsert_cursors([Cursor(CHAT_ID, 1, T0), Cursor(OTHER_ID, 1, T0)])
+        history = FakeHistory({CHAT_ID: history_of(CHAT, [(5, "казино")])})
+        blocked_during_replay: set[int] = set()
+
+        original = listener.handle
+
+        async def spy(message, **kwargs):
+            blocked_during_replay.update(listener.cursors.blocked)
+            return await original(message, **kwargs)
+
+        listener.handle = spy
+
+        async def sleep(_seconds):
+            return None
+
+        catchup = Catchup(store, listener, history, clock=clock, sleep=sleep)
+        await catchup.run({CHAT_ID, OTHER_ID})
+        assert blocked_during_replay == {CHAT_ID, OTHER_ID}
+        assert listener.cursors.blocked == set()  # released in the finally
+
+    async def test_a_failing_message_does_not_abandon_the_round(
+        self, store, listener, clock, sleeps
+    ):
+        await store.upsert_cursors([Cursor(CHAT_ID, 0, T0), Cursor(OTHER_ID, 0, T0)])
+        history = FakeHistory(
+            {
+                CHAT_ID: history_of(CHAT, [(2, "казино два"), (1, "казино один")], step=1),
+                OTHER_ID: history_of(OTHER, [(3, "казино три")]),
+            }
+        )
+        original = listener.handle
+        calls = {"n": 0}
+
+        async def flaky(message, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("database is busy")
+            return await original(message, **kwargs)
+
+        listener.handle = flaky
+        result = await Catchup(store, listener, history, clock=clock, sleep=sleeps).run(
+            {CHAT_ID, OTHER_ID}
+        )
+        # chats are visited in id order, so the failing message is the other chat's; the round
+        # carries on and replays everything else
+        assert result.chats == 2
+        assert [i.msg_id for i in listener.delivered] == [1, 2]
+
+    async def test_unresolvable_peer_is_transient_not_lost_access(
+        self, store, listener, clock, sleeps
+    ):
+        notified = []
+
+        async def on_unavailable(chat_id, reason):
+            notified.append((chat_id, reason))
+
+        await store.upsert_cursors([Cursor(CHAT_ID, 1, T0)])
+        history = FakeHistory({})
+        history.errors[CHAT_ID] = ValueError("Could not find the input entity")
+        catchup = Catchup(
+            store, listener, history, clock=clock, sleep=sleeps, on_unavailable=on_unavailable
+        )
+        result = await catchup.run({CHAT_ID})
+        assert result.unavailable == []
+        assert notified == []
+        assert (await store.get_chat(CHAT_ID)).available is True
+
+    async def test_reprobe_restores_a_chat_that_works_again(self, store, listener, clock, sleeps):
+        recovered = []
+
+        async def on_recovered(chat_id):
+            recovered.append(chat_id)
+
+        await store.upsert_cursors([Cursor(CHAT_ID, 1, T0)])
+        await store.set_chat_available(CHAT_ID, False)
+        history = FakeHistory({CHAT_ID: history_of(CHAT, [(9, "казино")])})
+        catchup = Catchup(
+            store, listener, history, clock=clock, sleep=sleeps, on_recovered=on_recovered
+        )
+        assert await catchup.run({CHAT_ID}) is not None
+        assert history.calls == []  # a normal round still skips it
+
+        clock.tick(7 * 3600)
+        result = await catchup.reprobe_unavailable()
+        assert result.recovered == [CHAT_ID]
+        assert recovered == [CHAT_ID]
+        assert (await store.get_chat(CHAT_ID)).available is True
+        assert [i.msg_id for i in listener.delivered] == [9]
+
+    async def test_reprobe_leaves_a_still_broken_chat_alone(self, store, listener, clock, sleeps):
+        await store.upsert_cursors([Cursor(CHAT_ID, 1, T0)])
+        await store.set_chat_available(CHAT_ID, False)
+        history = FakeHistory({})
+        history.errors[CHAT_ID] = errors.ChannelPrivateError(request=None)
+        catchup = Catchup(store, listener, history, clock=clock, sleep=sleeps)
+        clock.tick(7 * 3600)
+        result = await catchup.reprobe_unavailable()
+        assert result.recovered == []
+        assert (await store.get_chat(CHAT_ID)).available is False
+
+
+class TestInputPeers:
+    def test_built_from_the_stored_access_hash(self):
+        from telethon.tl import types as tl_types
+
+        from ddiver.catchup import input_peer_for
+        from ddiver.storage import ChatRow
+
+        supergroup = ChatRow(ChatRef(-1001234567890, "S", None, "supergroup"), True, True, 999)
+        peer = input_peer_for(supergroup)
+        assert isinstance(peer, tl_types.InputPeerChannel)
+        assert (peer.channel_id, peer.access_hash) == (1234567890, 999)
+
+        basic = ChatRow(ChatRef(-555, "B", None, "group"), True, True, None)
+        assert input_peer_for(basic) == tl_types.InputPeerChat(555)
+
+        unknown = ChatRow(ChatRef(-1009, "U", None, "supergroup"), True, True, None)
+        assert input_peer_for(unknown) == -1009  # fall back to Telethon's own resolution

@@ -22,7 +22,7 @@ class FakeAuthClient:
 
     def __init__(self, *, sign_in_error: BaseException | None = None) -> None:
         self.sent: list[str] = []
-        self.sign_ins: list[dict] = []
+        self.sign_ins: list[dict[str, object]] = []
         self.sign_in_error = sign_in_error
 
     async def send_code_request(self, phone: str):
