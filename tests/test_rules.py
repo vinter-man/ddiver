@@ -2,15 +2,20 @@ import pytest
 import regex
 
 from ddiver.rules import (
+    MAX_HIGHLIGHTS,
     MAX_PATTERN_LEN,
     CompiledRule,
     MatchMode,
     RuleError,
     RuleTimeout,
+    Span,
+    clean_text,
     compile_rule,
     normalize_pattern,
     parse_pattern,
     parse_rule_lines,
+    pattern_key,
+    prepare_text,
 )
 
 T = 0.2
@@ -132,6 +137,68 @@ class TestValidation:
         assert compile_rule("  =Word  ", timeout=T).pattern == "=Word"
 
 
-def test_parse_rule_lines_skips_blanks_and_comments():
-    text = "казино\n\n# comment\n  =бан  \nre:\\d+\n   "
-    assert parse_rule_lines(text) == ["казино", "=бан", "re:\\d+"]
+def test_parse_rule_lines_keeps_every_non_blank_line():
+    text = "казино\n\n#промо\n  =бан  \nre:\\d+\n   "
+    assert parse_rule_lines(text) == ["казино", "#промо", "=бан", "re:\\d+"]
+
+
+class TestCleaningAndPreparedText:
+    def test_clean_text_strips_format_chars_and_normalizes(self):
+        cleaned, removed = clean_text("ка\u200bзи\ufeffно")
+        assert (cleaned, removed) == ("казино", 2)
+        nfd = "и\u0306"  # й as base + combining breve
+        assert clean_text(nfd) == ("й", 0)
+
+    def test_normalize_pattern_cleans(self):
+        assert normalize_pattern("  =ка\u200bзино ") == "=казино"
+
+    def test_pattern_key(self):
+        assert pattern_key("Казино") == pattern_key("казино") == "казино"
+        assert pattern_key("=Бан") == "=бан"
+        assert pattern_key("re:Abc") == "re:Abc"
+        assert pattern_key("re:Abc") != pattern_key("re:abc")
+
+    def test_prepare_text_identity_fast_path(self):
+        pt = prepare_text("plain казино")
+        assert pt.shadow == "plain казино"
+        assert pt.to_original(Span(6, 12)) == Span(6, 12)
+
+    def test_prepare_text_maps_spans_through_zero_width_chars(self):
+        text = "spam ка\u200bзи\u200cно!"
+        pt = prepare_text(text)
+        assert pt.shadow == "spam казино!"
+        rule = compile_rule("казино", timeout=T)
+        span = rule.search(pt.shadow, T)
+        assert span is not None
+        orig = pt.to_original(span)
+        assert text[orig.start : orig.end] == "ка\u200bзи\u200cно"
+
+    def test_prepare_text_composes_nfd_sequences(self):
+        text = "x й\u0306y"  # NFD й in the middle
+        text = "x и\u0306 y"
+        pt = prepare_text(text)
+        assert pt.shadow == "x й y"
+        span = compile_rule("й", timeout=T).search(pt.shadow, T)
+        assert span is not None
+        orig = pt.to_original(span)
+        assert text[orig.start : orig.end] == "и\u0306"
+
+    def test_zero_length_regex_match_is_skipped(self):
+        rule = CompiledRule("re:x*", MatchMode.REGEX, regex.compile("x*"))
+        assert rule.search("abc", T) is None
+        assert rule.search("abxxc", T) == Span(2, 4)
+
+    def test_search_all_returns_several_spans(self):
+        rule = compile_rule("спам", timeout=T)
+        text = "спам, СПАМ и ещё спам"
+        spans = rule.search_all(text, T)
+        assert [text[s.start : s.end] for s in spans] == ["спам", "СПАМ", "спам"]
+        assert rule.search_all(text, T, limit=2) == spans[:2]
+
+    def test_search_all_caps_at_max_highlights(self):
+        rule = compile_rule("x", timeout=T)
+        assert len(rule.search_all("x" * 50, T)) == MAX_HIGHLIGHTS
+
+    def test_hashtag_lines_are_rules_not_comments(self):
+        assert parse_rule_lines("#промо\r\n=#tag\r\n\r\n") == ["#промо", "=#tag"]
+        assert compile_rule("#промо", timeout=T).search("see #ПРОМО now", T) is not None

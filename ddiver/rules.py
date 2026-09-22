@@ -14,12 +14,14 @@ catastrophic pattern freezing the event loop.
 from __future__ import annotations
 
 import enum
+import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
 import regex
 
 MAX_PATTERN_LEN = 300
+MAX_HIGHLIGHTS = 10
 RE_PREFIX = "re:"
 WORD_PREFIX = "="
 
@@ -71,14 +73,26 @@ class CompiledRule:
     compiled: regex.Pattern[str]
 
     def search(self, text: str, timeout: float) -> Span | None:
-        """Return the first match span or ``None``; raise :class:`RuleTimeout` on timeout."""
+        """First non-empty match span, or ``None``; raises :class:`RuleTimeout` on timeout.
+
+        Zero-length matches (``re:x*`` and friends) are skipped: Telegram rejects zero-length
+        entities, and "matched nothing" is not a useful notification.
+        """
+        spans = self.search_all(text, timeout, limit=1)
+        return spans[0] if spans else None
+
+    def search_all(self, text: str, timeout: float, limit: int = MAX_HIGHLIGHTS) -> list[Span]:
+        """Up to ``limit`` non-empty, non-overlapping match spans in order."""
+        out: list[Span] = []
         try:
-            m = self.compiled.search(text, timeout=timeout)
+            for m in self.compiled.finditer(text, timeout=timeout):
+                if m.end() > m.start():
+                    out.append(Span(m.start(), m.end()))
+                    if len(out) >= limit:
+                        break
         except TimeoutError as exc:
             raise RuleTimeout(self.pattern) from exc
-        if m is None:
-            return None
-        return Span(m.start(), m.end())
+        return out
 
 
 def parse_pattern(raw: str) -> tuple[MatchMode, str]:
@@ -91,14 +105,96 @@ def parse_pattern(raw: str) -> tuple[MatchMode, str]:
     return MatchMode.SUBSTRING, text
 
 
+def clean_text(raw: str) -> tuple[str, int]:
+    """NFC-normalize and drop invisible format characters (zero-width spaces/joiners, BOM…).
+
+    Returns the cleaned text and how many characters were removed, so the UI can tell the
+    user that a pasted keyword contained invisible junk.
+    """
+    normalized = unicodedata.normalize("NFC", raw)
+    cleaned = "".join(ch for ch in normalized if unicodedata.category(ch) != "Cf")
+    return cleaned, len(normalized) - len(cleaned)
+
+
 def normalize_pattern(raw: str) -> str:
-    """Canonical stored form: trimmed, prefix kept, inner whitespace preserved."""
-    mode, payload = parse_pattern(raw)
+    """Canonical stored form: cleaned, trimmed, prefix kept, inner whitespace preserved."""
+    mode, payload = parse_pattern(clean_text(raw)[0])
     if mode is MatchMode.REGEX:
         return f"{RE_PREFIX}{payload}"
     if mode is MatchMode.WORD:
         return f"{WORD_PREFIX}{payload}"
     return payload
+
+
+def pattern_key(pattern: str) -> str:
+    """Uniqueness key: case-folded for substring/word rules (they match case-insensitively
+    anyway), verbatim for regexes."""
+    mode, payload = parse_pattern(pattern)
+    if mode is MatchMode.REGEX:
+        return f"{RE_PREFIX}{payload}"
+    folded = payload.casefold()
+    return f"{WORD_PREFIX}{folded}" if mode is MatchMode.WORD else folded
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedText:
+    """Message text ready for matching.
+
+    ``shadow`` is the NFC-normalized text with format characters (zero-width joiners, BOM…)
+    removed; ``starts``/``ends`` map each shadow code point back to the half-open range of
+    original code points it came from, so a match span can be turned into a highlight span on
+    the original text.
+    """
+
+    original: str
+    shadow: str
+    starts: tuple[int, ...]
+    ends: tuple[int, ...]
+
+    def to_original(self, span: Span) -> Span:
+        if not self.starts or span.end <= span.start:
+            return Span(0, 0)
+        last = len(self.starts) - 1
+        return Span(self.starts[min(span.start, last)], self.ends[min(span.end - 1, last)])
+
+
+def prepare_text(text: str) -> PreparedText:
+    if not text:
+        return PreparedText("", "", (), ())
+    if unicodedata.is_normalized("NFC", text) and not any(
+        unicodedata.category(ch) == "Cf" for ch in text
+    ):
+        positions = tuple(range(len(text)))
+        return PreparedText(text, text, positions, tuple(p + 1 for p in positions))
+    shadow: list[str] = []
+    starts: list[int] = []
+    ends: list[int] = []
+    unit: list[str] = []
+    unit_start = 0
+    unit_end = 0
+
+    def flush() -> None:
+        if not unit:
+            return
+        for out in unicodedata.normalize("NFC", "".join(unit)):
+            shadow.append(out)
+            starts.append(unit_start)
+            ends.append(unit_end)
+        unit.clear()
+
+    for pos, ch in enumerate(text):
+        category = unicodedata.category(ch)
+        if category == "Cf":
+            continue
+        if category[0] == "M" and unit:  # combining mark: stays with the current base character
+            unit.append(ch)
+            unit_end = pos + 1
+            continue
+        flush()
+        unit_start, unit_end = pos, pos + 1
+        unit.append(ch)
+    flush()
+    return PreparedText(text, "".join(shadow), tuple(starts), tuple(ends))
 
 
 def compile_rule(raw: str, *, timeout: float) -> CompiledRule:
@@ -132,8 +228,10 @@ def compile_rule(raw: str, *, timeout: float) -> CompiledRule:
 
 
 def _validate_regex(pattern: str, compiled: regex.Pattern[str], timeout: float) -> None:
+    """Heuristic guard rails. The real protection against slow patterns is the runtime timeout
+    plus auto-disable; this only catches the obvious cases at insert time."""
     try:
-        if compiled.search("", timeout=timeout) is not None:
+        if _matches_everything(compiled, timeout):
             raise RuleError("rule.err.matches_empty")
         for probe in _PROBE_INPUTS:
             compiled.search(probe, timeout=timeout)
@@ -141,12 +239,15 @@ def _validate_regex(pattern: str, compiled: regex.Pattern[str], timeout: float) 
         raise RuleError("rule.err.too_slow", pattern=pattern) from exc
 
 
+def _matches_everything(compiled: regex.Pattern[str], timeout: float) -> bool:
+    """True when the pattern can match empty text (``re:.*``, ``re:^``, ``re:x*``): such a rule
+    fires on every message, which is never what the user wants."""
+    return compiled.search("", timeout=timeout) is not None
+
+
 def parse_rule_lines(text: str) -> list[str]:
-    """Split multi-line user input into candidate rules; blank lines and ``#`` comments dropped."""
-    out: list[str] = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        out.append(stripped)
-    return out
+    """Split multi-line user input into candidate rules; blank lines dropped.
+
+    There is deliberately no comment syntax: ``#промо`` is a hashtag keyword, not a comment.
+    """
+    return [line.strip() for line in text.splitlines() if line.strip()]

@@ -1,6 +1,6 @@
 from telethon.tl import types as tl
 
-from ddiver.richtext import RichText, Span, truncate_utf16, utf16_len
+from ddiver.richtext import MAX_ENTITIES, RichText, Span, truncate_utf16, utf16_len, window
 
 
 def test_utf16_len_counts_astral_chars_twice():
@@ -57,3 +57,54 @@ def test_bold_span_after_emoji_uses_utf16_offset():
     rt = RichText().add_with_bold_spans(text, [Span(2, 6)])
     bold = next(e for e in rt.entities() if isinstance(e, tl.MessageEntityBold))
     assert (bold.offset, bold.length) == (3, 4)
+
+
+def test_build_strips_trailing_whitespace_and_clips_entities():
+    rt = RichText().add("hi ", url="https://x").add("there  \n ", bold=True)
+    text, ents = rt.build()
+    assert text == "hi there"
+    kinds = {(type(e).__name__, e.offset, e.length) for e in ents}
+    assert kinds == {("MessageEntityTextUrl", 0, 3), ("MessageEntityBold", 3, 5)}
+    # entity fully inside the stripped tail disappears
+    rt2 = RichText().add("x").add("   ", code=True)
+    text2, ents2 = rt2.build()
+    assert text2 == "x" and ents2 == []
+
+
+def test_build_caps_entities():
+    rt = RichText()
+    for i in range(MAX_ENTITIES + 20):
+        rt.add(f"{i} ", bold=True)
+    _, ents = rt.build()
+    assert len(ents) == MAX_ENTITIES
+
+
+def test_window_keeps_whole_text_when_it_fits():
+    w = window("short text", [Span(0, 5)], 100)
+    assert (w.text, w.spans, w.cut_before, w.cut_after) == ("short text", [Span(0, 5)], 0, 0)
+
+
+def test_window_uses_head_when_match_is_early():
+    text = "spam " * 100  # 500 chars
+    w = window(text, [Span(0, 4)], 60)
+    assert w.text == text[:60]
+    assert w.spans == [Span(0, 4)]
+    assert (w.cut_before, w.cut_after) == (0, 440)
+
+
+def test_window_centres_on_late_match_and_rebases_spans():
+    text = "a" * 1000 + "казино" + "b" * 1000
+    w = window(text, [Span(1000, 1006)], 300, context=100)
+    assert w.cut_before == 900
+    assert w.text.startswith("a" * 100 + "казино")
+    assert w.spans == [Span(100, 106)]
+    assert w.text[w.spans[0].start : w.spans[0].end] == "казино"
+    assert utf16_len(w.text) <= 300
+    assert w.cut_after == len(text) - 900 - len(w.text)
+
+
+def test_window_with_emoji_respects_utf16_limit():
+    text = "👍" * 3000
+    w = window(text, [], 4000)
+    assert utf16_len(w.text) <= 4000
+    assert len(w.text) == 2000
