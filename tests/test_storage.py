@@ -48,6 +48,8 @@ async def seeded(store):
     await store.ensure_user(STRANGER)
     await store.upsert_chat(CHAT_A, access_hash=111)
     await store.upsert_chat(CHAT_B)
+    await store.set_chat_shared(CHAT_A.id, True)
+    await store.set_chat_shared(CHAT_B.id, True)
     return store
 
 
@@ -168,15 +170,23 @@ class TestChatsAndSubscriptions:
     async def test_available_and_shared_report_transitions(self, seeded):
         assert await seeded.set_chat_available(CHAT_A.id, False) is True
         assert await seeded.set_chat_available(CHAT_A.id, False) is False
-        assert await seeded.set_chat_shared(CHAT_A.id, True) is True
-        assert await seeded.set_chat_shared(CHAT_A.id, True) is False
-        assert [c.id for c in await seeded.list_chats(shared_only=True)] == [CHAT_A.id]
+        assert await seeded.set_chat_shared(CHAT_A.id, False) is True
+        assert await seeded.set_chat_shared(CHAT_A.id, False) is False
+        assert [c.id for c in await seeded.list_chats(shared_only=True)] == [CHAT_B.id]
 
     async def test_subscribe_rejects_unknown_and_non_group_chats(self, seeded):
         assert await seeded.subscribe(MOD, -9999) is False  # unknown chat
         assert await seeded.subscribe(MOD, 12345) is False  # a positive id is a private chat
         assert await seeded.subscribe(MOD, CHAT_A.id) is True
         assert await seeded.subscribe(MOD, CHAT_A.id) is False  # idempotent
+
+    async def test_moderators_can_only_subscribe_to_shared_chats(self, seeded):
+        """The sharing check lives in the INSERT, so unsharing cannot be raced."""
+        await seeded.set_chat_shared(CHAT_A.id, False)
+        assert await seeded.subscribe(MOD, CHAT_A.id) is False
+        assert await seeded.subscribe(OWNER, CHAT_A.id) is True  # the owner sees everything
+        await seeded.set_chat_shared(CHAT_A.id, True)
+        assert await seeded.subscribe(MOD, CHAT_A.id) is True
 
     async def test_monitored_set_excludes_inactive_paused_and_unavailable(self, seeded):
         await seeded.subscribe(OWNER, CHAT_A.id)
@@ -211,11 +221,13 @@ class TestChatsAndSubscriptions:
 
     async def test_subscription_requires_existing_user(self, store):
         await store.upsert_chat(CHAT_A)
+        await store.set_chat_shared(CHAT_A.id, True)
         with pytest.raises(Exception, match="FOREIGN KEY"):
             await store.subscribe(404, CHAT_A.id)
 
     async def test_migrate_basic_group_to_supergroup(self, seeded):
         await seeded.upsert_chat(BASIC)
+        await seeded.set_chat_shared(BASIC.id, True)
         await seeded.subscribe(MOD, BASIC.id)
         rule = await seeded.add_rule(MOD, BASIC.id, RuleKind.INCLUDE, "казино")
         await seeded.add_ignored(MOD, BASIC.id, 500)
@@ -315,6 +327,29 @@ class TestIgnoredSenders:
         assert [i.sender_id for i in await seeded.list_ignored(OWNER, CHAT_A.id)] == [500]
         assert await seeded.remove_ignored(OWNER, CHAT_A.id, 500) is True
         assert await seeded.remove_ignored(OWNER, CHAT_A.id, 500) is False
+
+
+class TestProbeCandidates:
+    async def test_only_unavailable_subscribed_and_stale_chats(self, seeded, clock):
+        await seeded.subscribe(OWNER, CHAT_A.id)
+        await seeded.subscribe(OWNER, CHAT_B.id)
+        await seeded.set_chat_available(CHAT_A.id, False)
+        assert await seeded.probe_candidates(dt.timedelta(hours=6)) == []  # too fresh
+        clock.tick(7 * 3600)
+        assert [c.id for c in await seeded.probe_candidates(dt.timedelta(hours=6))] == [CHAT_A.id]
+        # a chat nobody subscribes to is not worth probing
+        await seeded.unsubscribe(OWNER, CHAT_A.id)
+        assert await seeded.probe_candidates(dt.timedelta(hours=6)) == []
+
+
+class TestSubscribedSince:
+    async def test_records_when_each_user_started(self, seeded, clock):
+        await seeded.subscribe(OWNER, CHAT_A.id)
+        clock.tick(3600)
+        await seeded.subscribe(MOD, CHAT_A.id)
+        since = await seeded.subscribed_since(CHAT_A.id)
+        assert since[OWNER] == T0
+        assert since[MOD] == T0 + dt.timedelta(hours=1)
 
 
 class TestCursors:

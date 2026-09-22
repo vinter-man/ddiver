@@ -129,14 +129,22 @@ class Delivery:
 
     # -- lifecycle -------------------------------------------------------------------------
 
-    async def replay_pending(self) -> int:
-        """Re-queue outbox rows left behind by a crash or a shutdown. Runs before catch-up."""
-        items = await self._storage.pending_deliveries()
+    async def replay_pending(self, *, quiet: bool = False) -> int:
+        """Re-queue outbox rows nothing is holding any more.
+
+        Runs at startup (after a crash or a shutdown) and periodically, so a row that could not
+        be queued earlier — the queue was full, the user was paused — is not stranded until the
+        next restart. Rows already in memory are skipped, so a rescan cannot duplicate them.
+        """
+        queued = {key for state in self._queues.values() for key in state.enqueued_at}
+        items = [i for i in await self._storage.pending_deliveries() if i.key not in queued]
+        requeued = 0
         for item in items:
-            await self.enqueue(item)
-        if items:
-            log.info("replayed %d pending notifications from the outbox", len(items))
-        return len(items)
+            if await self.enqueue(item):
+                requeued += 1
+        if requeued and not quiet:
+            log.info("replayed %d pending notifications from the outbox", requeued)
+        return requeued
 
     async def enqueue(self, item: OutboxItem) -> bool:
         """Hand an outbox row to the user's worker. Never raises, never blocks the caller."""
@@ -253,7 +261,9 @@ class Delivery:
         lang = user.lang or DEFAULT_LANG
         tz = user.tz or "UTC"
 
-        batch = self._collect_digest(state, item, user.digest_threshold or self._default_threshold)
+        # 0 means "never digest"; the column default already carries the configured default,
+        # so `or self._default_threshold` would silently override the user's explicit choice.
+        batch = self._collect_digest(state, item, user.digest_threshold)
         if batch is not None:
             entries = [DigestEntry(Payload.from_json(i.payload), i.key) for i in batch]
             overflow, state.overflow = state.overflow, 0
@@ -264,6 +274,14 @@ class Delivery:
             if sent:
                 await self._storage.mark_digested([i.key for i in batch])
                 self.metrics.digested += len(batch)
+            else:
+                # _send only marked batch[0]; the rest were taken off the queue, so record them
+                # too instead of leaving rows nothing will ever pick up again.
+                for extra in batch[1:]:
+                    await self._storage.set_delivery_status(
+                        *extra.key, DeliveryStatus.FAILED, error="digest_failed"
+                    )
+                    self.metrics.failed += 1
             return
 
         payload = Payload.from_json(item.payload)

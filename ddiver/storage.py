@@ -241,14 +241,22 @@ class Storage:
             Path(self._path).parent.mkdir(parents=True, exist_ok=True)
         db = await aiosqlite.connect(self._path, isolation_level=None, uri=True)
         db.row_factory = aiosqlite.Row
-        await db.execute("PRAGMA journal_mode=WAL")
-        await db.execute("PRAGMA synchronous=NORMAL")
-        await db.execute("PRAGMA foreign_keys=ON")
-        await db.execute("PRAGMA busy_timeout=5000")
         self._db = db
         try:
+            # Even the first PRAGMA can fail on a corrupt file, and aiosqlite's worker thread
+            # is non-daemon: leaking the connection would hang the interpreter on exit.
+            await db.execute("PRAGMA journal_mode=WAL")
+            await db.execute("PRAGMA synchronous=NORMAL")
+            await db.execute("PRAGMA foreign_keys=ON")
+            await db.execute("PRAGMA busy_timeout=5000")
             await self._quick_check()
             await self._migrate()
+        except sqlite3.DatabaseError as exc:
+            self._db = None
+            await db.close()
+            if isinstance(exc, sqlite3.OperationalError):
+                raise
+            raise DatabaseCorruptError(str(exc)) from exc
         except Exception:
             self._db = None
             await db.close()
@@ -439,6 +447,16 @@ class Storage:
         row = await cur.fetchone()
         return self._chat(row) if row else None
 
+    async def probe_candidates(self, older_than: dt.timedelta) -> list[ChatRow]:
+        """Unavailable chats that somebody still subscribes to and that are due for a re-probe."""
+        cutoff = _iso(self._clock() - older_than)
+        cur = await self.db.execute(
+            """SELECT DISTINCT c.* FROM chats c JOIN subscriptions s ON s.chat_id=c.id
+               WHERE c.available=0 AND c.updated_at<? ORDER BY c.id""",
+            (cutoff,),
+        )
+        return [self._chat(r) for r in await cur.fetchall()]
+
     async def list_chats(self, *, shared_only: bool = False) -> list[ChatRow]:
         sql = "SELECT * FROM chats"
         if shared_only:
@@ -484,13 +502,17 @@ class Storage:
     # -- subscriptions ---------------------------------------------------------------------
 
     async def subscribe(self, user_id: int, chat_id: int) -> bool:
-        """Subscribe, but only to a known chat of a group-like kind (callback data is untrusted)."""
-        chat = await self.get_chat(chat_id)
-        if chat is None or chat.ref.kind not in CHAT_KINDS:
-            return False
+        """Subscribe to a chat the user is actually allowed to see.
+
+        The authorisation lives in the INSERT itself, not in a separate read: callback data is
+        untrusted, and a check-then-insert would let a moderator win a race against the owner
+        unsharing the chat.
+        """
         cur = await self.db.execute(
-            "INSERT OR IGNORE INTO subscriptions (user_id, chat_id, created_at) VALUES (?,?,?)",
-            (user_id, chat_id, self._now()),
+            """INSERT OR IGNORE INTO subscriptions (user_id, chat_id, created_at)
+               SELECT ?, id, ? FROM chats
+               WHERE id=? AND kind IN ('group','supergroup','channel') AND (shared=1 OR ?=1)""",
+            (user_id, self._now(), chat_id, int(self.is_owner(user_id))),
         )
         return cur.rowcount == 1
 
@@ -522,6 +544,18 @@ class Storage:
             "SELECT 1 FROM subscriptions WHERE user_id=? AND chat_id=?", (user_id, chat_id)
         )
         return await cur.fetchone() is not None
+
+    async def subscribed_since(self, chat_id: int) -> dict[int, dt.datetime]:
+        """When each active subscriber started watching this chat."""
+        cur = await self.db.execute(
+            "SELECT user_id, created_at FROM subscriptions WHERE chat_id=?", (chat_id,)
+        )
+        out: dict[int, dt.datetime] = {}
+        for row in await cur.fetchall():
+            moment = _parse(row["created_at"])
+            if moment is not None:
+                out[int(row["user_id"])] = moment
+        return out
 
     async def list_subscriptions(self, user_id: int) -> list[ChatRow]:
         cur = await self.db.execute(

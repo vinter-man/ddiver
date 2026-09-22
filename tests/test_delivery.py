@@ -349,3 +349,73 @@ class TestTimeRendering:
         clock.tick(120)
         await settle(delivery)
         assert "5 мин назад" in bot.sent[0].text
+
+
+class TestRecoveryFromStrandedRows:
+    async def test_overflowed_rows_are_recorded_not_stranded(
+        self, delivery, bot, store, monkeypatch
+    ):
+        monkeypatch.setattr("ddiver.delivery.QUEUE_MAXSIZE", 2)
+        bot.hold()
+        items = [await claim(store, MOD, i) for i in range(1, 8)]
+        for item in items:
+            await delivery.enqueue(item)
+        bot.release()
+        await settle(delivery)
+        statuses = {(await store.get_delivery(*i.key)).status for i in items}
+        assert DeliveryStatus.PENDING not in statuses  # nothing left for nobody to pick up
+        failed = [
+            i for i in items if (await store.get_delivery(*i.key)).status is DeliveryStatus.FAILED
+        ]
+        assert len(failed) == delivery.metrics.dropped_overflow
+
+    async def test_failed_digest_marks_every_item(self, delivery, bot, store):
+        await store.update_user(MOD, digest_threshold=3)
+        bot.hold()
+        items = [await claim(store, MOD, i) for i in range(1, 7)]
+        for item in items:
+            await delivery.enqueue(item)
+        bot.fail_next(None, errors.MessageTooLongError(request=None))
+        bot.release()
+        await settle(delivery)
+        statuses = [(await store.get_delivery(*i.key)).status for i in items]
+        assert DeliveryStatus.PENDING not in statuses
+        assert statuses.count(DeliveryStatus.FAILED) == 5  # the whole digest batch
+        assert delivery.metrics.failed == 5
+
+    async def test_blocked_user_leaves_no_worker_and_rows_come_back_later(
+        self, delivery, bot, store
+    ):
+        bot.fail_next(errors.UserIsBlockedError(request=None))
+        first = await claim(store, MOD, 1)
+        second = await claim(store, MOD, 2)
+        await delivery.enqueue(first)
+        await delivery.enqueue(second)
+        await settle(delivery)
+        assert delivery.queue_length(MOD) == 0
+        workers = [t for t in asyncio.all_tasks() if t.get_name() == f"delivery-{MOD}"]
+        assert all(t.done() for t in workers)  # no orphan worker spinning on a dead queue
+        assert (await store.get_delivery(*second.key)).status is DeliveryStatus.PENDING
+        # once the user unblocks the bot, a rescan picks the row up again
+        await store.resume_delivery(MOD)
+        assert await delivery.replay_pending() == 1
+        await settle(delivery)
+        assert (await store.get_delivery(*second.key)).status is DeliveryStatus.SENT
+
+    async def test_rescan_does_not_duplicate_queued_rows(self, delivery, bot, store):
+        bot.hold()
+        item = await claim(store, MOD, 1)
+        await delivery.enqueue(item)
+        assert await delivery.replay_pending() == 0  # already in memory
+        bot.release()
+        await settle(delivery)
+        assert len(bot.sent) == 1
+
+    async def test_digest_threshold_zero_is_honoured_under_backlog(self, delivery, bot, store):
+        await store.update_user(MOD, digest_threshold=0)
+        bot.hold()
+        for i in range(1, 30):
+            await delivery.enqueue(await claim(store, MOD, i))
+        bot.release()
+        await settle(delivery)
+        assert len(bot.sent) == 29  # every match sent on its own, as the user asked
