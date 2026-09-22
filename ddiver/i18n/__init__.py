@@ -13,7 +13,7 @@ LANG_NAMES: dict[str, str] = {"uk": "Українська", "ru": "Русски�
 _CATALOGS: dict[str, dict[str, str]] = {"en": en.STRINGS, "ru": ru.STRINGS, "uk": uk.STRINGS}
 
 
-def t(lang: str, key: str, **kw: Any) -> str:
+def t(lang: str, key: str, /, **kw: Any) -> str:
     template = _CATALOGS.get(lang, {}).get(key) or _CATALOGS[DEFAULT_LANG].get(key) or key
     if kw:
         try:
