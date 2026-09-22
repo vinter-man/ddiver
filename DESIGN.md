@@ -77,10 +77,16 @@ is unit-testable with injected clients, clock, sleep and rng:
   `AuthKeyNotFound` (transport 404, not an `RPCError`), `UnauthorizedError` (401: session
   revoked/expired, auth key unregistered, user deactivated), `AuthKeyError` (406:
   auth key duplicated — two processes on one session), `PhoneNumberBannedError`.
-- On fatal auth the process does **not** exit into a restart loop. It enters **degraded mode**:
-  the listener stops, the bot client and workers keep running, `/status` says "listener needs
-  re-login", the owner is notified once and then every 6 h, and `ddiver health` reports degraded
-  with exit 0 so Docker does not restart it.
+- On fatal auth the process does **not** exit into a restart loop. It enters **degraded mode**
+  and *stays in it*: the listener stops, the bot client and workers keep running, `/status` says
+  "listener needs re-login", the owner is notified once and then every 6 h, and `ddiver health`
+  reports degraded with exit 0 so Docker does not restart it. Returning from `run()` would not
+  be enough — `restart: unless-stopped` ignores the exit code.
+- A run that lasted at least a minute resets the backoff; a listener that fails immediately five
+  times in a row is reported as unhealthy (`/status` and the heartbeat) while retrying.
+- Every retry reconnects first: `run_until_disconnected()` always disconnects in its `finally`,
+  so re-entering it on the same client would raise "Cannot send requests while disconnected"
+  forever.
 - Single instance: `fcntl.flock` on `DATA_DIR/ddiver.lock`; `login` refuses while the lock is
   held or the heartbeat is fresh (two processes on one session file get the key invalidated).
 - Boot-rate guard: ≥3 boots in 10 minutes delays catch-up by 5 minutes (crash loops otherwise
@@ -171,9 +177,10 @@ without re-approval).
   match empty text, does not time out on the probe inputs. The real guard is the runtime
   `timeout` (default 20 ms per search) plus auto-disable after 3 timeouts keyed by `rules.id`
   (shared across chats, because a global rule is compiled into every chat's set).
-- Matching runs on the event loop for literal/word rules and in a single worker thread for `re:`
-  rules once a chat has more than 20 of them (`regex` releases the GIL — verified: 8.4 M loop
-  iterations during a 1 s match in a thread).
+- Matching is a pure function of (rule set, text, sender). Above 20 rules for a chat the whole
+  evaluation moves to a worker thread (`regex` releases the GIL — verified: 8.4 M loop iterations
+  during a 1 s match in a thread), and a 500 ms per-message budget stops a pathological rule set
+  from holding either the loop or the thread.
 
 ## Notification
 
@@ -229,8 +236,13 @@ within a 3500-character budget. Digested rows are marked in one `executemany`.
   is wrapped so no exception can end the loop, and workers are restarted by a done-callback.
 - Dedupe and durability: `INSERT OR IGNORE` into `outbox` with `status='pending'` before the
   cursor advances; status becomes `sent`/`digested`/`failed` after the RPC. On startup the
-  pending rows are re-queued before catch-up runs. Semantics are at-least-once: a crash between
-  the send and the status update re-sends. Rows are pruned after 7 days in batches.
+  pending rows are re-queued before catch-up runs, and a rescan every 5 minutes picks up rows
+  that could not be queued earlier (a full queue, a paused user) — without it they would wait
+  for the next restart. Semantics are at-least-once: a crash between the send and the status
+  update re-sends. Rows are pruned after 7 days in batches.
+- Nothing is ever left in a state nobody owns: an overflowed row is marked `failed` immediately,
+  a failed digest marks its whole batch, and dropping a user's queue leaves the rows `pending`
+  for the rescan. `drop_user` never cancels the worker it was called from.
 
 ## Listener and catch-up
 
@@ -243,7 +255,9 @@ within a 3500-character budget. Digested rows are marked in one `executemany`.
 - Cursor tracker: in-memory max id per chat, flushed every 5 s and on shutdown, never moving
   backwards (`WHERE excluded.last_msg_id > chat_cursor.last_msg_id` — verified). A chat's flush
   is withheld until its catch-up finished, so a crash mid-catch-up cannot skip the gap.
-- Catch-up (startup, after every reconnect, and on demand) per chat:
+- Catch-up holds back the cursor of *every* chat in the round, not only the one being replayed,
+  so a live message elsewhere cannot flush a cursor past a gap that has not been examined yet.
+  Per chat:
   `iter_messages(peer, min_id=cursor, limit=CATCHUP_MAX_PER_CHAT)` — **newest first**, the
   iterator stops natively at `id <= min_id`; break when `date < now - CATCHUP_HOURS`; buffer and
   then process in chronological order with `catchup=True`. If the cap was hit, the first
@@ -251,23 +265,31 @@ within a 3500-character budget. Digested rows are marked in one `executemany`.
   per-chat `try/except` for `FloodWaitError` (requeue after `e.seconds`), `ChannelPrivateError`,
   `ChatForbiddenError` and `ValueError` (missing entity); global cap per round.
   `InputPeerChannel(id, access_hash)` is built from the `chats` row, so a fresh session does not
-  break the backfill. Chats with no cursor start "now" (no backfill on first subscribe).
+  break the backfill; a `ValueError` from local entity resolution is treated as transient, not as
+  lost access. Chats with no cursor start "now" (no backfill on first subscribe), and a
+  subscriber never receives a message older than their own subscription.
 - Reconnects: `DdiverClient` overrides `_handle_auto_reconnect` to call `super()` and then set a
   reconcile event. This is necessary because Telethon requests `getChannelDifference` with
   limit 100 for user accounts and, on `ChannelDifferenceTooLong`, jumps `pts` and returns **no**
   updates — at 100k msgs/day a busy chat loses everything beyond 100 messages per gap with no
   signal (verified in `_updates/messagebox.py`). A periodic reconciliation (every 15 min)
   compares each chat's head id with the cursor and backfills the difference.
-- Access loss is detected live: `events.Raw(UpdateChannel)` (primary) and
-  `events.ChatAction` for self kick/leave → `available=0`, subscribers notified once on the
-  1→0 transition; any later message or re-join flips it back and notifies again. Catch-up skips
-  unavailable chats and re-probes them every 6 h.
-- Basic group → supergroup migration (`MessageActionChatMigrateTo`): subscriptions, chat rules,
-  ignores are moved to the new marked id, the old chat is marked unavailable, subscribers told.
+- Access loss is detected live: `events.Raw(UpdateChannel)` (primary) and `events.ChatAction`
+  for self kick/leave (matched against *every* affected user id, not just the first) →
+  `available=0`, subscribers notified once on the 1→0 transition. A background task re-probes
+  unavailable chats every 6 h and flips them back when they can be read again, so one transient
+  error never disables a chat permanently.
+- Basic group → supergroup migration (`MessageActionChatMigrateTo`) arrives as a *service*
+  message, which `events.NewMessage` never fires for, so it is handled through a raw
+  `UpdateNewMessage`/`UpdateNewChannelMessage` handler: subscriptions, chat rules and ignores
+  are moved to the new marked id, the old chat is marked unavailable, subscribers told.
 
 ## Bot UI
 
-Authorisation: one catch-all `NewMessage` handler and one catch-all `CallbackQuery` handler,
+Authorisation: every chat-scoped callback goes through one `accessible_chat` gate — the owner
+reaches any known chat, a moderator only a chat that is shared *and* that they subscribe to, and
+everything else gets the same "not found" as a chat id that does not exist. One catch-all
+`NewMessage` handler and one catch-all `CallbackQuery` handler,
 both limited to private chats, both running `authorize(event.sender_id)` first. Active =
 owner or `role='allowed'`. A stranger gets one reply and the owner one card (`notified_owner_at`
 throttles to once per 24 h); denied users get silence; unauthorised callbacks are only answered.
@@ -279,7 +301,8 @@ a DB substring search — they never trigger `get_entity`/`ResolveUsername` on t
 Unsharing deletes their subscriptions for that chat and tells them.
 
 Flows: `/start` → language (seeded from `User.lang_code`) if `lang IS NULL` → timezone if
-`tz IS NULL` (quick buttons, then free text resolved with suggestions and a
+`tz IS NULL` (quick buttons, and the prompt arms the pending-input state so the free text it
+invites is actually accepted; suggestions and a
 "Now in Europe/Kyiv: 14:03 (UTC+03:00) — correct?" confirmation) → main menu
 (📡 Chats · 🔑 Rules · 🚫 Ignored · ⚙️ Settings · 📊 Status · ❓ Help, plus 👥 Users and
 🗂 Shared chats for the owner). Pickers paginate (8 chats, 10 rules per page). Toggles encode
@@ -306,10 +329,11 @@ TTL, is cleared only by `/start|/help|/test|/cancel|/status`, and is lost on res
 ## Health, logging, ops
 
 - Heartbeat every 30 s writes JSON (`ts`, `ping_ok_at`, `last_update_at`, `transport`,
-  `reconnecting`, `queue_len`) via a temp file + `os.replace`. `is_connected()` stays true during
-  Telethon's infinite reconnect loop (verified), so the real signals are the transport flag and a
-  60 s `GetStateRequest` ping under `wait_for(15)`. `ddiver health` fails if the file is older
-  than 90 s or the last successful ping is older than 3 minutes. If no update arrives for 10
+  `reconnecting`, `degraded`, `queue`) via a temp file + `replace`. `is_connected()` stays true
+  during Telethon's infinite reconnect loop (verified), so the real signals are the transport
+  flag and a 60 s `GetStateRequest` ping under `wait_for(15)`. `ddiver health` fails when the
+  file is stale, the transport is down or the last successful ping is older than 3 minutes — and
+  reports healthy in degraded mode, because restarting cannot fix a session that needs a login. If no update arrives for 10
   minutes the listener calls `catch_up()` once and logs; at 30 minutes it is unhealthy.
 - Logging: no per-message lines. A 60 s summary (`seen/matched/queued/delivered/floodwait_s`),
   per-match INFO, handler exceptions rate-limited to 5 per minute per exception class.
