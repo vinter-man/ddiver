@@ -1,0 +1,25 @@
+# secrets & runtime state
+.env
+data/
+*.session
+*.session-journal
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+coverage.xml
+htmlcov/
+
+# editors / os
+.idea/
+.vscode/
+.DS_Store

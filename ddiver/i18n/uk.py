@@ -1,0 +1,25 @@
+"""Ukrainian strings."""
+
+STRINGS: dict[str, str] = {
+    "rule.err.empty": "Порожній шаблон.",
+    "rule.err.too_long": "Шаблон довший за {limit} символів.",
+    "rule.err.invalid_regex": "Некоректний регулярний вираз: {detail}",
+    "rule.err.matches_empty": "Цей регулярний вираз збігається з порожнім текстом, тобто спрацює на кожне повідомлення.",
+    "rule.err.too_slow": "Цей регулярний вираз надто повільний (катастрофічний перебір): {pattern}",
+    "notif.chat": "📡 Чат",
+    "notif.sender": "👤 Відправник",
+    "notif.link": "🔗 Повідомлення",
+    "notif.time": "🕒",
+    "notif.rule": "🔑 Правило",
+    "notif.rule_scope.chat": "правило чату",
+    "notif.rule_scope.global": "правило для всіх чатів",
+    "notif.missed": "⏪ пропущено, поки бот був офлайн",
+    "notif.sender.deleted": "Видалений акаунт",
+    "notif.sender.unknown": "Невідомий відправник",
+    "notif.sender.anonymous": "Анонімний адмін",
+    "notif.truncated": "… [+{n} символів]",
+    "notif.btn.ignore": "🚫 Ігнорувати відправника",
+    "notif.btn.exclude": "➖ Додати виняток",
+    "notif.btn.profile": "👤 Профіль",
+    "notif.forwarded": "↪️ переслано",
+}
