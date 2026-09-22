@@ -51,7 +51,8 @@ ignore = [
   "PLR2004",  # magic values in comparisons are fine in small modules
   "PLR0913",  # many-argument functions are natural for wiring code
   "TRY003", "EM101", "EM102",  # exception messages inline
-  "FBT001", "FBT002",  # boolean positional args in small internal APIs
+  "FBT001", "FBT002", "FBT003",  # boolean positional args in small internal APIs
+  "TC001", "TC002", "TC003",  # TYPE_CHECKING blocks add noise for little gain here
   "ISC001",  # conflicts with the formatter
   "S311",  # random used for jitter, not crypto
   "RUF001", "RUF002", "RUF003",  # Cyrillic text is the domain of this project
