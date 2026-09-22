@@ -25,3 +25,16 @@ STRINGS: dict[str, str] = {
     "notif.btn.profile": "👤 Profile",
     "notif.forwarded": "↪️ forwarded",
 }
+
+STRINGS.update(
+    {
+        # digest
+        "digest.title": "📦 {n} matches while you were busy",
+        "digest.item": "{rule} · {sender} · {snippet}",
+        "digest.more_chats": "… and {n} more chats ({m} matches)",
+        "digest.more_items": "… and {n} more",
+        "digest.overflow": "⚠️ {n} matches were dropped because the queue was full",
+        # catch-up
+        "notif.catchup_capped": "⚠️ {n} older messages were not checked",
+    }
+)

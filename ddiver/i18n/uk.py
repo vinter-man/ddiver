@@ -23,3 +23,14 @@ STRINGS: dict[str, str] = {
     "notif.btn.profile": "👤 Профіль",
     "notif.forwarded": "↪️ переслано",
 }
+
+STRINGS.update(
+    {
+        "digest.title": "📦 {n} збігів, поки ви були зайняті",
+        "digest.item": "{rule} · {sender} · {snippet}",
+        "digest.more_chats": "… і ще {n} чатів ({m} збігів)",
+        "digest.more_items": "… і ще {n}",
+        "digest.overflow": "⚠️ {n} збігів відкинуто: черга була переповнена",
+        "notif.catchup_capped": "⚠️ {n} старіших повідомлень не перевірено",
+    }
+)
