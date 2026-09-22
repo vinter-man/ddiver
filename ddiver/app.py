@@ -89,9 +89,30 @@ class Supervisor:
     def request_stop(self) -> None:
         self._stop.set()
 
+    async def _sleep_or_stop(self, seconds: float) -> None:
+        """Sleep, but wake immediately when a shutdown is requested.
+
+        A plain sleep here means SIGTERM is ignored for up to five minutes, and the container
+        is killed before the cursor flush, the queue drain and the database close.
+        """
+        waiter = asyncio.ensure_future(self._stop.wait())
+        sleeper = asyncio.ensure_future(self._sleep(seconds))
+        try:
+            await asyncio.wait({waiter, sleeper}, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            for task in (waiter, sleeper):
+                if not task.done():
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
+                        await task
+
     @property
     def stopped(self) -> bool:
         return self._stop.is_set()
+
+    @property
+    def stop_event(self) -> asyncio.Event:
+        return self._stop
 
     async def run(self) -> int:
         self.state.started_at = self._clock()
@@ -152,7 +173,7 @@ class Supervisor:
         seconds, re-notify the owner and re-run catch-up — with a session that cannot work.
         """
         while not self._stop.is_set():
-            await self._sleep(DEGRADED_TICK)
+            await self._sleep_or_stop(DEGRADED_TICK)
             await self.notify_owner_if_due()
         return EXIT_OK
 
@@ -162,7 +183,7 @@ class Supervisor:
         delay += self._rng.uniform(0, delay / 4)
         self.state.backoffs.append(delay)
         log.info("reconnecting in %.0fs", delay)
-        await self._sleep(delay)
+        await self._sleep_or_stop(delay)
 
     async def _enter_degraded(self, reason: str) -> None:
         self.state.degraded = True
@@ -184,12 +205,28 @@ class Supervisor:
         return True
 
 
-async def boot_delay(boots_recently: int, sleep: Sleeper = asyncio.sleep) -> float:
+async def boot_delay(
+    boots_recently: int,
+    sleep: Sleeper = asyncio.sleep,
+    stop: asyncio.Event | None = None,
+) -> float:
     """Delay catch-up when the process is crash-looping, so it stops hammering GetHistory."""
     if boots_recently < BOOT_STORM_BOOTS:
         return 0.0
     log.warning("%d boots in the last 10 minutes; delaying catch-up", boots_recently)
-    await sleep(BOOT_STORM_DELAY)
+    if stop is None:
+        await sleep(BOOT_STORM_DELAY)
+        return BOOT_STORM_DELAY
+    waiter = asyncio.ensure_future(stop.wait())
+    sleeper = asyncio.ensure_future(sleep(BOOT_STORM_DELAY))
+    try:
+        await asyncio.wait({waiter, sleeper}, return_when=asyncio.FIRST_COMPLETED)
+    finally:
+        for task in (waiter, sleeper):
+            if not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
     return BOOT_STORM_DELAY
 
 

@@ -115,6 +115,7 @@ class Delivery:
         buttons: ButtonFactory | None = None,
         default_threshold: int = 20,
         senders: SenderCache | None = None,
+        on_user_state_changed: Callable[[], Awaitable[Any]] | None = None,
     ) -> None:
         self._bot = bot
         self._storage = storage
@@ -124,6 +125,7 @@ class Delivery:
         self._buttons = buttons
         self._default_threshold = default_threshold
         self._senders = senders
+        self._on_user_state_changed = on_user_state_changed
         self._queues: dict[int, _UserQueue] = {}
         self._global_bucket = TokenBucket(GLOBAL_RATE, monotonic=self._monotonic, sleep=sleep)
         self._user_buckets: dict[int, TokenBucket] = {}
@@ -154,12 +156,10 @@ class Delivery:
         """Hand an outbox row to the user's worker. Never raises, never blocks the caller."""
         user = await self._storage.get_user(item.user_id)
         if user is None or not user.active or user.paused:
+            # Leave the row pending: the user may unblock the bot, and then the rescan should
+            # still find it. `pending_deliveries` skips paused users, so these rows cannot fill
+            # the replay window, and the prune removes them once they are too old to matter.
             self.metrics.dropped_inactive += 1
-            # `pending` has to mean "a queue or a rescan will take this". Leaving these rows
-            # pending would fill the replay window and hide other users' recoverable rows.
-            await self._storage.set_delivery_status(
-                *item.key, DeliveryStatus.FAILED, error="inactive"
-            )
             return False
         state = self._queue_for(item.user_id)
         try:
@@ -322,7 +322,7 @@ class Delivery:
                     state.enqueued_at.pop(extra.key, None)
             return
 
-        payload = await self._with_sender_name(Payload.from_json(item.payload))
+        payload = await self._with_sender_name(Payload.from_json(item.payload), item.key)
         rendered = render_notification(payload, lang=lang, tz=tz, now=self._clock())
         buttons = self._buttons(item, lang) if self._buttons else None
         if await self._send(user_id, rendered, buttons=buttons, item=item):
@@ -342,7 +342,7 @@ class Delivery:
                 )
                 self.metrics.failed += 1
 
-    async def _with_sender_name(self, payload: Payload) -> Payload:
+    async def _with_sender_name(self, payload: Payload, key: tuple[int, int, int]) -> Payload:
         """Fill in a missing sender name.
 
         Basic groups deliver updates with no entities, so the listener — which is forbidden
@@ -354,13 +354,17 @@ class Delivery:
         info = await self._senders.resolve(payload.sender_id, payload.chat_id)
         if info is None or not info.display_name:
             return payload
-        return replace(
+        enriched = replace(
             payload,
             sender_name=info.display_name,
             sender_username=info.username or payload.sender_username,
             sender_is_deleted=info.is_deleted,
             sender_is_channel=info.is_channel,
         )
+        # Keep it: a retry then needs no second lookup, and the stored row shows what was sent.
+        with contextlib.suppress(Exception):
+            await self._storage.update_payload(key, enriched.to_json())
+        return enriched
 
     def _collect_digest(
         self, state: _UserQueue, item: OutboxItem, threshold: int
@@ -418,6 +422,9 @@ class Delivery:
             except PAUSE_ERRORS as exc:
                 log.info("pausing delivery for %s: %s", user_id, type(exc).__name__)
                 await self._storage.pause_delivery(user_id, type(exc).__name__)
+                if self._on_user_state_changed is not None:
+                    # stop the listener from claiming rows nobody can receive
+                    await self._on_user_state_changed()
                 await self._storage.set_delivery_status(
                     *item.key, DeliveryStatus.FAILED, error=type(exc).__name__, attempts=attempts
                 )

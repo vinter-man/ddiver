@@ -7,6 +7,7 @@ payload can only ever touch the sender's own rows.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -20,6 +21,7 @@ from ddiver.rules import (
     MatchMode,
     RuleError,
     RuleKind,
+    RuleTimeout,
     compile_rule,
     parse_pattern,
     parse_rule_lines,
@@ -43,6 +45,7 @@ MAX_RULES_PER_USER = 500
 DIGEST_MIN = 2
 DIGEST_MAX = 500
 EXCLUDE_PREVIEW = 30
+MAX_REPLY_CHARS = 3800  # Telegram's limit is 4096; leave room for the header lines
 
 KIND_ICONS = {
     MatchMode.SUBSTRING: "bot.rules.kind.substring",
@@ -80,11 +83,11 @@ def build_router(
     regex_timeout: float = 0.2,
     clock: Any = utcnow,
 ) -> Router:
-    router = Router(storage, clock=clock)
-
     async def invalidate(chat_id: int | None = None) -> None:
         if matcher is not None:
             await matcher.invalidate(chat_id)
+
+    router = Router(storage, clock=clock, on_user_state_changed=invalidate)
 
     # -- menus -----------------------------------------------------------------------------
 
@@ -324,7 +327,13 @@ def build_router(
             lines.append(ctx.t("bot.users.allowed", user_id=user_id, chats=chats, rules=rules))
         lines.extend(ctx.t("bot.users.denied", user_id=uid) for uid in denied)
         action = Edit if edit else Reply
-        return [action("\n".join(lines), literal=True, buttons=menus.users_menu(pending, allowed))]
+        return [
+            action(
+                _clamp("\n".join(lines)),
+                literal=True,
+                buttons=menus.users_menu(pending, allowed, denied),
+            )
+        ]
 
     @router.callback("allow", owner_only=True)
     async def allow(ctx: Context) -> list[Action]:
@@ -427,7 +436,7 @@ def build_router(
         if len(lines) > MAX_LINES_PER_MESSAGE:
             return [Reply("bot.rules.too_many_lines", {"limit": MAX_LINES_PER_MESSAGE})]
         report = await _add_rules(ctx, chat_id, kind, lines)
-        return [Reply(report, literal=True), *await rules_view(ctx, chat_id, kind, 0)]
+        return [Reply(_clamp(report), literal=True), *await rules_view(ctx, chat_id, kind, 0)]
 
     async def _add_rules(ctx: Context, chat_id: int, kind: RuleKind, lines: Sequence[str]) -> str:
         added = duplicates = 0
@@ -442,7 +451,7 @@ def build_router(
                 problems.append(ctx.t("bot.rules.limit_user", limit=MAX_RULES_PER_USER))
                 break
             try:
-                compiled = compile_rule(line, timeout=regex_timeout)
+                compiled = await asyncio.to_thread(compile_rule, line, timeout=regex_timeout)
             except RuleError as exc:
                 problems.append(
                     ctx.t(
@@ -608,8 +617,13 @@ def build_router(
         return await _store_exclusion(ctx, chat_id, lines[0])
 
     async def _store_exclusion(ctx: Context, chat_id: int, pattern: str) -> list[Action]:
+        # UI-8: the exclusion flow has to respect the same caps as the rules screen
+        if await storage.count_rules(ctx.user_id, chat_id) >= MAX_RULES_PER_CHAT:
+            return [Reply("bot.rules.limit_chat", {"limit": MAX_RULES_PER_CHAT})]
+        if await storage.count_rules(ctx.user_id) >= MAX_RULES_PER_USER:
+            return [Reply("bot.rules.limit_user", {"limit": MAX_RULES_PER_USER})]
         try:
-            compiled = compile_rule(pattern, timeout=regex_timeout)
+            compiled = await asyncio.to_thread(compile_rule, pattern, timeout=regex_timeout)
         except RuleError as exc:
             return [Reply(t(ctx.lang, exc.key, **exc.params), literal=True)]
         try:
@@ -700,6 +714,9 @@ def build_router(
         return [Reply(await _test_text(ctx, ctx.incoming.text or ""), literal=True)]
 
     async def _test_text(ctx: Context, text: str) -> str:
+        return _clamp(await _test_lines(ctx, text))
+
+    async def _test_lines(ctx: Context, text: str) -> str:
         prepared = prepare_text(text)
         chats = await storage.list_subscriptions(ctx.user_id)
         lines: list[str] = []
@@ -708,7 +725,9 @@ def build_router(
         for chat in chats:
             rules = await storage.rules_for_chat(chat.id)
             mine = [r for r in rules if r.user_id == ctx.user_id]
-            verdict = _evaluate_preview(prepared, mine, ctx.lang, chat.ref.title)
+            verdict = await asyncio.to_thread(
+                _evaluate_preview, prepared, mine, ctx.lang, chat.ref.title, regex_timeout
+            )
             lines.append(verdict)
         return "\n".join(lines) if lines else ctx.t("bot.test.no_chats")
 
@@ -719,23 +738,35 @@ def build_router(
     return router
 
 
-def _evaluate_preview(prepared: Any, rules: Sequence[Any], lang: str, chat_title: str) -> str:
-    """Mirror the production order: exclusions first, then chat rules before global ones."""
+def _evaluate_preview(
+    prepared: Any, rules: Sequence[Any], lang: str, chat_title: str, timeout: float = 0.2
+) -> str:
+    """Mirror the production order: exclusions first, then chat rules before global ones.
+
+    Runs in a worker thread: it compiles and matches user-supplied patterns, which is exactly
+    the work that must never happen on the event loop.
+    """
     excludes = [r for r in rules if r.kind is RuleKind.EXCLUDE]
     includes = [r for r in rules if r.kind is RuleKind.INCLUDE]
     for rule in excludes:
         try:
-            compiled = compile_rule(rule.pattern, timeout=0.2)
-        except RuleError:
+            compiled = compile_rule(rule.pattern, timeout=timeout)
+        except (RuleError, RuleTimeout):
             continue
-        if compiled.search(prepared.shadow, 0.2):
-            return t(lang, "bot.test.excluded", chat=chat_title, rule=rule.pattern)
+        try:
+            if compiled.search(prepared.shadow, timeout):
+                return t(lang, "bot.test.excluded", chat=chat_title, rule=rule.pattern)
+        except RuleTimeout:
+            continue
     for rule in includes:
         try:
-            compiled = compile_rule(rule.pattern, timeout=0.2)
-        except RuleError:
+            compiled = compile_rule(rule.pattern, timeout=timeout)
+        except (RuleError, RuleTimeout):
             continue
-        span = compiled.search(prepared.shadow, 0.2)
+        try:
+            span = compiled.search(prepared.shadow, timeout)
+        except RuleTimeout:
+            continue
         if span:
             original = prepared.to_original(span)
             fragment = prepared.original[original.start : original.end]
@@ -777,6 +808,13 @@ def _conflicts(candidate: str, include_pattern: str) -> bool:
 
 def _shorten(pattern: str) -> str:
     return pattern if len(pattern) <= EXCLUDE_PREVIEW else pattern[: EXCLUDE_PREVIEW - 1] + "…"
+
+
+def _clamp(text: str, limit: int = MAX_REPLY_CHARS) -> str:
+    """Telegram rejects anything over 4096; a long rule list must not lose the whole reply."""
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1] + "…"
 
 
 def _int(raw: str) -> int:

@@ -824,11 +824,26 @@ class Storage:
         return self._outbox(row) if row else None
 
     async def pending_deliveries(self, limit: int = 5000) -> list[OutboxItem]:
+        """Rows a queue could take right now.
+
+        Rows belonging to a paused or inactive user are skipped rather than returned and
+        dropped: they would otherwise be the oldest rows in the table and fill the whole
+        window, hiding everybody else's recoverable notifications.
+        """
         cur = await self.db.execute(
-            "SELECT * FROM outbox WHERE status='pending' ORDER BY created_at, msg_id LIMIT ?",
+            """SELECT o.* FROM outbox o JOIN users u ON u.id=o.user_id
+               WHERE o.status='pending' AND u.delivery_paused_at IS NULL
+               ORDER BY o.created_at, o.msg_id LIMIT ?""",
             (limit,),
         )
-        return [self._outbox(r) for r in await cur.fetchall()]
+        rows = [self._outbox(r) for r in await cur.fetchall()]
+        active = await self.active_user_ids()
+        return [item for item in rows if item.user_id in active]
+
+    async def count_pending(self) -> int:
+        cur = await self.db.execute("SELECT COUNT(*) AS n FROM outbox WHERE status='pending'")
+        row = await cur.fetchone()
+        return int(row["n"]) if row else 0
 
     async def set_delivery_status(
         self,
@@ -846,6 +861,13 @@ class Storage:
                  attempts=COALESCE(?, attempts)
                WHERE user_id=? AND chat_id=? AND msg_id=?""",
             (status.value, error, sent_at, attempts, user_id, chat_id, msg_id),
+        )
+
+    async def update_payload(self, key: tuple[int, int, int], payload: dict[str, Any]) -> None:
+        """Rewrite a row's snapshot (the delivery worker filling in a resolved sender name)."""
+        await self.db.execute(
+            "UPDATE outbox SET payload=? WHERE user_id=? AND chat_id=? AND msg_id=?",
+            (json.dumps(payload, ensure_ascii=False), *key),
         )
 
     async def mark_digested(self, keys: list[tuple[int, int, int]]) -> None:
@@ -872,12 +894,18 @@ class Storage:
         return {str(r["status"]): int(r["n"]) for r in await cur.fetchall()}
 
     async def prune_outbox(self, older_than: dt.timedelta = dt.timedelta(days=7)) -> int:
+        """Drop old rows, including pending ones.
+
+        A pending row older than the retention window is not recoverable in any useful sense —
+        its notification would say "an hour ago" about last week — and keeping it forever is
+        how the table grows without bound when somebody blocks the bot and never comes back.
+        """
         cutoff = _iso(self._clock() - older_than)
         removed = 0
         while True:
             cur = await self.db.execute(
                 """DELETE FROM outbox WHERE rowid IN
-                     (SELECT rowid FROM outbox WHERE created_at<? AND status<>'pending' LIMIT ?)""",
+                     (SELECT rowid FROM outbox WHERE created_at<? LIMIT ?)""",
                 (cutoff, PRUNE_BATCH),
             )
             if cur.rowcount <= 0:

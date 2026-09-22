@@ -352,7 +352,7 @@ class TestTimeRendering:
 
 
 class TestRecoveryFromStrandedRows:
-    async def test_overflowed_rows_are_recorded_not_stranded(
+    async def test_overflowed_rows_are_deferred_not_destroyed(
         self, delivery, bot, store, monkeypatch
     ):
         monkeypatch.setattr("ddiver.delivery.QUEUE_MAXSIZE", 2)
@@ -530,9 +530,37 @@ class TestRescanDoesNotDuplicate:
         statuses = [(await store.get_delivery(*i.key)).status for i in items]
         assert statuses.count(DeliveryStatus.DIGESTED) == 6
 
-    async def test_rows_for_a_paused_user_leave_the_replay_window(self, delivery, bot, store):
+    async def test_rows_for_a_paused_user_stay_recoverable(self, delivery, bot, store):
+        """They must survive the pause: the user can unblock the bot at any time."""
         await store.pause_delivery(MOD, "blocked")
         item = await claim(store, MOD, 1)
         assert await delivery.enqueue(item) is False
-        assert (await store.get_delivery(*item.key)).status is DeliveryStatus.FAILED
-        assert await store.pending_deliveries() == []
+        assert (await store.get_delivery(*item.key)).status is DeliveryStatus.PENDING
+        assert await store.pending_deliveries() == []  # but out of everyone else's way
+        await store.resume_delivery(MOD)
+        assert await delivery.replay_pending() == 1
+        await settle(delivery)
+        assert (await store.get_delivery(*item.key)).status is DeliveryStatus.SENT
+
+    async def test_a_resolved_name_is_written_back(self, bot, store, clock, sleeps):
+        """So a retry needs no second lookup and the stored row shows what was sent."""
+        from ddiver.senders import SenderCache
+        from tests.fakes import make_user
+
+        async def resolver(peer_id, chat_id=None):
+            return make_user(peer_id, "Сергей", "serge", min_=False)
+
+        delivery = Delivery(
+            bot,
+            store,
+            clock=clock,
+            monotonic=sleeps.monotonic,
+            sleep=sleeps.sleep,
+            senders=SenderCache(resolver, clock=clock, min_interval=0),
+        )
+        item = await claim(store, MOD, 1, sender_name="", sender_username=None, sender_id=4242)
+        await delivery.enqueue(item)
+        await settle(delivery)
+        stored = await store.get_delivery(*item.key)
+        assert stored.payload["sender_name"] == "Сергей"
+        assert stored.payload["sender_username"] == "serge"

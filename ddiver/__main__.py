@@ -216,15 +216,21 @@ async def cmd_run(settings: Settings) -> int:
         with contextlib.suppress(NotImplementedError):
             loop.add_signal_handler(sig, app.request_stop)
     try:
-        await app.setup()
-    except DatabaseCorruptError as exc:
-        log.error("database is corrupt (%s); restore %s from a backup", exc, settings.db_path)
-        lock.release()
-        return EXIT_DB_CORRUPT
-    try:
+        try:
+            await app.setup()
+        except DatabaseCorruptError as exc:
+            log.error("database is corrupt (%s); restore %s from a backup", exc, settings.db_path)
+            return EXIT_DB_CORRUPT
+        except Exception:
+            # Anything from a read-only /data to a Telethon change: close up rather than leave
+            # aiosqlite's non-daemon thread running, which would hang the process for ever and
+            # keep the container "up" with no heartbeat.
+            log.exception("startup failed")
+            return EXIT_ERROR
         return await app.run()
     finally:
-        await app.close()
+        with contextlib.suppress(Exception):
+            await app.close()
         lock.release()
 
 

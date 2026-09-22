@@ -456,7 +456,13 @@ class TestUnknown:
 
     async def test_unknown_command(self, router):
         actions = await msg(router, OWNER, "/nonsense")
-        assert actions[0].key_or_text == "bot.err.not_waiting"
+        assert actions[0].key_or_text == "bot.err.unknown_command"
+
+    async def test_a_rule_line_starting_with_a_slash_is_still_input(self, router, store):
+        """`/promo` is a legitimate keyword while the ➕ prompt is open."""
+        await cb(router, OWNER, f"radd:{CHAT_A.id}:include")
+        await msg(router, OWNER, "/promo")
+        assert [r.pattern for r in await store.list_rules(OWNER, CHAT_A.id)] == ["/promo"]
 
     async def test_plain_text_without_pending_state(self, router):
         actions = await msg(router, OWNER, "просто текст")
@@ -621,3 +627,33 @@ class TestOnboardingTimezoneInput:
         await msg(router, MOD, "/start")
         await msg(router, MOD, "kyiv")
         assert (await store.get_user(MOD)).tz == "Europe/Kyiv"
+
+
+class TestPauseRecovery:
+    async def test_unblocking_the_bot_brings_the_chats_back(self, router, store, matcher):
+        """Without refreshing the matcher the moderator silently receives nothing again."""
+        await store.set_chat_shared(CHAT_A.id, True)
+        await cb(router, MOD, f"sub:{CHAT_A.id}:1")
+        await store.add_rule(MOD, ALL_CHATS, RuleKind.INCLUDE, "казино")
+        await matcher.invalidate()
+        assert matcher.is_monitored(CHAT_A.id)
+
+        await store.pause_delivery(MOD, "UserIsBlockedError")
+        await matcher.invalidate()
+        assert not matcher.is_monitored(CHAT_A.id)
+
+        await msg(router, MOD, "/menu")  # any update clears the pause
+        assert not (await store.get_user(MOD)).paused
+        assert matcher.is_monitored(CHAT_A.id)
+        assert await matcher.evaluate(CHAT_A.id, "казино", 5) != []
+
+
+class TestDenyIsReversible:
+    async def test_a_denied_user_can_be_allowed_again(self, router, store):
+        await store.ensure_user(STRANGER)
+        await cb(router, OWNER, "deny:3")
+        assert (await store.get_user(STRANGER)).role is Role.DENIED
+        actions = await cb(router, OWNER, "users")
+        assert "allow:3" in callbacks(actions)  # the Users screen offers the way back
+        await cb(router, OWNER, "allow:3")
+        assert (await store.get_user(STRANGER)).role is Role.ALLOWED

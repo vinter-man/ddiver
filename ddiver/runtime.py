@@ -204,6 +204,7 @@ class Application:
         self._last_update_at: dt.datetime | None = None
         self._silence_probe_at: dt.datetime | None = None
         self._members_loaded: set[int] = set()
+        self._lifetimes = 0
         self._catchup_lock = asyncio.Lock()
 
     # -- lifecycle -------------------------------------------------------------------------
@@ -233,6 +234,7 @@ class Application:
             buttons=notification_buttons_factory(None),
             default_threshold=self.settings.digest_threshold,
             senders=self.delivery_senders,
+            on_user_state_changed=self._invalidate,
         )
         self.listener = Listener(
             self.storage,
@@ -305,7 +307,7 @@ class Application:
         boots = await self.storage.record_boot()
         assert self.delivery is not None  # noqa: S101
         await self.delivery.replay_pending()
-        await boot_delay(boots)
+        await boot_delay(boots, stop=self.supervisor.stop_event)
         self._start_background_tasks()
         self._spawn(self._catch_up(), "catchup-boot")
         self._spawn(self._watch_reconnects(), "reconnect-watch")
@@ -374,6 +376,10 @@ class Application:
             user = await self.storage.get_user(incoming.user_id)
             lang = (user.lang if user else None) or DEFAULT_LANG
             await self.bot.perform(event, actions, lang)
+            if data is not None and not any(isinstance(a, Toast) for a in actions):
+                # Telegram keeps the button spinning until the query is answered.
+                with contextlib.suppress(Exception):
+                    await event.answer()
         except Exception:
             log.exception("bot update failed")
 
@@ -585,10 +591,19 @@ class Application:
         """
         if not self.user_client.is_connected():
             await connect_with_timeout(self.user_client)
-        if self.user_client.reconnected.is_set():
+        if self._lifetimes and not self._stalled_restart():
+            # A supervisor-driven restart means the client was fully down: Telethon's own
+            # recovery only replays 100 messages per channel and jumps the rest, so the gap is
+            # ours to close. The boot round already covered the first lifetime.
             self.user_client.reconnected.clear()
             await self._catch_up()
+        self._lifetimes += 1
         await self.user_client.run_until_disconnected()
+
+    def _stalled_restart(self) -> bool:
+        """True while the listener is failing immediately, so a crash loop cannot hammer
+        GetHistory once per retry."""
+        return bool(self.supervisor and self.supervisor.state.stalled)
 
     async def _watch_reconnects(self) -> None:
         """Catch up after every automatic reconnect.

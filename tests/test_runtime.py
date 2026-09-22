@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -271,7 +272,9 @@ class FakeStorageClient:
 
     def __init__(self, me_id: int = 999) -> None:
         self._me = type("User", (), {"id": me_id, "first_name": "Me"})()
+        self._self_id = me_id
         self.handlers: list[tuple[object, object]] = []
+        self.reconnected = asyncio.Event()
 
     def on(self, event):
         def register(func):
@@ -440,5 +443,100 @@ class TestSenderResolution:
             app.user_client.get_entity = get_entity
             with pytest.raises(ValueError, match="input entity"):
                 await app._resolve_entity(4242, -1001)
+        finally:
+            await app.storage.close()
+
+
+class TestListenerLifetimes:
+    async def test_a_restart_runs_a_catch_up_but_the_first_start_does_not(
+        self, tmp_path, monkeypatch
+    ):
+        """Telethon replays at most 100 messages per channel and jumps the rest, so a gap
+        after a full disconnect is ours to close."""
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+            rounds: list[int] = []
+
+            async def fake_catch_up():
+                rounds.append(1)
+
+            async def run_until_disconnected():
+                raise ConnectionError("dropped")
+
+            app._catch_up = fake_catch_up
+            app.user_client.run_until_disconnected = run_until_disconnected
+            app.user_client.is_connected = lambda: True
+
+            with pytest.raises(ConnectionError):
+                await app._run_listener()
+            assert rounds == []  # the boot round already covered this
+
+            with pytest.raises(ConnectionError):
+                await app._run_listener()
+            assert rounds == [1]  # the restart closed the gap
+        finally:
+            await app.storage.close()
+
+    async def test_a_crash_loop_does_not_hammer_history(self, tmp_path, monkeypatch):
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+            rounds: list[int] = []
+
+            async def fake_catch_up():
+                rounds.append(1)
+
+            async def run_until_disconnected():
+                raise ConnectionError("dropped")
+
+            app._catch_up = fake_catch_up
+            app.user_client.run_until_disconnected = run_until_disconnected
+            app.user_client.is_connected = lambda: True
+            app.supervisor.state.stalled = True
+
+            for _ in range(3):
+                with pytest.raises(ConnectionError):
+                    await app._run_listener()
+            assert rounds == []
+        finally:
+            await app.storage.close()
+
+    async def test_the_background_task_set_is_what_operations_expects(self, tmp_path, monkeypatch):
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+            app._start_background_tasks()
+            names = {task._name for task in app._tasks}
+            assert names == {
+                "cursor-flush",
+                "heartbeat",
+                "ping",
+                "reconcile",
+                "summary",
+                "prune",
+                "reprobe",
+                "outbox-rescan",
+            }
+        finally:
+            for task in app._tasks:
+                await task.stop()
+            await app.storage.close()
+
+
+class TestCallbackAnswers:
+    async def test_a_callback_without_a_toast_is_still_answered(self, tmp_path, monkeypatch):
+        """Otherwise Telegram keeps the button spinning for the moderator."""
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+            answered: list[str] = []
+
+            class Event(FakeEvent):
+                async def answer(self, text: str = "", *, alert: bool = False, **_kw: Any) -> None:
+                    answered.append(text)
+
+                async def get_sender(self):
+                    return make_user(1, "Owner", None, min_=False)
+
+            event = Event(sender_id=1)
+            await app._on_bot_update(event, data="menu")
+            assert answered == [""]  # the menu edit carries no toast of its own
         finally:
             await app.storage.close()

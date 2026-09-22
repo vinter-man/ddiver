@@ -215,16 +215,20 @@ def notification_buttons(chat_id: int, msg_id: int, sender_id: int | None) -> Ke
     return [row]
 
 
-def users_menu(pending: Sequence[int], allowed: Sequence[int]) -> Keyboard:
-    rows: Keyboard = []
-    for user_id in pending:
-        rows.append(
-            [
-                ("bot.btn.allow", check_callback(f"allow:{user_id}")),
-                ("bot.btn.deny", check_callback(f"deny:{user_id}")),
-            ]
-        )
-    for user_id in allowed:
-        rows.append([("bot.btn.revoke", check_callback(f"revoke:{user_id}"))])
+def users_menu(
+    pending: Sequence[int], allowed: Sequence[int], denied: Sequence[int] = ()
+) -> Keyboard:
+    rows: Keyboard = [
+        [
+            ("bot.btn.allow", check_callback(f"allow:{user_id}")),
+            ("bot.btn.deny", check_callback(f"deny:{user_id}")),
+        ]
+        for user_id in pending
+    ]
+    rows.extend([("bot.btn.revoke", check_callback(f"revoke:{user_id}"))] for user_id in allowed)
+    # Deny must not be a one-way door: the owner can change their mind.
+    rows.extend(
+        [(literal(f"✅ {user_id}"), check_callback(f"allow:{user_id}"))] for user_id in denied
+    )
     rows.append([("bot.btn.back", "menu")])
     return rows

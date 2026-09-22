@@ -284,3 +284,48 @@ class TestPeriodicTask:
         task.start()
         await task.stop()
         await task.stop()
+
+
+class TestShutdownLatency:
+    async def test_stop_interrupts_a_degraded_tick(self):
+        """Without this, SIGTERM waits up to five minutes and Docker SIGKILLs us first."""
+        real_sleeps: list[float] = []
+
+        async def slow_sleep(seconds: float) -> None:
+            real_sleeps.append(seconds)
+            await asyncio.sleep(10)  # would outlast any stop_grace_period
+
+        async def run_listener():
+            raise errors.SessionRevokedError(request=None)
+
+        sup = Supervisor(run_listener=run_listener, sleep=slow_sleep)
+        task = asyncio.create_task(sup.run())
+        await asyncio.sleep(0.05)
+        assert not task.done() and sup.state.degraded
+        sup.request_stop()
+        assert await asyncio.wait_for(task, timeout=1.0) == EXIT_OK
+        assert real_sleeps == [DEGRADED_TICK]  # it did start the long sleep, and was woken
+
+    async def test_stop_interrupts_a_reconnect_backoff(self):
+        async def slow_sleep(_seconds: float) -> None:
+            await asyncio.sleep(10)
+
+        async def run_listener():
+            raise ConnectionError("network")
+
+        sup = Supervisor(run_listener=run_listener, sleep=slow_sleep)
+        task = asyncio.create_task(sup.run())
+        await asyncio.sleep(0.05)
+        sup.request_stop()
+        assert await asyncio.wait_for(task, timeout=1.0) == EXIT_OK
+
+    async def test_stop_interrupts_the_boot_storm_delay(self):
+        stop = asyncio.Event()
+
+        async def slow_sleep(_seconds: float) -> None:
+            await asyncio.sleep(10)
+
+        task = asyncio.create_task(boot_delay(5, slow_sleep, stop=stop))
+        await asyncio.sleep(0.05)
+        stop.set()
+        assert await asyncio.wait_for(task, timeout=1.0) == BOOT_STORM_DELAY

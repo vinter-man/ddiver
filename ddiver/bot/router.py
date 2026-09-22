@@ -41,13 +41,23 @@ class Incoming:
 
     @property
     def command(self) -> str | None:
+        """A known command, or ``None``. See :attr:`looks_like_command` for the rest."""
+        name = self._command_name()
+        return name if name in COMMANDS else None
+
+    @property
+    def looks_like_command(self) -> bool:
+        """Starts with a slash but is not one of ours — answer, do not treat it as input."""
+        name = self._command_name()
+        return name is not None and name not in COMMANDS
+
+    def _command_name(self) -> str | None:
         if not self.text:
             return None
         head = self.text.split(maxsplit=1)[0]
-        if not head.startswith("/"):
+        if not head.startswith("/") or len(head) < 2:
             return None
-        name = head[1:].split("@", 1)[0].lower()
-        return name if name in COMMANDS else None
+        return head[1:].split("@", 1)[0].lower()
 
     @property
     def args(self) -> str:
@@ -130,9 +140,16 @@ class Context:
 
 
 class Router:
-    def __init__(self, storage: Storage, *, clock: Clock = utcnow) -> None:
+    def __init__(
+        self,
+        storage: Storage,
+        *,
+        clock: Clock = utcnow,
+        on_user_state_changed: Callable[[], Awaitable[Any]] | None = None,
+    ) -> None:
         self._storage = storage
         self._clock = clock
+        self._on_user_state_changed = on_user_state_changed
         self._commands: dict[str, Handler] = {}
         self._callbacks: dict[str, tuple[Handler, bool]] = {}
         self._pending_handlers: dict[str, Handler] = {}
@@ -197,6 +214,10 @@ class Router:
             return await self._gate(incoming, user)
         if user.paused and await self._storage.resume_delivery(user.id):
             log.info("delivery resumed for %s after an incoming update", user.id)
+            # The matcher dropped this user's chats while they were paused; without refreshing
+            # it they would silently receive nothing at all after unblocking the bot.
+            if self._on_user_state_changed is not None:
+                await self._on_user_state_changed()
             user = await self._storage.ensure_user(user.id)
 
         ctx = Context(incoming, user, self._storage, self)
@@ -225,7 +246,11 @@ class Router:
                 return await handler(ctx)
             return [Reply("bot.err.unknown_command")]
 
+        # A rule line may legitimately start with a slash, so only complain about an unknown
+        # command when we are not waiting for input.
         state = self.get_pending(ctx.user_id)
+        if state is None and ctx.incoming.looks_like_command:
+            return [Reply("bot.err.unknown_command")]
         if state is not None:
             handler = self._pending_handlers.get(state.kind)
             if handler is not None:

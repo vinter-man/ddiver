@@ -381,7 +381,8 @@ class TestOutbox:
         assert await store.claim_delivery(OWNER, -1001, 10, 8, PAYLOAD) is None
         assert await store.claim_delivery(MOD, -1001, 10, 7, PAYLOAD) is not None
 
-    async def test_pending_are_replayed_in_order(self, store, clock):
+    async def test_pending_are_replayed_in_order(self, seeded, clock):
+        store = seeded
         await store.claim_delivery(OWNER, -1001, 10, None, PAYLOAD)
         clock.tick(1)
         await store.claim_delivery(OWNER, -1001, 11, None, PAYLOAD)
@@ -390,6 +391,26 @@ class TestOutbox:
         await store.set_delivery_status(OWNER, -1001, 10, DeliveryStatus.SENT)
         pending = await store.pending_deliveries()
         assert [p.key for p in pending] == [(OWNER, -1001, 11), (MOD, -1002, 5)]
+        assert await store.count_pending() == 2
+
+    async def test_a_paused_users_rows_do_not_fill_the_replay_window(self, seeded, clock):
+        """They stay pending — the user may unblock — but must not hide anyone else's rows."""
+        store = seeded
+        for msg_id in range(100):
+            await store.claim_delivery(MOD, -1001, msg_id, None, PAYLOAD)
+        clock.tick(1)
+        await store.claim_delivery(OWNER, -1001, 500, None, PAYLOAD)
+        await store.pause_delivery(MOD, "blocked")
+        pending = await store.pending_deliveries(limit=50)
+        assert [p.key for p in pending] == [(OWNER, -1001, 500)]
+        assert await store.count_pending() == 101  # nothing was destroyed
+        await store.resume_delivery(MOD)
+        assert len(await store.pending_deliveries()) == 101
+
+    async def test_rows_of_an_inactive_user_are_skipped(self, seeded):
+        store = seeded
+        await store.claim_delivery(STRANGER, -1001, 1, None, PAYLOAD)
+        assert await store.pending_deliveries() == []
 
     async def test_status_transitions_and_attempts(self, store):
         await store.claim_delivery(OWNER, -1001, 10, 7, PAYLOAD)
@@ -417,13 +438,15 @@ class TestOutbox:
         await store.release_delivery(OWNER, -1001, 10)
         assert await store.claim_delivery(OWNER, -1001, 10, None, PAYLOAD) is not None
 
-    async def test_prune_keeps_pending_and_recent(self, store, clock):
-        await store.claim_delivery(OWNER, -1001, 1, None, PAYLOAD)  # stays pending
+    async def test_prune_drops_everything_older_than_the_window(self, seeded, clock):
+        """Including pending rows: a week-old notification is not worth delivering, and
+        keeping them forever is how the table grows without bound."""
+        store = seeded
+        await store.claim_delivery(OWNER, -1001, 1, None, PAYLOAD)  # old and pending
         await store.claim_delivery(OWNER, -1001, 2, None, PAYLOAD)
         await store.set_delivery_status(OWNER, -1001, 2, DeliveryStatus.SENT)
         clock.tick(8 * 86400)
         await store.claim_delivery(OWNER, -1001, 3, None, PAYLOAD)
-        await store.set_delivery_status(OWNER, -1001, 3, DeliveryStatus.SENT)
-        assert await store.prune_outbox() == 1
-        assert {i.msg_id for i in await store.pending_deliveries()} == {1}
-        assert await store.get_delivery(OWNER, -1001, 3) is not None
+        assert await store.prune_outbox() == 2
+        assert {i.msg_id for i in await store.pending_deliveries()} == {3}
+        assert await store.get_delivery(OWNER, -1001, 1) is None
