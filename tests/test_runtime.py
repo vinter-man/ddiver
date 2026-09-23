@@ -16,7 +16,6 @@ from ddiver.runtime import (
     RECONCILE_SECONDS,
     BotAdapter,
     notification_buttons_factory,
-    payload_of,
     refresh_dialogs,
 )
 from ddiver.storage import OutboxItem, Storage
@@ -203,7 +202,7 @@ class TestBotAdapter:
 class TestNotificationButtons:
     def test_both_buttons_when_the_sender_is_known(self):
         item = OutboxItem(1, -1001, 7, 3, "pending", 0, PAYLOAD, T0)
-        rows = notification_buttons_factory(None)(item, "ru")
+        rows = notification_buttons_factory()(item, "ru")
         labels = [button.text for button in rows[0]]
         assert labels == ["🚫 Игнорировать отправителя", "🗑 Убрать это правило"]
         data = [button.type.data.decode() for button in rows[0]]
@@ -212,18 +211,14 @@ class TestNotificationButtons:
     def test_only_the_rule_button_when_the_sender_is_unknown(self):
         payload = {**PAYLOAD, "sender_id": None}
         item = OutboxItem(1, -1001, 7, 3, "pending", 0, payload, T0)
-        rows = notification_buttons_factory(None)(item, "en")
+        rows = notification_buttons_factory()(item, "en")
         assert [b.type.data.decode() for b in rows[0]] == ["rdrop:3"]
 
     def test_no_keyboard_at_all_when_the_row_has_neither(self):
         """A catch-up row whose rule was deleted meanwhile has nothing to offer."""
         payload = {**PAYLOAD, "sender_id": None}
         item = OutboxItem(1, -1001, 7, None, "pending", 0, payload, T0)
-        assert notification_buttons_factory(None)(item, "en") == []
-
-    def test_payload_of_parses_the_row(self):
-        item = OutboxItem(1, -1001, 7, 3, "pending", 0, PAYLOAD, T0)
-        assert payload_of(item).chat_title == "Чат"
+        assert notification_buttons_factory()(item, "en") == []
 
 
 class FakeDialogClient:
@@ -327,7 +322,8 @@ class FakeBotForApp(FakeBot):
         return register
 
 
-async def make_app(tmp_path, monkeypatch, *, owner=1):
+@pytest.fixture
+async def app(tmp_path, monkeypatch):
     """An Application wired to fakes, without connecting anything."""
     import ddiver.runtime as runtime_module
     from ddiver.config import Settings
@@ -336,237 +332,185 @@ async def make_app(tmp_path, monkeypatch, *, owner=1):
         "API_ID": "1",
         "API_HASH": "0" * 32,
         "BOT_TOKEN": "123456789:AAExampleTokenWithEnoughLength_xyz",
-        "OWNER_ID": str(owner),
+        "OWNER_ID": "1",
         "DATA_DIR": str(tmp_path),
     }.items():
         monkeypatch.setenv(key, value)
     monkeypatch.setattr(runtime_module, "make_user_client", lambda *a, **k: FakeStorageClient())
     monkeypatch.setattr(runtime_module, "make_bot_client", lambda *a, **k: FakeBotForApp())
-    app = runtime_module.Application(Settings.load(None))
-    await app.setup()
-    return app
+    built = runtime_module.Application(Settings.load(None))
+    await built.setup()
+    yield built
+    await built.storage.close()
 
 
 class TestMigration:
-    async def test_group_upgrade_moves_subscriptions_and_tells_subscribers(
-        self, tmp_path, monkeypatch
-    ):
+    async def test_group_upgrade_moves_subscriptions_and_tells_subscribers(self, app):
         from telethon import utils
-        from telethon.tl import types as tl_types
 
-        from ddiver.links import ChatRef
         from ddiver.rules import RuleKind
 
-        app = await make_app(tmp_path, monkeypatch)
-        try:
-            old_ref = ChatRef(-555, "Старая группа", None, "group")
-            await app.storage.upsert_chat(old_ref)
-            await app.storage.subscribe(1, -555)
-            rule = await app.storage.add_rule(1, -555, RuleKind.INCLUDE, "казино")
+        old_ref = ChatRef(-555, "Старая группа", None, "group")
+        await app.storage.upsert_chat(old_ref)
+        await app.storage.subscribe(1, -555)
+        rule = await app.storage.add_rule(1, -555, RuleKind.INCLUDE, "казино")
 
-            new_channel = make_channel(-1001234567890, "Старая группа")
-            new_channel.access_hash = 77
-            action = tl_types.MessageActionChatMigrateTo(channel_id=1234567890)
-            service = tl_types.MessageService(
-                id=9, peer_id=tl_types.PeerChat(555), date=T0, action=action
-            )
-            update = tl_types.UpdateNewMessage(service, pts=1, pts_count=1)
-            update._entities = {utils.get_peer_id(new_channel): new_channel}
+        new_channel = make_channel(-1001234567890, "Старая группа")
+        new_channel.access_hash = 77
+        action = tl.MessageActionChatMigrateTo(channel_id=1234567890)
+        service = tl.MessageService(id=9, peer_id=tl.PeerChat(555), date=T0, action=action)
+        update = tl.UpdateNewMessage(service, pts=1, pts_count=1)
+        update._entities = {utils.get_peer_id(new_channel): new_channel}
 
-            await app._on_service_message(service, update)
+        await app._on_service_message(service, update)
 
-            assert [c.id for c in await app.storage.list_subscriptions(1)] == [-1001234567890]
-            assert (await app.storage.get_rule(rule.id, 1)).chat_id == -1001234567890
-            assert (await app.storage.get_chat(-1001234567890)).access_hash == 77
-            assert (await app.storage.get_chat(-555)).available is False
-            assert any(
-                "supergroup" in m["text"] or "супергруп" in m["text"] for m in app.bot._client.sent
-            )
-        finally:
-            await app.storage.close()
+        assert [c.id for c in await app.storage.list_subscriptions(1)] == [-1001234567890]
+        assert (await app.storage.get_rule(rule.id, 1)).chat_id == -1001234567890
+        assert (await app.storage.get_chat(-1001234567890)).access_hash == 77
+        assert (await app.storage.get_chat(-555)).available is False
+        assert any(
+            "supergroup" in m["text"] or "супергруп" in m["text"] for m in app.bot._client.sent
+        )
 
-    async def test_other_service_messages_are_ignored(self, tmp_path, monkeypatch):
-        from telethon.tl import types as tl_types
+    async def test_other_service_messages_are_ignored(self, app):
 
-        app = await make_app(tmp_path, monkeypatch)
-        try:
-            service = tl_types.MessageService(
-                id=1,
-                peer_id=tl_types.PeerChat(555),
-                date=T0,
-                action=tl_types.MessageActionChatJoinedByLink(inviter_id=1),
-            )
-            await app._on_service_message(service, tl_types.UpdateNewMessage(service, 1, 1))
-            await app._on_service_message(None, None)  # must not raise
-        finally:
-            await app.storage.close()
+        service = tl.MessageService(
+            id=1,
+            peer_id=tl.PeerChat(555),
+            date=T0,
+            action=tl.MessageActionChatJoinedByLink(inviter_id=1),
+        )
+        await app._on_service_message(service, tl.UpdateNewMessage(service, 1, 1))
+        await app._on_service_message(None, None)  # must not raise
 
 
 class TestHeartbeatContents:
-    async def test_carries_the_listener_state(self, tmp_path, monkeypatch):
+    async def test_carries_the_listener_state(self, app):
         from ddiver.health import read_heartbeat
 
-        app = await make_app(tmp_path, monkeypatch)
-        try:
-            await app._heartbeat()
-            beat = read_heartbeat(app.settings.heartbeat_path)
-            assert beat is not None and beat.written_at is not None
-            assert beat.queue == 0
-            assert beat.degraded is False
-        finally:
-            await app.storage.close()
+        await app._heartbeat()
+        beat = read_heartbeat(app.settings.heartbeat_path)
+        assert beat is not None and beat.written_at is not None
+        assert beat.queue == 0
+        assert beat.degraded is False
 
 
 class TestSenderResolution:
-    async def test_a_basic_group_member_is_found_after_loading_the_member_list(
-        self, tmp_path, monkeypatch
-    ):
+    async def test_a_basic_group_member_is_found_after_loading_the_member_list(self, app):
         """Basic-group updates carry no entities, so a bare get_entity cannot work."""
-        from ddiver.links import ChatRef
+        await app.storage.upsert_chat(ChatRef(-555, "Группа", None, "group"))
+        calls: list[str] = []
+        known: dict[int, object] = {}
 
-        app = await make_app(tmp_path, monkeypatch)
-        try:
-            await app.storage.upsert_chat(ChatRef(-555, "Группа", None, "group"))
-            calls: list[str] = []
-            known: dict[int, object] = {}
-
-            async def get_entity(peer_id):
-                calls.append(f"get_entity({peer_id})")
-                if peer_id not in known:
-                    raise ValueError("Could not find the input entity")
-                return known[peer_id]
-
-            async def get_participants(chat_id):
-                calls.append(f"get_participants({chat_id})")
-                known[4242] = make_user(4242, "Сергей", "serge", min_=False)
-                return list(known.values())
-
-            app.user_client.get_entity = get_entity
-            app.user_client.get_participants = get_participants
-
-            entity = await app._resolve_entity(4242, -555)
-            assert entity.first_name == "Сергей"
-            assert calls == ["get_entity(4242)", "get_participants(-555)", "get_entity(4242)"]
-
-            # the member list is loaded once per chat, not per message
-            calls.clear()
-            await app._resolve_entity(4242, -555)
-            assert calls == ["get_entity(4242)"]
-        finally:
-            await app.storage.close()
-
-    async def test_a_supergroup_failure_is_not_retried_with_participants(
-        self, tmp_path, monkeypatch
-    ):
-        from ddiver.links import ChatRef
-
-        app = await make_app(tmp_path, monkeypatch)
-        try:
-            await app.storage.upsert_chat(ChatRef(-1001, "Супергруппа", None, "supergroup"))
-
-            async def get_entity(peer_id):
+        async def get_entity(peer_id):
+            calls.append(f"get_entity({peer_id})")
+            if peer_id not in known:
                 raise ValueError("Could not find the input entity")
+            return known[peer_id]
 
-            app.user_client.get_entity = get_entity
-            with pytest.raises(ValueError, match="input entity"):
-                await app._resolve_entity(4242, -1001)
-        finally:
-            await app.storage.close()
+        async def get_participants(chat_id):
+            calls.append(f"get_participants({chat_id})")
+            known[4242] = make_user(4242, "Сергей", "serge", min_=False)
+            return list(known.values())
+
+        app.user_client.get_entity = get_entity
+        app.user_client.get_participants = get_participants
+
+        entity = await app._resolve_entity(4242, -555)
+        assert entity.first_name == "Сергей"
+        assert calls == ["get_entity(4242)", "get_participants(-555)", "get_entity(4242)"]
+
+        # the member list is loaded once per chat, not per message
+        calls.clear()
+        await app._resolve_entity(4242, -555)
+        assert calls == ["get_entity(4242)"]
+
+    async def test_a_supergroup_failure_is_not_retried_with_participants(self, app):
+        await app.storage.upsert_chat(ChatRef(-1001, "Супергруппа", None, "supergroup"))
+
+        async def get_entity(peer_id):
+            raise ValueError("Could not find the input entity")
+
+        app.user_client.get_entity = get_entity
+        with pytest.raises(ValueError, match="input entity"):
+            await app._resolve_entity(4242, -1001)
 
 
 class TestListenerLifetimes:
-    async def test_a_restart_runs_a_catch_up_but_the_first_start_does_not(
-        self, tmp_path, monkeypatch
-    ):
+    async def test_a_restart_runs_a_catch_up_but_the_first_start_does_not(self, app):
         """Telethon replays at most 100 messages per channel and jumps the rest, so a gap
         after a full disconnect is ours to close."""
-        app = await make_app(tmp_path, monkeypatch)
-        try:
-            rounds: list[int] = []
+        rounds: list[int] = []
 
-            async def fake_catch_up():
-                rounds.append(1)
+        async def fake_catch_up():
+            rounds.append(1)
 
-            async def run_until_disconnected():
-                raise ConnectionError("dropped")
+        async def run_until_disconnected():
+            raise ConnectionError("dropped")
 
-            app._catch_up = fake_catch_up
-            app.user_client.run_until_disconnected = run_until_disconnected
-            app.user_client.is_connected = lambda: True
+        app._catch_up = fake_catch_up
+        app.user_client.run_until_disconnected = run_until_disconnected
+        app.user_client.is_connected = lambda: True
 
+        with pytest.raises(ConnectionError):
+            await app._run_listener()
+        assert rounds == []  # the boot round already covered this
+
+        with pytest.raises(ConnectionError):
+            await app._run_listener()
+        assert rounds == [1]  # the restart closed the gap
+
+    async def test_a_crash_loop_does_not_hammer_history(self, app):
+        rounds: list[int] = []
+
+        async def fake_catch_up():
+            rounds.append(1)
+
+        async def run_until_disconnected():
+            raise ConnectionError("dropped")
+
+        app._catch_up = fake_catch_up
+        app.user_client.run_until_disconnected = run_until_disconnected
+        app.user_client.is_connected = lambda: True
+        app.supervisor.state.stalled = True
+
+        for _ in range(3):
             with pytest.raises(ConnectionError):
                 await app._run_listener()
-            assert rounds == []  # the boot round already covered this
+        assert rounds == []
 
-            with pytest.raises(ConnectionError):
-                await app._run_listener()
-            assert rounds == [1]  # the restart closed the gap
-        finally:
-            await app.storage.close()
-
-    async def test_a_crash_loop_does_not_hammer_history(self, tmp_path, monkeypatch):
-        app = await make_app(tmp_path, monkeypatch)
-        try:
-            rounds: list[int] = []
-
-            async def fake_catch_up():
-                rounds.append(1)
-
-            async def run_until_disconnected():
-                raise ConnectionError("dropped")
-
-            app._catch_up = fake_catch_up
-            app.user_client.run_until_disconnected = run_until_disconnected
-            app.user_client.is_connected = lambda: True
-            app.supervisor.state.stalled = True
-
-            for _ in range(3):
-                with pytest.raises(ConnectionError):
-                    await app._run_listener()
-            assert rounds == []
-        finally:
-            await app.storage.close()
-
-    async def test_the_background_task_set_is_what_operations_expects(self, tmp_path, monkeypatch):
-        app = await make_app(tmp_path, monkeypatch)
-        try:
-            app._start_background_tasks()
-            names = {task._name for task in app._tasks}
-            assert names == {
-                "cursor-flush",
-                "heartbeat",
-                "ping",
-                "reconcile",
-                "summary",
-                "prune",
-                "reprobe",
-                "outbox-rescan",
-            }
-        finally:
-            for task in app._tasks:
-                await task.stop()
-            await app.storage.close()
+    async def test_the_background_task_set_is_what_operations_expects(self, app):
+        app._start_background_tasks()
+        names = {task._name for task in app._tasks}
+        assert names == {
+            "cursor-flush",
+            "heartbeat",
+            "ping",
+            "reconcile",
+            "summary",
+            "prune",
+            "reprobe",
+            "outbox-rescan",
+        }
+        for task in app._tasks:
+            await task.stop()
 
 
 class TestCallbackAnswers:
-    async def test_a_callback_without_a_toast_is_still_answered(self, tmp_path, monkeypatch):
+    async def test_a_callback_without_a_toast_is_still_answered(self, app):
         """Otherwise Telegram keeps the button spinning for the moderator."""
-        app = await make_app(tmp_path, monkeypatch)
-        try:
-            answered: list[str] = []
+        answered: list[str] = []
 
-            class Event(FakeEvent):
-                async def answer(self, text: str = "", *, alert: bool = False, **_kw: Any) -> None:
-                    answered.append(text)
+        class Event(FakeEvent):
+            async def answer(self, text: str = "", *, alert: bool = False, **_kw: Any) -> None:
+                answered.append(text)
 
-                async def get_sender(self):
-                    return make_user(1, "Owner", None, min_=False)
+            async def get_sender(self):
+                return make_user(1, "Owner", None, min_=False)
 
-            event = Event(sender_id=1)
-            await app._on_bot_update(event, data="menu")
-            assert answered == [""]  # the menu edit carries no toast of its own
-        finally:
-            await app.storage.close()
+        event = Event(sender_id=1)
+        await app._on_bot_update(event, data="menu")
+        assert answered == [""]  # the menu edit carries no toast of its own
 
 
 class TestChatActionMembership:
@@ -584,177 +528,168 @@ class TestChatActionMembership:
         )
         return events.ChatAction.build(tl.UpdateNewMessage(service, 1, 1), None, me)
 
-    async def test_a_re_add_alongside_other_users_is_noticed(self, tmp_path, monkeypatch):
+    async def test_a_re_add_alongside_other_users_is_noticed(self, app):
         """Telegram reports the whole batch; user_id alone is just the first of them."""
-        app = await make_app(tmp_path, monkeypatch)
         app.user_client._self_id = 999
-        try:
-            await app.storage.upsert_chat(ChatRef(-555, "Группа", None, "group"))
-            await app.storage.set_chat_available(-555, False)
+        await app.storage.upsert_chat(ChatRef(-555, "Группа", None, "group"))
+        await app.storage.set_chat_available(-555, False)
 
-            event = self._service_event(
-                tl.MessageActionChatAddUser(users=[111, 222, 999]),
-                peer=tl.PeerChat(555),
-                me=999,
-            )
-            await app._on_chat_action(event)
+        event = self._service_event(
+            tl.MessageActionChatAddUser(users=[111, 222, 999]),
+            peer=tl.PeerChat(555),
+            me=999,
+        )
+        await app._on_chat_action(event)
 
-            chat = await app.storage.get_chat(-555)
-            assert chat is not None
-            assert chat.available is True
-        finally:
-            await app.storage.close()
+        chat = await app.storage.get_chat(-555)
+        assert chat is not None
+        assert chat.available is True
 
-    async def test_a_kick_without_an_action_message_is_handled(self, tmp_path, monkeypatch):
+    async def test_a_kick_without_an_action_message_is_handled(self, app):
         """UpdateChannelParticipant carries no service message; only chat_id is available."""
-        app = await make_app(tmp_path, monkeypatch)
         app.user_client._self_id = 999
-        try:
-            await app.storage.upsert_chat(ChatRef(-1001234567890, "Чат", None, "supergroup"))
-            update = tl.UpdateChannelParticipant(
-                channel_id=1234567890,
-                date=T0,
-                actor_id=1,
-                user_id=999,
-                prev_participant=tl.ChannelParticipant(user_id=999, date=T0),
-                new_participant=None,
-                qts=1,
-            )
-            event = events.ChatAction.build(update, None, 999)
-            assert event.action_message is None  # the shape that used to raise
-            await app._on_chat_action(event)
+        await app.storage.upsert_chat(ChatRef(-1001234567890, "Чат", None, "supergroup"))
+        update = tl.UpdateChannelParticipant(
+            channel_id=1234567890,
+            date=T0,
+            actor_id=1,
+            user_id=999,
+            prev_participant=tl.ChannelParticipant(user_id=999, date=T0),
+            new_participant=None,
+            qts=1,
+        )
+        event = events.ChatAction.build(update, None, 999)
+        assert event.action_message is None  # the shape that used to raise
+        await app._on_chat_action(event)
 
-            chat = await app.storage.get_chat(-1001234567890)
-            assert chat is not None
-            assert chat.available is False
-        finally:
-            await app.storage.close()
+        chat = await app.storage.get_chat(-1001234567890)
+        assert chat is not None
+        assert chat.available is False
 
-    async def test_somebody_elses_membership_change_is_ignored(self, tmp_path, monkeypatch):
-        app = await make_app(tmp_path, monkeypatch)
+    async def test_somebody_elses_membership_change_is_ignored(self, app):
         app.user_client._self_id = 999
-        try:
-            await app.storage.upsert_chat(ChatRef(-555, "Группа", None, "group"))
-            event = self._service_event(
-                tl.MessageActionChatDeleteUser(user_id=111), peer=tl.PeerChat(555), me=999
-            )
-            await app._on_chat_action(event)
+        await app.storage.upsert_chat(ChatRef(-555, "Группа", None, "group"))
+        event = self._service_event(
+            tl.MessageActionChatDeleteUser(user_id=111), peer=tl.PeerChat(555), me=999
+        )
+        await app._on_chat_action(event)
 
-            chat = await app.storage.get_chat(-555)
-            assert chat is not None
-            assert chat.available is True
-        finally:
-            await app.storage.close()
+        chat = await app.storage.get_chat(-555)
+        assert chat is not None
+        assert chat.available is True
 
 
 class TestBootStormDelay:
     """The crash-loop damper must slow the backfill down without silencing the process."""
 
-    async def test_the_backfill_waits_but_the_heartbeat_does_not(self, tmp_path, monkeypatch):
+    async def test_the_backfill_waits_but_the_heartbeat_does_not(self, app, monkeypatch):
         import ddiver.runtime as runtime_module
 
-        app = await make_app(tmp_path, monkeypatch)
-        try:
-            waited: list[int] = []
-            released = asyncio.Event()
+        waited: list[int] = []
+        released = asyncio.Event()
 
-            async def fake_boot_delay(boots, stop=None):
-                waited.append(boots)
-                await released.wait()
-                return 300.0
+        async def fake_boot_delay(boots, stop=None):
+            waited.append(boots)
+            await released.wait()
+            return 300.0
 
-            rounds: list[int] = []
+        rounds: list[int] = []
 
-            async def fake_catch_up():
-                rounds.append(1)
+        async def fake_catch_up():
+            rounds.append(1)
 
-            monkeypatch.setattr(runtime_module, "boot_delay", fake_boot_delay)
-            monkeypatch.setattr(app, "_catch_up", fake_catch_up)
+        monkeypatch.setattr(runtime_module, "boot_delay", fake_boot_delay)
+        monkeypatch.setattr(app, "_catch_up", fake_catch_up)
 
-            task = asyncio.create_task(app._boot_catch_up(9))
-            await asyncio.sleep(0)
-            assert waited == [9]
-            assert rounds == []  # the backfill is held back...
+        task = asyncio.create_task(app._boot_catch_up(9))
+        await asyncio.sleep(0)
+        assert waited == [9]
+        assert rounds == []  # the backfill is held back...
 
-            # ...while the heartbeat keeps reporting, which is what keeps an orchestrator
-            # from restarting the container mid-delay.
-            await app._heartbeat()
-            assert app.settings.heartbeat_path.exists()
+        # ...while the heartbeat keeps reporting, which is what keeps an orchestrator
+        # from restarting the container mid-delay.
+        await app._heartbeat()
+        assert app.settings.heartbeat_path.exists()
 
-            released.set()
-            await task
-            assert rounds == [1]
-        finally:
-            await app.storage.close()
+        released.set()
+        await task
+        assert rounds == [1]
 
-    async def test_a_stop_during_the_delay_cancels_the_backfill(self, tmp_path, monkeypatch):
+    async def test_a_stop_during_the_delay_cancels_the_backfill(self, app, monkeypatch):
         import ddiver.runtime as runtime_module
 
-        app = await make_app(tmp_path, monkeypatch)
-        try:
+        async def fake_boot_delay(boots, stop=None):
+            app.supervisor.stop_event.set()
+            return 300.0
 
-            async def fake_boot_delay(boots, stop=None):
-                app.supervisor.stop_event.set()
-                return 300.0
+        rounds: list[int] = []
 
-            rounds: list[int] = []
+        async def fake_catch_up():
+            rounds.append(1)
 
-            async def fake_catch_up():
-                rounds.append(1)
+        monkeypatch.setattr(runtime_module, "boot_delay", fake_boot_delay)
+        monkeypatch.setattr(app, "_catch_up", fake_catch_up)
 
-            monkeypatch.setattr(runtime_module, "boot_delay", fake_boot_delay)
-            monkeypatch.setattr(app, "_catch_up", fake_catch_up)
+        await app._boot_catch_up(9)
+        assert rounds == []  # shutting down: no point starting a backfill now
 
-            await app._boot_catch_up(9)
-            assert rounds == []  # shutting down: no point starting a backfill now
-        finally:
-            await app.storage.close()
-
-    async def test_reconcile_does_not_double_the_boot_catch_up(self, tmp_path, monkeypatch):
+    async def test_reconcile_does_not_double_the_boot_catch_up(self, app):
         """The boot catch-up covers t=0; a reconcile there would only repeat it."""
-        app = await make_app(tmp_path, monkeypatch)
-        try:
-            app._start_background_tasks()
-            reconcile = next(t for t in app._tasks if t._name == "reconcile")
-            assert reconcile._first_delay == RECONCILE_SECONDS
-            await asyncio.gather(*(t.stop() for t in app._tasks))
-        finally:
-            await app.storage.close()
+        app._start_background_tasks()
+        reconcile = next(t for t in app._tasks if t._name == "reconcile")
+        assert reconcile._first_delay == RECONCILE_SECONDS
+        await asyncio.gather(*(t.stop() for t in app._tasks))
 
 
 class TestCommandList:
     """Telegram only offers a "/" menu for commands the bot has registered."""
 
-    async def test_every_language_gets_the_command_list(self, tmp_path, monkeypatch):
+    async def test_every_language_gets_the_command_list(self, app, monkeypatch):
         from ddiver.i18n import LANGS
 
-        app = await make_app(tmp_path, monkeypatch)
-        try:
-            sent: list[Any] = []
+        sent: list[Any] = []
 
-            async def call(request):
-                sent.append(request)
+        async def call(request):
+            sent.append(request)
 
-            monkeypatch.setattr(type(app.bot_client), "__call__", staticmethod(call), raising=False)
-            await app._publish_commands()
+        monkeypatch.setattr(type(app.bot_client), "__call__", staticmethod(call), raising=False)
+        await app._publish_commands()
 
-            assert [r.lang_code for r in sent] == [*LANGS, ""]
-            names = [c.command for c in sent[0].commands]
-            assert names == ["start", "menu", "test", "status", "help", "cancel"]
-            assert all(c.description for r in sent for c in r.commands)
-            russian = next(r for r in sent if r.lang_code == "ru")
-            assert russian.commands[0].description == "Начать и открыть меню"
-        finally:
-            await app.storage.close()
+        assert [r.lang_code for r in sent] == [*LANGS, ""]
+        names = [c.command for c in sent[0].commands]
+        assert names == ["start", "menu", "test", "status", "help", "cancel"]
+        assert all(c.description for r in sent for c in r.commands)
+        russian = next(r for r in sent if r.lang_code == "ru")
+        assert russian.commands[0].description == "Начать и открыть меню"
 
-    async def test_a_failure_does_not_stop_the_bot(self, tmp_path, monkeypatch):
-        app = await make_app(tmp_path, monkeypatch)
-        try:
+    async def test_a_failure_does_not_stop_the_bot(self, app, monkeypatch):
 
-            async def call(_request):
-                raise errors.RPCError("request", "nope", 400)
+        async def call(_request):
+            raise errors.RPCError("request", "nope", 400)
 
-            monkeypatch.setattr(type(app.bot_client), "__call__", staticmethod(call), raising=False)
-            await app._publish_commands()  # must not raise
-        finally:
-            await app.storage.close()
+        monkeypatch.setattr(type(app.bot_client), "__call__", staticmethod(call), raising=False)
+        await app._publish_commands()  # must not raise
+
+
+class TestRequestStop:
+    """SIGTERM arrives on a signal handler, which cannot await."""
+
+    async def test_the_listener_is_actually_disconnected(self, app):
+        disconnected = []
+
+        async def disconnect():
+            disconnected.append(True)
+
+        app.user_client.disconnect = disconnect
+        app.request_stop()
+        assert app._stop_task is not None
+        await app._stop_task
+        assert disconnected == [True]  # a bare call would only have built a coroutine
+
+    async def test_it_survives_a_client_that_refuses(self, app):
+        async def disconnect():
+            raise ConnectionError("already gone")
+
+        app.user_client.disconnect = disconnect
+        app.request_stop()
+        await app._stop_task  # must not raise: shutdown cannot be blocked by this

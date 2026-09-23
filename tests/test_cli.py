@@ -11,6 +11,7 @@ from ddiver.__main__ import (
     cmd_health,
     harden_data_dir,
     main,
+    permission_hint,
     world_readable,
 )
 from ddiver.app import EXIT_ERROR, EXIT_OK
@@ -114,7 +115,7 @@ class TestInstanceLock:
 
 
 class TestCheckConfigPermissionHints:
-    def test_directory_hint_uses_700(self, tmp_path, monkeypatch, capsys):
+    def test_check_config_hardens_the_data_dir_to_700(self, tmp_path, monkeypatch, capsys):
         """A directory needs the execute bit, so `chmod 600` on it would break ddiver."""
         data = tmp_path / "data"
         data.mkdir(mode=0o755)
@@ -132,7 +133,14 @@ class TestCheckConfigPermissionHints:
 
         monkeypatch.setattr("ddiver.clients.make_bot_client", lambda *a, **k: DeadClient())
         assert asyncio.run(cmd_check_config(settings)) == EXIT_ERROR
-        out = capsys.readouterr().out
-        assert "chmod 600" not in out or "chmod 700" in out
+        capsys.readouterr()
         # hardening runs first, so the directory is no longer world readable
         assert stat.S_IMODE(data.stat().st_mode) == 0o700
+
+    def test_the_hint_asks_for_700_on_a_directory_and_600_on_a_file(self, tmp_path):
+        """600 on a directory would take away the execute bit ddiver needs to open its files."""
+        session = tmp_path / "user.session"
+        session.write_text("x")
+        assert "chmod 700" in permission_hint(tmp_path)
+        assert "chmod 600" in permission_hint(session)
+        assert str(session) in permission_hint(session)

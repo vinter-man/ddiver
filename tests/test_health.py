@@ -1,12 +1,9 @@
 import datetime as dt
 
-import pytest
-
 from ddiver.health import (
     Heartbeat,
     check,
     heartbeat_age,
-    is_healthy,
     read_heartbeat,
     write_heartbeat,
 )
@@ -88,9 +85,3 @@ class TestCheck:
 
     def test_no_file(self, tmp_path):
         assert not check(tmp_path / "missing").healthy
-
-    @pytest.mark.parametrize("age", [0, 119])
-    def test_is_healthy_shortcut(self, tmp_path, age):
-        path = tmp_path / "heartbeat"
-        write_heartbeat(path, T0, beat(transport=True))
-        assert is_healthy(path, now=T0 + dt.timedelta(seconds=age))

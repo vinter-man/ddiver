@@ -53,6 +53,12 @@ def harden_data_dir(data_dir: Path) -> None:
                 path.chmod(0o600)
 
 
+def permission_hint(path: Path) -> str:
+    """A directory needs its execute bit, so 600 on one would lock ddiver out of its own data."""
+    mode = 700 if path.is_dir() else 600
+    return f"{path} is readable by other users; run `chmod {mode} {path}`"
+
+
 def world_readable(path: Path) -> bool:
     try:
         mode = path.stat().st_mode
@@ -245,7 +251,7 @@ async def cmd_check_config(settings: Settings) -> int:
         problems.append("no user session yet — run `ddiver login`")
     harden_data_dir(settings.data_dir)
     problems.extend(
-        f"{path} is readable by other users; run `chmod {700 if path.is_dir() else 600} {path}`"
+        permission_hint(path)
         for path in (settings.data_dir, settings.user_session, settings.db_path, Path(".env"))
         if path.exists() and world_readable(path)
     )

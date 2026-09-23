@@ -133,9 +133,3 @@ def check(
         if ping_age > max_ping_age:
             return HealthReport(False, f"listener last answered {ping_age:.0f}s ago", age)
     return HealthReport(True, f"ok ({age:.0f}s)", age)
-
-
-def is_healthy(
-    path: Path, max_age: float = MAX_AGE_SECONDS, now: dt.datetime | None = None
-) -> bool:
-    return check(path, max_age=max_age, now=now).healthy

@@ -4,9 +4,10 @@ Telegram keyword monitor for moderators who are **not admins** of the chats they
 A Telethon *user session* (the moderator's own account) listens in the chats; a separate
 BotFather bot delivers notifications to each moderator's DM and hosts the configuration UI.
 
-Revision 2 (2026-09-22): incorporates a 27-agent adversarial review of revision 1 against the
-Telethon 1.45 source and the Bot API docs. Every claim marked "verified" below was checked
-against that source or by experiment; the review notes live in the commit history.
+Revision 2 (2026-09-22). Claims marked *verified* were checked against the Telethon 1.45
+source or by experiment against real Telegram, not inferred from the documentation — the
+library's behaviour around `min` users, channel gaps and flood waits is where this design
+earns its keep.
 
 ## Decisions (fixed, from the requirements session)
 
@@ -18,7 +19,7 @@ against that source or by experiment; the review notes live in the commit histor
 | D4 | Target load: 50+ chats, 100k+ messages/day (≈1.2 msg/s average, bursts of 50+/s). |
 | D5 | Rule syntax: `word` = case-insensitive substring; `=word` = whole word; `re:pattern` = regex. Same syntax for exclusions. Per-user ignore list of senders. The listener's own messages are always ignored. |
 | D6 | Matched: new messages and media captions, forwarded messages (sender = forwarder). Not matched: edits, service messages. Bot senders are skipped unless a moderator turns them on in Settings, which is a per-user decision applied after matching. |
-| D7 | Notification = chat title (link) / sender (link) / message link / date in user tz + "N s ago" / full text with the match in bold + the rule that fired. Inline buttons: ignore sender, add exclusion. |
+| D7 | Notification = chat title (link) / sender (link) / message link / date in user tz + "N s ago" / full text with the match in bold + the rule that fired. Inline buttons: ignore sender, remove the rule that fired. |
 | D8 | Flood: each match is its own message; above a threshold pending items collapse into one digest. |
 | D9 | Catch-up after downtime from a persisted per-chat cursor, capped to N hours; such notifications are labelled "missed while offline". |
 | D10 | Hosting: Docker (VPS) and local `uv run`, both documented. SQLite for state. |
@@ -66,8 +67,9 @@ One process, one asyncio loop, two Telethon clients:
                               SQLite (aiosqlite, WAL, one connection)
 ```
 
-Supervisor (`app.py`) owns both clients and returns an exit code (no `sys.exit` inside), so it
-is unit-testable with injected clients, clock, sleep and rng:
+`Application` (`runtime.py`) owns both clients and hands the listener coroutine to `Supervisor`
+(`app.py`), which returns an exit code rather than calling `sys.exit`, so the whole
+restart/degraded-mode policy is unit-testable with an injected clock, sleep and rng:
 
 - `connect_with_timeout`: `connect()` can hang (telethon#1536); on timeout `await disconnect()`
   before retrying so a half-open sender does not leak.
@@ -103,7 +105,8 @@ is unit-testable with injected clients, clock, sleep and rng:
 ddiver/
   __main__.py      CLI: login | run | health | check-config (umask 0o077 first)
   config.py        pydantic-settings
-  app.py           wiring, supervisor, signals, heartbeat, degraded mode
+  login.py         TTY-free three-step sign-in (phone → code → 2FA password)
+  app.py           supervisor, restart policy, periodic tasks, degraded mode
   clients.py       client factories, connect_with_timeout, is_fatal_auth_error, DdiverClient
   storage.py       aiosqlite repo + migrations
   rules.py         rule parsing/compilation, text cleaning, shadow text with offset map
@@ -119,6 +122,7 @@ ddiver/
   delivery.py      outbox consumption, queues, buckets, flood gate, digests, error taxonomy
   bot/             router (authorisation, pending input), menus, handlers
   health.py        heartbeat file
+  runtime.py       composition root: builds both clients, registers handlers, owns the tasks
 tests/            pytest + pytest-asyncio, offline Telethon fakes, virtual clock
 ```
 
@@ -196,7 +200,7 @@ language and timezone, so a queued or digested item is never stale or in the old
 🕒 2026-09-22 14:03:05 +03:00 (Europe/Kyiv) · 12 s ago   [⏪ missed while offline]
 🔑 <rule pattern> (chat rule | rule for all chats)
 <text, matches bold, windowed around the first match if too long>
-[🚫 Ignore sender] [➖ Add exclusion]
+[🚫 Ignore sender] [🗑 Remove this rule]
 ```
 
 The sender link is deliberately **not** `tg://user?id=` as a text entity: that only resolves on

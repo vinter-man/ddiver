@@ -16,7 +16,7 @@ from ddiver.storage import (
     Storage,
     safe_write,
 )
-from tests.fakes import T0, FakeClock
+from tests.fakes import T0
 
 OWNER = 1
 MOD = 2
@@ -25,11 +25,6 @@ STRANGER = 3
 CHAT_A = ChatRef(-1001, "Alpha", "alpha", "supergroup")
 CHAT_B = ChatRef(-1002, "beta", None, "supergroup", is_forum=True)
 BASIC = ChatRef(-55, "Old group", None, "group")
-
-
-@pytest.fixture
-def clock():
-    return FakeClock()
 
 
 @pytest.fixture

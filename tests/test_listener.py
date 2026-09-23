@@ -9,17 +9,12 @@ from ddiver.matcher import Matcher
 from ddiver.rules import RuleKind
 from ddiver.senders import SenderCache
 from ddiver.storage import ALL_CHATS, Cursor, Role, Storage
-from tests.fakes import T0, FakeClock, make_channel, make_event, make_user
+from tests.fakes import T0, make_channel, make_event, make_user
 
 OWNER = 1
 MOD = 2
 CHAT = make_channel(-1001234567890, "Чат модерации")
 FORUM = make_channel(-1009876543210, "Forum", forum=True)
-
-
-@pytest.fixture
-def clock():
-    return FakeClock()
 
 
 @pytest.fixture

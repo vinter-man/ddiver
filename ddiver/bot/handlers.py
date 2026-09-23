@@ -11,7 +11,6 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from typing import Any
 
 from ddiver.bot import menus
 from ddiver.bot.router import Action, Context, Edit, Reply, Router, Send, Toast
@@ -19,6 +18,7 @@ from ddiver.i18n import LANG_NAMES, LANGS, t
 from ddiver.matcher import Matcher
 from ddiver.rules import (
     MatchMode,
+    PreparedText,
     RuleError,
     RuleKind,
     RuleTimeout,
@@ -32,10 +32,11 @@ from ddiver.storage import (
     ChatRow,
     DuplicateRuleError,
     Role,
+    Rule,
     Storage,
     User,
 )
-from ddiver.timeutil import format_clock, resolve_tz, utcnow
+from ddiver.timeutil import Clock, format_clock, resolve_tz, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +45,9 @@ MAX_RULES_PER_CHAT = 200
 MAX_RULES_PER_USER = 500
 DIGEST_MIN = 2
 DIGEST_MAX = 500
-EXCLUDE_PREVIEW = 30
+# a rule pattern quoted back inside a confirmation line; long regexes must not push the
+# question itself out of view
+DROP_CONFIRM_PREVIEW = 30
 MAX_REPLY_CHARS = 3800  # Telegram's limit is 4096; leave room for the header lines
 
 KIND_ICONS = {
@@ -81,7 +84,7 @@ def build_router(
     matcher: Matcher | None = None,
     status: StatusProvider | None = None,
     regex_timeout: float = 0.2,
-    clock: Any = utcnow,
+    clock: Clock = utcnow,
 ) -> Router:
     async def invalidate(chat_id: int | None = None) -> None:
         if matcher is not None:
@@ -318,7 +321,7 @@ def build_router(
     async def users(ctx: Context) -> list[Action]:
         return await _users_view(ctx)
 
-    async def _users_view(ctx: Context, *, edit: bool = True) -> list[Action]:
+    async def _users_view(ctx: Context) -> list[Action]:
         everyone = await storage.list_users()
         pending = [u.id for u in everyone if u.role is Role.PENDING and not u.is_owner]
         allowed = [u.id for u in everyone if u.role is Role.ALLOWED and not u.is_owner]
@@ -330,9 +333,8 @@ def build_router(
             rules = await storage.count_rules(user_id)
             lines.append(ctx.t("bot.users.allowed", user_id=user_id, chats=chats, rules=rules))
         lines.extend(ctx.t("bot.users.denied", user_id=uid) for uid in denied)
-        action = Edit if edit else Reply
         return [
-            action(
+            Edit(
                 _clamp("\n".join(lines)),
                 literal=True,
                 buttons=menus.users_menu(pending, allowed, denied),
@@ -427,7 +429,7 @@ def build_router(
         chat_id = _int(raw_chat)
         if chat_id != ALL_CHATS and await accessible_chat(ctx, chat_id) is None:
             return [Toast("bot.err.not_found")]
-        router.set_pending(ctx.user_id, "rules_add", {"chat_id": _int(raw_chat), "kind": raw_kind})
+        router.set_pending(ctx.user_id, "rules_add", {"chat_id": chat_id, "kind": raw_kind})
         return [Reply("bot.rules.prompt", html=True)]
 
     @router.pending("rules_add")
@@ -564,7 +566,9 @@ def build_router(
         if rule is None:
             return [Toast("bot.notif.drop_gone", alert=True)]
         scope = await _rule_scope(ctx, rule)
-        body = t(ctx.lang, "bot.notif.drop_confirm", pattern=_shorten(rule.pattern), scope=scope)
+        body = t(
+            ctx.lang, "bot.notif.drop_confirm", pattern=_preview_pattern(rule.pattern), scope=scope
+        )
         return [
             Reply(
                 body,
@@ -587,16 +591,16 @@ def build_router(
         await invalidate(None if rule.chat_id == ALL_CHATS else rule.chat_id)
         return [
             Toast(
-                t(ctx.lang, "bot.notif.drop_done", pattern=_shorten(rule.pattern)),
+                t(ctx.lang, "bot.notif.drop_done", pattern=_preview_pattern(rule.pattern)),
                 literal=True,
             ),
             Edit(
-                t(ctx.lang, "bot.notif.drop_done", pattern=_shorten(rule.pattern)),
+                t(ctx.lang, "bot.notif.drop_done", pattern=_preview_pattern(rule.pattern)),
                 literal=True,
             ),
         ]
 
-    async def _rule_scope(ctx: Context, rule: Any) -> str:
+    async def _rule_scope(ctx: Context, rule: Rule) -> str:
         if rule.chat_id == ALL_CHATS:
             return t(ctx.lang, "notif.rule_scope.global")
         chat = await storage.get_chat(rule.chat_id)
@@ -718,13 +722,13 @@ def build_router(
             # run the global rules, since testing them before adding a chat is a fair thing
             # to want.
             lines.append(ctx.t("bot.test.no_chats"))
-            globals_ = await storage.list_rules(ctx.user_id, ALL_CHATS)
-            if globals_:
+            global_rules = await storage.list_rules(ctx.user_id, ALL_CHATS)
+            if global_rules:
                 lines.append(
                     await asyncio.to_thread(
                         _evaluate_preview,
                         prepared,
-                        globals_,
+                        global_rules,
                         ctx.lang,
                         ctx.t("bot.test.global_scope"),
                         regex_timeout,
@@ -747,7 +751,11 @@ def build_router(
 
 
 def _evaluate_preview(
-    prepared: Any, rules: Sequence[Any], lang: str, chat_title: str, timeout: float = 0.2
+    prepared: PreparedText,
+    rules: Sequence[Rule],
+    lang: str,
+    chat_title: str,
+    timeout: float = 0.2,
 ) -> str:
     """Mirror the production order: exclusions first, then chat rules before global ones.
 
@@ -782,8 +790,12 @@ def _evaluate_preview(
     return t(lang, "bot.test.nomatch", chat=chat_title)
 
 
-def _shorten(pattern: str) -> str:
-    return pattern if len(pattern) <= EXCLUDE_PREVIEW else pattern[: EXCLUDE_PREVIEW - 1] + "…"
+def _preview_pattern(pattern: str) -> str:
+    return (
+        pattern
+        if len(pattern) <= DROP_CONFIRM_PREVIEW
+        else pattern[: DROP_CONFIRM_PREVIEW - 1] + "…"
+    )
 
 
 def _clamp(text: str, limit: int = MAX_REPLY_CHARS) -> str:

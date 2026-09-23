@@ -1,4 +1,4 @@
-"""Wiring and the supervisor loop.
+"""Restart policy: keep the listener alive, or park it when only a human can fix it.
 
 The supervisor is a plain object with injected clients, clock, sleep and rng, and it *returns*
 an exit code instead of calling ``sys.exit`` — so the whole restart/degraded-mode policy is

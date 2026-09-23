@@ -27,22 +27,6 @@ class FakeClock:
         self.now += dt.timedelta(seconds=seconds)
 
 
-class VirtualClock(FakeClock):
-    """Clock whose ``sleep`` advances time instantly, for timing-sensitive code."""
-
-    def __init__(self, start: dt.datetime = T0) -> None:
-        super().__init__(start)
-        self.slept: list[float] = []
-
-    async def sleep(self, seconds: float) -> None:
-        self.slept.append(seconds)
-        self.tick(seconds)
-        await asyncio.sleep(0)
-
-    def monotonic(self) -> float:
-        return (self.now - T0).total_seconds()
-
-
 class _MbCache:
     def get(self, _bare_id: int) -> None:
         return None

@@ -45,11 +45,6 @@ class Sleeps:
 
 
 @pytest.fixture
-def clock():
-    return FakeClock()
-
-
-@pytest.fixture
 def sleeps(clock):
     return Sleeps(clock)
 

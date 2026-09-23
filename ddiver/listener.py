@@ -22,7 +22,7 @@ from telethon.tl import types as tl
 from ddiver.formatter import Payload
 from ddiver.links import ChatRef, topic_id_of
 from ddiver.matcher import Match, Matcher
-from ddiver.rules import prepare_text
+from ddiver.rules import PreparedText, prepare_text
 from ddiver.senders import SenderCache, SenderInfo, sender_of
 from ddiver.storage import Cursor, OutboxItem, Storage, safe_write
 from ddiver.timeutil import Clock, utcnow
@@ -229,7 +229,7 @@ class Listener:
         message: tl.Message,
         chat_id: int,
         match: Match,
-        prepared: Any,
+        prepared: PreparedText,
         sender: SenderInfo | None,
         *,
         catchup: bool,

@@ -5,9 +5,9 @@ import pytest
 from telethon import errors
 from telethon.tl import types as tl
 
-from ddiver.delivery import QUEUE_MAXSIZE, Delivery
+from ddiver.delivery import Delivery
 from ddiver.storage import DeliveryStatus, Role, Storage
-from tests.fakes import T0, FakeBotClient, FakeClock
+from tests.fakes import T0, FakeBotClient
 
 OWNER = 1
 MOD = 2
@@ -49,11 +49,6 @@ class Sleeps:
         self.calls.append(seconds)
         self.now += seconds
         await asyncio.sleep(0)
-
-
-@pytest.fixture
-def clock():
-    return FakeClock()
 
 
 @pytest.fixture
@@ -308,9 +303,6 @@ class TestQueueLimits:
         bot.release()
         await settle(delivery)
         assert "отброшено" in bot.sent[-1].text
-
-    async def test_default_queue_size_is_bounded(self):
-        assert QUEUE_MAXSIZE == 2000
 
 
 class TestShutdown:

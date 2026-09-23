@@ -11,18 +11,13 @@ from ddiver.matcher import Matcher
 from ddiver.rules import RuleKind
 from ddiver.senders import SenderCache
 from ddiver.storage import ALL_CHATS, Cursor, Storage
-from tests.fakes import T0, FakeClock, make_channel, make_event
+from tests.fakes import T0, make_channel, make_event
 
 OWNER = 1
 CHAT_ID = -1001234567890
 OTHER_ID = -1005555555555
 CHAT = make_channel(CHAT_ID, "Чат")
 OTHER = make_channel(OTHER_ID, "Другой")
-
-
-@pytest.fixture
-def clock():
-    return FakeClock()
 
 
 @pytest.fixture
@@ -357,7 +352,7 @@ class TestRoundSafety:
         catchup = Catchup(
             store, listener, history, clock=clock, sleep=sleeps, on_recovered=on_recovered
         )
-        assert await catchup.run({CHAT_ID}) is not None
+        await catchup.run({CHAT_ID})
         assert history.calls == []  # a normal round still skips it
 
         clock.tick(7 * 3600)
@@ -381,18 +376,17 @@ class TestRoundSafety:
 
 class TestInputPeers:
     def test_built_from_the_stored_access_hash(self):
-        from telethon.tl import types as tl_types
 
         from ddiver.catchup import input_peer_for
         from ddiver.storage import ChatRow
 
         supergroup = ChatRow(ChatRef(-1001234567890, "S", None, "supergroup"), True, True, 999)
         peer = input_peer_for(supergroup)
-        assert isinstance(peer, tl_types.InputPeerChannel)
+        assert isinstance(peer, tl.InputPeerChannel)
         assert (peer.channel_id, peer.access_hash) == (1234567890, 999)
 
         basic = ChatRow(ChatRef(-555, "B", None, "group"), True, True, None)
-        assert input_peer_for(basic) == tl_types.InputPeerChat(555)
+        assert input_peer_for(basic) == tl.InputPeerChat(555)
 
         unknown = ChatRow(ChatRef(-1009, "U", None, "supergroup"), True, True, None)
         assert input_peer_for(unknown) == -1009  # fall back to Telethon's own resolution
@@ -432,17 +426,10 @@ class TestCursorHonesty:
         )
         catchup = Catchup(store, listener, history, clock=clock, sleep=sleeps, total=5)
 
-        # a live message lands in the chat the round will not reach
-        live = make_event("казино", chat=CHAT, msg_id=5000)
-        original_run = catchup.run
-
-        async def run_with_live_traffic(chat_ids):
-            listener.cursors.note(CHAT_ID, 5000, T0)
-            listener.cursors.note(OTHER_ID, 5000, T0)
-            return await original_run(chat_ids)
-
-        del live
-        await run_with_live_traffic({CHAT_ID, OTHER_ID})
+        # live traffic arrives in both chats while the round is under way
+        listener.cursors.note(CHAT_ID, 5000, T0)
+        listener.cursors.note(OTHER_ID, 5000, T0)
+        await catchup.run({CHAT_ID, OTHER_ID})
         cursors = await store.get_cursors()
         # the chat the round examined keeps its live cursor; the one it never reached stays put
         examined = [c for c in (CHAT_ID, OTHER_ID) if cursors[c].last_msg_id == 5000]

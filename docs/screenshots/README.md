@@ -1,7 +1,7 @@
 # Screenshots
 
-The README embeds real screenshots of the bot. They have to be taken by hand from a Telegram
-client — nothing in this repository can produce them.
+The READMEs have no screenshots yet. They have to be taken by hand from a Telegram client —
+nothing in this repository can produce them. This is the shot list.
 
 ## What to capture
 

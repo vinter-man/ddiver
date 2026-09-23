@@ -28,7 +28,6 @@ log = logging.getLogger(__name__)
 ALL_CHATS = 0
 """``chat_id`` value meaning "every chat this user is subscribed to" (rules, ignores)."""
 
-CHAT_KINDS = ("group", "supergroup", "channel")
 PRUNE_BATCH = 5000
 
 
@@ -233,6 +232,12 @@ def _parse(text: str | None) -> dt.datetime | None:
 
 
 class Storage:
+    """One aiosqlite connection, opened once and owned by the caller.
+
+    Every mutating method takes the acting ``user_id`` and filters on it, so a forged callback
+    payload can only ever reach the sender's own rows.
+    """
+
     def __init__(self, path: Path | str, *, owner_id: int = 0, clock: Clock = utcnow) -> None:
         self._path = str(path)
         self._owner_id = owner_id

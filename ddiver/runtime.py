@@ -1,8 +1,11 @@
-"""The only module that talks to Telethon at runtime: adapters plus the assembled application.
+"""The composition root: builds both clients, registers their handlers, owns the tasks.
 
-Everything below the adapters (matcher, listener, catch-up, delivery, bot UI, supervisor) is
-plain objects with injected dependencies and is covered by offline tests; this module wires
-them to real clients, registers the Telethon event handlers and runs the background tasks.
+Other modules import Telethon *types* freely — a message is a message. What lives only here
+is the wiring: constructing the two clients, subscribing the event handlers, and owning every
+background task. Each layer below declares the narrow Telegram surface it needs as a port
+(``BotPort``, ``History``, ``EntityResolver``), which this module satisfies with a real client
+and the tests satisfy with a fake. That is why everything except this file, ``clients.py``,
+``login.py`` and the CLI can be exercised without a connection.
 """
 
 from __future__ import annotations
@@ -11,7 +14,6 @@ import asyncio
 import contextlib
 import datetime as dt
 import logging
-from pathlib import Path
 from typing import Any
 
 from telethon import Button, TelegramClient, errors, events, utils
@@ -19,21 +21,14 @@ from telethon.tl import types as tl
 from telethon.tl.functions.bots import SetBotCommandsRequest
 from telethon.tl.functions.updates import GetStateRequest
 
-from ddiver.app import (
-    EXIT_OK,
-    PeriodicTask,
-    Supervisor,
-    boot_delay,
-    format_uptime,
-)
+from ddiver.app import PeriodicTask, Supervisor, boot_delay, format_uptime
 from ddiver.bot import menus
 from ddiver.bot.handlers import StatusInfo, build_router
 from ddiver.bot.router import Edit, Incoming, Reply, Router, Send, Toast
 from ddiver.catchup import Catchup, telethon_history
 from ddiver.clients import connect_with_timeout, make_bot_client, make_user_client
 from ddiver.config import Settings
-from ddiver.delivery import Delivery
-from ddiver.formatter import Payload
+from ddiver.delivery import ButtonFactory, Delivery
 from ddiver.health import Heartbeat, write_heartbeat
 from ddiver.i18n import DEFAULT_LANG, LANGS, t
 from ddiver.links import ChatRef
@@ -41,7 +36,7 @@ from ddiver.listener import CURSOR_FLUSH_SECONDS, Listener, chat_ref_of
 from ddiver.matcher import Matcher
 from ddiver.senders import SenderCache
 from ddiver.storage import OutboxItem, Rule, Storage, safe_write
-from ddiver.timeutil import relative, utcnow
+from ddiver.timeutil import Clock, relative, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -174,24 +169,23 @@ def _parse_mode(action: Any) -> str | None:
     return "html" if getattr(action, "html", False) else None
 
 
-def notification_buttons_factory(lang_of: Any) -> Any:
+def notification_buttons_factory() -> ButtonFactory:
     """Build the inline keyboard under a notification from its outbox row."""
 
-    def factory(item: OutboxItem, lang: str) -> Any:
+    def factory(item: OutboxItem, lang: str) -> list[list[Any]]:
         payload = item.payload
         rows = menus.notification_buttons(
             item.chat_id, item.msg_id, payload.get("sender_id"), item.rule_id
         )
         return [[Button.inline(t(lang, label), data) for label, data in row] for row in rows]
 
-    del lang_of
     return factory
 
 
 class Application:
     """Everything wired together, with a lifecycle the CLI drives."""
 
-    def __init__(self, settings: Settings, *, clock: Any = utcnow) -> None:
+    def __init__(self, settings: Settings, *, clock: Clock = utcnow) -> None:
         self.settings = settings
         self.clock = clock
         self.storage = Storage(settings.db_path, owner_id=settings.owner_id, clock=clock)
@@ -212,6 +206,7 @@ class Application:
         self.delivery_senders = SenderCache(self._resolve_entity, clock=clock)
         self._tasks: list[PeriodicTask] = []
         self._owned: list[asyncio.Task[Any]] = []
+        self._stop_task: asyncio.Task[None] | None = None
         self._last_ping_ok: dt.datetime | None = None
         self._last_update_at: dt.datetime | None = None
         self._silence_probe_at: dt.datetime | None = None
@@ -243,7 +238,7 @@ class Application:
             self.bot,
             self.storage,
             clock=self.clock,
-            buttons=notification_buttons_factory(None),
+            buttons=notification_buttons_factory(),
             default_threshold=self.settings.digest_threshold,
             senders=self.delivery_senders,
             on_user_state_changed=self._invalidate,
@@ -283,6 +278,7 @@ class Application:
         self._register_handlers()
 
     async def close(self) -> None:
+        """Shut down in an order the next start can pick up from."""
         for task in self._tasks:
             await task.stop()
         for owned in self._owned:
@@ -290,6 +286,8 @@ class Application:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await owned
         self._owned.clear()
+        # Stop ingesting before flushing: a message arriving after the cursor is written
+        # would be skipped on the next start rather than merely delayed.
         with contextlib.suppress(Exception):
             await self.user_client.disconnect()
         if self.listener is not None:
@@ -370,10 +368,22 @@ class Application:
         return task
 
     def request_stop(self) -> None:
+        """Called from a signal handler, so nothing here may await.
+
+        Disconnecting is what breaks ``run_until_disconnected`` out of its wait. Telethon's
+        ``disconnect()`` only runs the loop itself when the loop is *not* already running;
+        under a running loop it returns a coroutine, so calling it plainly would leave the
+        listener attached and leak a coroutine that is never awaited. Hand it to the loop
+        instead, and keep the task referenced so it cannot be collected mid-flight.
+        """
         if self.supervisor is not None:
             self.supervisor.request_stop()
+        with contextlib.suppress(RuntimeError):  # no running loop: nothing to disconnect from
+            self._stop_task = asyncio.get_running_loop().create_task(self._disconnect_listener())
+
+    async def _disconnect_listener(self) -> None:
         with contextlib.suppress(Exception):
-            self.user_client.disconnect()
+            await self.user_client.disconnect()
 
     # -- handlers --------------------------------------------------------------------------
 
@@ -769,17 +779,3 @@ async def refresh_dialogs(client: TelegramClient, storage: Storage) -> int:
     with contextlib.suppress(Exception):
         client.session.save()  # commit entities now, not in a minute
     return count
-
-
-def payload_of(item: OutboxItem) -> Payload:
-    return Payload.from_json(item.payload)
-
-
-__all__ = [
-    "EXIT_OK",
-    "Application",
-    "BotAdapter",
-    "Path",
-    "payload_of",
-    "refresh_dialogs",
-]

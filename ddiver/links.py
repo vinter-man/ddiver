@@ -23,7 +23,12 @@ GENERAL_TOPIC_ID = 1
 
 @dataclass(frozen=True, slots=True)
 class ChatRef:
-    """The subset of chat metadata links need. ``id`` is the Telethon *marked* id."""
+    """A monitored chat, as the rest of the program passes it around.
+
+    It lives here because every field exists to build a link: the username decides public
+    versus private, ``is_forum`` decides whether a topic id belongs in the path, and ``kind``
+    decides whether a message link exists at all. ``id`` is the Telethon *marked* id.
+    """
 
     id: int
     title: str

@@ -129,14 +129,16 @@ not zero — consider a secondary account if that matters to you.
 
 ```bash
 uv sync
-uv run pytest -q          # ~350 offline tests, no Telegram connection needed
+uv run pytest -q          # ~470 offline tests, no Telegram connection needed
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 ```
 
 The architecture, the invariants and the reasoning behind them are in [DESIGN.md](DESIGN.md).
-Everything except `ddiver/runtime.py` is free of Telethon calls and tested offline with fake
-clients and a virtual clock.
+Telegram I/O is confined to `runtime.py`, `clients.py`, `login.py`, the CLI and the
+`telethon_history` adapter at the foot of `catchup.py`. Everything else takes its Telegram
+surface as an injected port — `BotPort`, `History`, `EntityResolver` — so matching, storage,
+delivery and formatting are exercised offline against fakes and a virtual clock.
 
 ## Credits
 

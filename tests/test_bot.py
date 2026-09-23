@@ -10,7 +10,6 @@ from ddiver.links import ChatRef
 from ddiver.matcher import Matcher
 from ddiver.rules import RuleKind
 from ddiver.storage import ALL_CHATS, ChatRow, IgnoredSender, Role, Rule, Storage
-from tests.fakes import FakeClock
 
 OWNER = 1
 MOD = 2
@@ -18,11 +17,6 @@ STRANGER = 3
 
 CHAT_A = ChatRef(-1001, "Модерация", "modchat", "supergroup")
 CHAT_B = ChatRef(-1002, "Приватный семейный", None, "supergroup")
-
-
-@pytest.fixture
-def clock():
-    return FakeClock()
 
 
 @pytest.fixture
@@ -382,34 +376,11 @@ class TestPendingInput:
         assert patterns == ["/promo", "re:/promo\\b"]
 
 
-class TestStatusAndTest:
+class TestStatus:
     async def test_status_reports_counters(self, router):
         actions = await msg(router, OWNER, "/status")
         body = texts(actions)[0]
         assert "1h" in body and "10" in body
-
-    async def test_test_command_mirrors_the_pipeline(self, router, store, matcher):
-        await store.subscribe(OWNER, CHAT_A.id)
-        await store.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "казино")
-        await store.add_rule(OWNER, CHAT_A.id, RuleKind.EXCLUDE, "тест")
-        actions = await msg(router, OWNER, "/test заходи в казино")
-        assert "✅" in texts(actions)[0]
-        actions = await msg(router, OWNER, "/test казино тест")
-        assert "🚫" in texts(actions)[0]
-        actions = await msg(router, OWNER, "/test ничего")
-        assert "—" in texts(actions)[0]
-
-    async def test_test_without_arguments_asks_for_text(self, router, store):
-        await store.subscribe(OWNER, CHAT_A.id)
-        await store.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "казино")
-        actions = await msg(router, OWNER, "/test")
-        assert actions[0].key_or_text == "bot.test.prompt"
-        actions = await msg(router, OWNER, "тут казино")
-        assert "✅" in texts(actions)[0]
-
-    async def test_test_without_chats(self, router):
-        actions = await msg(router, OWNER, "/test что-то")
-        assert texts(actions)[0] == t("ru", "bot.test.no_chats")
 
 
 class TestSettings:
@@ -708,6 +679,7 @@ class TestRuleCheck:
 
         miss = await msg(router, OWNER, "/test обычное сообщение")
         assert "✅" not in miss[0].key_or_text
+        assert "—" in miss[0].key_or_text  # the chat is still listed, with no verdict
 
     async def test_an_exclusion_wins_and_says_so(self, router, store):
         await store.set_chat_shared(CHAT_A.id, True)
@@ -727,10 +699,14 @@ class TestRuleCheck:
         assert "✅" in body  # but the global rule is still evaluated
         assert t("ru", "bot.test.global_scope") in body
 
-    async def test_the_bare_command_explains_itself(self, router):
+    async def test_the_bare_command_explains_itself(self, router, store):
         actions = await msg(router, OWNER, "/test")
         assert actions[0].key_or_text == "bot.test.prompt"
         assert actions[0].html is True
-        # and the text that follows is then checked
-        verdict = await msg(router, OWNER, "что угодно")
-        assert verdict[0].literal is True
+        # and the text that follows is then checked against the rules
+        await store.set_chat_shared(CHAT_A.id, True)
+        await cb(router, OWNER, f"sub:{CHAT_A.id}:1")
+        await store.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "такси")
+        await msg(router, OWNER, "/test")
+        verdict = await msg(router, OWNER, "нужно такси")
+        assert "✅" in verdict[0].key_or_text

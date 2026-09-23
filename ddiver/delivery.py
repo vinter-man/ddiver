@@ -104,6 +104,13 @@ class TokenBucket:
 
 
 class Delivery:
+    """One bounded queue and one worker per moderator, behind a bot-wide flood gate.
+
+    Separate queues so a moderator watching a busy chat cannot starve the others; one shared
+    gate because a ``FloodWaitError`` on ``SendMessageRequest`` applies to the bot as a whole,
+    not to the recipient.
+    """
+
     def __init__(
         self,
         bot: BotPort,
@@ -208,7 +215,12 @@ class Delivery:
 
     @staticmethod
     def _is_stopping(state: _UserQueue) -> bool:
-        """Read through a call: the flag is set from another task while we await."""
+        """Deliberately re-read on every check.
+
+        ``drop_user`` flips this flag from another task while the worker is parked on the
+        queue, so it must never be hoisted into a local across an ``await``. The call also
+        keeps mypy from narrowing the attribute to ``False`` for the rest of the branch.
+        """
         return state.stopping
 
     @staticmethod

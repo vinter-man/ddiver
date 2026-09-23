@@ -129,12 +129,21 @@ lock-файл и откажется стартовать, но копия пап
 
 ```bash
 uv sync
-uv run pytest -q          # ~350 офлайн-тестов, подключение к Telegram не нужно
+uv run pytest -q          # ~470 офлайн-тестов, подключение к Telegram не нужно
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 ```
 
-Архитектура, инварианты и обоснования — в [DESIGN.md](DESIGN.md). Всё, кроме `ddiver/runtime.py`,
-не вызывает Telethon и тестируется офлайн с фейковыми клиентами и виртуальными часами.
+Архитектура, инварианты и обоснования — в [DESIGN.md](DESIGN.md). Обращения к Telegram
+сосредоточены в `runtime.py`, `clients.py`, `login.py`, CLI и адаптере `telethon_history`
+в конце `catchup.py`. Всё остальное получает свою часть Telegram как внедрённый порт —
+`BotPort`, `History`, `EntityResolver`, — поэтому сопоставление, хранение, доставка и
+форматирование проверяются офлайн на фейках и виртуальных часах.
+
+## Благодарности
+
+Написано с нуля после разбора существующих открытых решений; идеи (не код) взяты из
+khoben/telemirror, guibacellar/TEx, Hootrix/keyword_alert_bot, Heavrnl/TelegramForwarder
+и Riniba/TelegramMonitor. Подробнее — в конце DESIGN.md.
 
 Лицензия MIT.
