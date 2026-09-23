@@ -140,10 +140,19 @@ docker compose -f docker-compose.yml -f deploy/docker-compose.observability.yml 
 ssh -L 3000:127.0.0.1:3000 you@your-box   # Grafana слушает только localhost
 ```
 
-Поднимутся Prometheus, Loki, Grafana, Alloy и node-exporter с уже готовым дашбордом: жив ли,
-сообщений и совпадений в секунду, доставка и флуд-ожидания, таймауты правил, CPU и память
-хоста, плюс панель с поиском по логам. Заложите на пятерых около 450 МБ памяти — больше, чем
-у самого ddiver, поэтому они и вынесены в отдельный compose-файл.
+Grafana окажется на <http://127.0.0.1:3000> (admin/admin, если не задали `GRAFANA_USER` и
+`GRAFANA_PASSWORD`), с уже готовым дашбордом: жив ли, сообщений и совпадений в секунду,
+доставка и флуд-ожидания, таймауты правил, CPU и память хоста, плюс панель с поиском по логам.
+Заложите на стек около 450 МБ памяти — больше, чем у самого ddiver, поэтому он и вынесен в
+отдельный compose-файл.
+
+Метрики хоста включаются флагом `--profile host-metrics`: node-exporter требует настоящий `/`
+хоста, а Docker Desktop такое монтирование запрещает. На Linux-машине включите профиль, и
+панель «Host» заполнится; до тех пор она пустая, а цель `node` в Prometheus висит down.
+
+Алертам в Telegram нужен третий файл и две переменные — см.
+`deploy/docker-compose.alerts.yml`. Они вынесены отдельно, потому что Grafana не стартует,
+если у контакта нет токена, и забытая переменная не должна утаскивать за собой дашборды.
 
 Без Docker: `METRICS_PORT=9109` поднимает `/metrics` сам по себе, а `LOG_FORMAT=json` делает
 логи машиночитаемыми.
@@ -156,6 +165,12 @@ Grafana умеет писать вам в Telegram, когда что-то сл�
 ```dotenv
 ALERT_TELEGRAM_TOKEN=123456:AA...
 ALERT_TELEGRAM_CHAT_ID=ваш-числовой-id
+```
+
+```bash
+docker compose -f docker-compose.yml \
+               -f deploy/docker-compose.observability.yml \
+               -f deploy/docker-compose.alerts.yml up -d
 ```
 
 ### Как спросить агента про логи

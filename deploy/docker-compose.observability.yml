@@ -60,10 +60,18 @@ services:
       - alloy-data:/var/lib/alloy/data
     depends_on: [loki]
 
+  # Host CPU, memory and disk. Linux only: it needs the host's own /, and on Docker Desktop
+  # that mount is refused ("path / is mounted on / but it is not a shared or slave mount").
+  # It would also be measuring the Linux VM rather than the Mac, so it is opt-in:
+  #
+  #   docker compose -f ... --profile host-metrics up -d
+  #
+  # On the box you actually deploy to, turn the profile on and the Host panel fills in.
   node-exporter:
     image: prom/node-exporter:v1.8.2
     container_name: ddiver-node-exporter
     restart: unless-stopped
+    profiles: [host-metrics]
     command:
       - --path.rootfs=/host
       - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)

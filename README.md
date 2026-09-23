@@ -139,10 +139,20 @@ docker compose -f docker-compose.yml -f deploy/docker-compose.observability.yml 
 ssh -L 3000:127.0.0.1:3000 you@your-box   # Grafana is bound to localhost
 ```
 
-That brings up Prometheus, Loki, Grafana, Alloy and node-exporter with a dashboard already
-provisioned: is it alive, messages and matches per second, delivery and flood waits, rule
-timeouts, host CPU and memory, and a searchable log panel. Budget about 450 MB of RAM for the
-five of them — more than ddiver itself, which is why they live in a separate compose file.
+Grafana is then on <http://127.0.0.1:3000> (admin/admin unless you set `GRAFANA_USER` and
+`GRAFANA_PASSWORD`), with a dashboard already provisioned: is it alive, messages and matches
+per second, delivery and flood waits, rule timeouts, host CPU and memory, and a searchable log
+panel. Budget about 450 MB of RAM for the stack — more than ddiver itself, which is why it
+lives in a separate compose file.
+
+Host metrics are opt-in with `--profile host-metrics`, because node-exporter needs the host's
+own `/` and Docker Desktop refuses that mount. On a Linux box turn the profile on and the Host
+panel fills in; until then that one panel stays empty and Prometheus shows the `node` target
+down.
+
+Telegram alerts need a third file and two variables — see
+`deploy/docker-compose.alerts.yml`. They are separate because Grafana refuses to start when a
+contact point has no token, and a missing variable should not take the dashboards down.
 
 Without Docker, `METRICS_PORT=9109` exposes `/metrics` on its own and `LOG_FORMAT=json` makes
 the logs machine-readable.
@@ -155,6 +165,12 @@ not travel over the bot that is stuck.
 ```dotenv
 ALERT_TELEGRAM_TOKEN=123456:AA...
 ALERT_TELEGRAM_CHAT_ID=your-numeric-id
+```
+
+```bash
+docker compose -f docker-compose.yml \
+               -f deploy/docker-compose.observability.yml \
+               -f deploy/docker-compose.alerts.yml up -d
 ```
 
 ### Asking an agent about the logs
