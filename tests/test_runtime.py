@@ -125,6 +125,21 @@ class TestBotAdapter:
         assert bot.sent[0]["text"] == "re:__init__ **x**"
         assert bot.sent[0]["parse_mode"] is None
 
+    async def test_html_is_opt_in_per_action(self):
+        """The help text uses <b>/<code>; everything else must stay literal."""
+        bot, event = FakeBot(), FakeEvent()
+        await BotAdapter(bot).perform(
+            event, [Reply("bot.help", html=True), Reply("bot.cancelled")], "en"
+        )
+        assert bot.sent[0]["parse_mode"] == "html"
+        assert bot.sent[1]["parse_mode"] is None
+
+    async def test_an_uneditable_html_action_keeps_its_formatting(self):
+        """Edit falls back to Reply for a plain message; the flag must survive the swap."""
+        bot, event = FakeBot(), FakeMessageEvent(sender_id=5)
+        await BotAdapter(bot).perform(event, [Edit("bot.help", html=True)], "en")
+        assert bot.sent[0]["parse_mode"] == "html"
+
     async def test_reply_goes_to_the_sender_with_no_link_preview(self):
         bot, event = FakeBot(), FakeEvent(sender_id=9)
         await BotAdapter(bot).perform(event, [Reply("bot.help")], "uk")

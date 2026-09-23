@@ -76,6 +76,9 @@ class Reply:
     params: dict[str, Any] = field(default_factory=dict)
     buttons: Any = None
     literal: bool = False
+    html: bool = False
+    """Render simple HTML (<b>, <code>). Only ever set on static catalog strings: anything
+    interpolated would have to be escaped first."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +87,9 @@ class Edit:
     params: dict[str, Any] = field(default_factory=dict)
     buttons: Any = None
     literal: bool = False
+    html: bool = False
+    """Render simple HTML (<b>, <code>). Only ever set on static catalog strings: anything
+    interpolated would have to be escaped first."""
 
 
 @dataclass(frozen=True, slots=True)

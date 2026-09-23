@@ -108,17 +108,19 @@ class BotAdapter:
                         self._text(action, lang),
                         buttons=self._buttons(action.buttons, lang),
                         link_preview=False,
-                        parse_mode=None,
+                        parse_mode=_parse_mode(action),
                     )
                 return
-            action = Reply(action.key_or_text, action.params, action.buttons, action.literal)
+            action = Reply(
+                action.key_or_text, action.params, action.buttons, action.literal, action.html
+            )
         if isinstance(action, Reply):
             await self._client.send_message(
                 await self._peer(event),
                 self._text(action, lang),
                 buttons=self._buttons(action.buttons, lang),
                 link_preview=False,
-                parse_mode=None,
+                parse_mode=_parse_mode(action),
             )
             return
         if isinstance(action, Send):
@@ -163,6 +165,13 @@ def self_id_of(client: Any) -> int | None:
     membership change in any of 50 chats must not cost a request.
     """
     return getattr(client, "_self_id", None)
+
+
+def _parse_mode(action: Any) -> str | None:
+    """Markdown is never used: it would eat __init__, ``**`` and backticks in a rule pattern.
+    HTML is opt-in per action and only for catalog strings we wrote ourselves.
+    """
+    return "html" if getattr(action, "html", False) else None
 
 
 def notification_buttons_factory(lang_of: Any) -> Any:

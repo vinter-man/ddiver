@@ -696,6 +696,15 @@ class Storage:
         )
         return cur.rowcount == 1
 
+    async def total_rule_hits(self, user_id: int) -> int:
+        """Lifetime matches across this user's rules; unlike the in-memory counters it
+        survives a restart, because it is flushed with the cursors."""
+        cur = await self.db.execute(
+            "SELECT COALESCE(SUM(hits), 0) AS n FROM rules WHERE user_id=?", (user_id,)
+        )
+        row = await cur.fetchone()
+        return int(row["n"]) if row else 0
+
     async def flush_rule_hits(self, hits: dict[int, int]) -> None:
         if not hits:
             return

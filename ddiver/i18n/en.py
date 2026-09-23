@@ -105,15 +105,19 @@ STRINGS.update(
         "bot.rules.title_global": "Rules for all chats",
         "bot.rules.empty": "No rules yet.",
         "bot.rules.prompt": (
-            "Send one rule per line:\n"
-            "taxi — substring, case-insensitive "
-            "(catches “need a TAXI”, “taxidermy”; misses “tax”, “taxes”)\n"
-            "=taxi — whole word only "
-            "(catches “taxi!”, “taxi-service”; misses “taxidermy”, “taxis”)\n"
-            "re:tax[iy] — regular expression "
-            "(catches “taxi”, “taxy”; misses “tax”, “taxes”)\n"
-            "#promo — a hashtag is an ordinary keyword "
-            "(catches “grab the #promo”; misses “promo” without the hash)"
+            "<b>Rules</b> — one per line.\n\n"
+            "<code>taxi</code> — substring, case-insensitive\n"
+            "  ✅ “need a TAXI”, “taxidermy”\n"
+            "  ❌ “tax”, “taxes”\n\n"
+            "<code>=taxi</code> — whole word only\n"
+            "  ✅ “taxi!”, “taxi-service”\n"
+            "  ❌ “taxidermy”, “taxis”\n\n"
+            "<code>re:tax[iy]</code> — regular expression\n"
+            "  ✅ “taxi”, “taxy”\n"
+            "  ❌ “tax”, “taxes”\n\n"
+            "<code>#promo</code> — a hashtag is an ordinary keyword\n"
+            "  ✅ “grab the #promo”\n"
+            "  ❌ “promo” without the hash"
         ),
         "bot.rules.report": "Added {added} · duplicates {duplicates} · invalid {invalid}",
         "bot.rules.line_invalid": "line {line}: {reason}",
@@ -164,7 +168,14 @@ STRINGS.update(
         "bot.status.listener_degraded": "needs re-login — run `ddiver login`",
         "bot.status.uptime": "Uptime: {uptime}",
         "bot.status.chats": "Chats: {monitored} monitored, {unavailable} unavailable",
-        "bot.status.counters": "Today: {seen} seen · {matched} matched · {delivered} delivered · {digested} digested · {failed} failed",
+        "bot.status.session": "Since the last start:",
+        "bot.status.counters": (
+            "  seen {seen} · matched {matched} · delivered {delivered}\n"
+            "  digested {digested} · failed {failed}"
+        ),
+        "bot.status.lifetime": (
+            "Across your rules, all time: {hits} — this one survives a restart"
+        ),
         "bot.status.queue": "Queue: {queue} · last update {last_update} ago",
         "bot.test.prompt": "Send the text you want to test.",
         "bot.test.match": "✅ {chat} — {rule} ({fragment})",
@@ -198,15 +209,20 @@ STRINGS.update(
         "bot.help": (
             "I watch the chats you pick and message you when something matches "
             "your rules.\n\n"
-            "Rule syntax:\n"
-            "taxi — substring, case-insensitive "
-            "(catches “need a TAXI”, “taxidermy”; misses “tax”, “taxes”)\n"
-            "=taxi — whole word only "
-            "(catches “taxi!”, “taxi-service”; misses “taxidermy”, “taxis”)\n"
-            "re:tax[iy] — regular expression "
-            "(catches “taxi”, “taxy”; misses “tax”, “taxes”)\n\n"
-            "Exclusions use the same syntax and win over keywords.\n"
-            "Commands: /menu /test /status /cancel"
+            "<b>Rule syntax</b>\n\n"
+            "<code>taxi</code> — substring, case-insensitive\n"
+            "  ✅ “need a TAXI”, “taxidermy”\n"
+            "  ❌ “tax”, “taxes”\n\n"
+            "<code>=taxi</code> — whole word only\n"
+            "  ✅ “taxi!”, “taxi-service”\n"
+            "  ❌ “taxidermy”, “taxis”\n\n"
+            "<code>re:tax[iy]</code> — regular expression\n"
+            "  ✅ “taxi”, “taxy”\n"
+            "  ❌ “tax”, “taxes”\n\n"
+            "<b>Exclusions</b>\n"
+            "Same syntax, and they win over keywords.\n\n"
+            "<b>Commands</b>\n"
+            "/menu · /test · /status · /cancel"
         ),
         "bot.cancelled": "Cancelled.",
     }

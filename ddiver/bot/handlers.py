@@ -116,11 +116,11 @@ def build_router(
 
     @router.command("help")
     async def help_cmd(_ctx: Context) -> list[Action]:
-        return [Reply("bot.help")]
+        return [Reply("bot.help", html=True)]
 
     @router.callback("help")
     async def help_cb(_ctx: Context) -> list[Action]:
-        return [Edit("bot.help", buttons=[[("bot.btn.back", "menu")]])]
+        return [Edit("bot.help", buttons=[[("bot.btn.back", "menu")]], html=True)]
 
     @router.command("cancel")
     async def cancel(ctx: Context) -> list[Action]:
@@ -428,7 +428,7 @@ def build_router(
         if chat_id != ALL_CHATS and await accessible_chat(ctx, chat_id) is None:
             return [Toast("bot.err.not_found")]
         router.set_pending(ctx.user_id, "rules_add", {"chat_id": _int(raw_chat), "kind": raw_kind})
-        return [Reply("bot.rules.prompt")]
+        return [Reply("bot.rules.prompt", html=True)]
 
     @router.pending("rules_add")
     async def rules_add(ctx: Context) -> list[Action]:
@@ -674,9 +674,12 @@ def build_router(
         return "\n".join(
             [
                 ctx.t("bot.status.title"),
+                "",
                 ctx.t("bot.status.listener", state=state),
                 ctx.t("bot.status.uptime", uptime=info.uptime),
                 ctx.t("bot.status.chats", monitored=info.monitored, unavailable=info.unavailable),
+                "",
+                ctx.t("bot.status.session"),
                 ctx.t(
                     "bot.status.counters",
                     seen=info.seen,
@@ -686,6 +689,8 @@ def build_router(
                     failed=info.failed,
                 ),
                 ctx.t("bot.status.queue", queue=info.queue, last_update=info.last_update),
+                "",
+                ctx.t("bot.status.lifetime", hits=await storage.total_rule_hits(ctx.user_id)),
             ]
         )
 
