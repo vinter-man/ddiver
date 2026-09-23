@@ -125,6 +125,31 @@ class TestHandle:
         assert listener.metrics.skipped_bot == 1
         assert listener.cursors.pending[-1001234567890][0] == event.message.id
 
+    async def test_a_moderator_can_opt_into_bot_messages(self, listener, store):
+        """The skip is per moderator, so one opting in must not change it for the others."""
+        bot_user = make_user(77, "Spam Bot", "spambot", bot=True)
+        await store.update_user(OWNER, include_bots=True)
+        await listener.matcher.invalidate(None)
+
+        event = make_event("казино", chat=CHAT, sender=bot_user)
+        items = await listener.handle(event.message, chat=event.chat)
+        assert [i.user_id for i in items] == [OWNER]
+        assert items[0].payload["sender_id"] == 77
+
+    async def test_turning_it_off_again_restores_the_skip(self, listener, store):
+        bot_user = make_user(77, "Spam Bot", "spambot", bot=True)
+        await store.update_user(OWNER, include_bots=True)
+        await listener.matcher.invalidate(None)
+        assert await listener.handle(
+            make_event("казино", chat=CHAT, sender=bot_user).message, chat=CHAT
+        )
+
+        await store.update_user(OWNER, include_bots=False)
+        await listener.matcher.invalidate(None)
+        event = make_event("казино", chat=CHAT, sender=bot_user, msg_id=987)
+        assert await listener.handle(event.message, chat=event.chat) == []
+        assert listener.metrics.skipped_bot == 1
+
     async def test_own_messages_are_skipped(self, listener):
         event = make_event("казино", chat=CHAT, out=True)
         assert await listener.handle(event.message, chat=event.chat) == []

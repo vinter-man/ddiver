@@ -39,6 +39,8 @@ class Match:
     user_id: int
     rule: Rule
     spans: list[Span]
+    accepts_bots: bool = False
+    """Whether this user asked to hear about bot-sent messages too (default: no)."""
 
     @property
     def span(self) -> Span:
@@ -51,6 +53,7 @@ class _UserRules:
     includes: list[tuple[Rule, CompiledRule]] = field(default_factory=list)
     excludes: list[tuple[Rule, CompiledRule]] = field(default_factory=list)
     ignored: set[int] = field(default_factory=set)
+    accepts_bots: bool = False
 
 
 @dataclass(slots=True)
@@ -161,7 +164,7 @@ class Matcher:
             hit = self._first_hit(user.includes, text, deadline, timed_out)
             if hit is not None:
                 rule, spans = hit
-                matches.append(Match(user.user_id, rule, spans))
+                matches.append(Match(user.user_id, rule, spans, user.accepts_bots))
         return matches, timed_out
 
     def _first_hit(
@@ -214,6 +217,7 @@ class Matcher:
     async def _load(self, chat_id: int) -> _ChatRuleSet:
         rules = await self._storage.rules_for_chat(chat_id)
         ignored = await self._storage.ignored_for_chat(chat_id)
+        bot_watchers = await self._storage.bot_watchers()
         by_user: dict[int, _UserRules] = {}
         for rule in rules:  # ordered by user, chat-specific before global
             bucket = by_user.setdefault(rule.user_id, _UserRules(rule.user_id))
@@ -227,4 +231,6 @@ class Matcher:
         for user_id, senders in ignored.items():
             if user_id in by_user:
                 by_user[user_id].ignored = set(senders)
+        for user_id in bot_watchers & by_user.keys():
+            by_user[user_id].accepts_bots = True
         return _ChatRuleSet(chat_id, list(by_user.values()))

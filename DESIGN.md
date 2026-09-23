@@ -17,7 +17,7 @@ against that source or by experiment; the review notes live in the commit histor
 | D3 | Multi-user with one shared listener: owner (`OWNER_ID`) + allow-listed moderators, each with own language, timezone, chat subscriptions, rules, ignore lists. |
 | D4 | Target load: 50+ chats, 100k+ messages/day (≈1.2 msg/s average, bursts of 50+/s). |
 | D5 | Rule syntax: `word` = case-insensitive substring; `=word` = whole word; `re:pattern` = regex. Same syntax for exclusions. Per-user ignore list of senders. The listener's own messages are always ignored. |
-| D6 | Matched: new messages and media captions, forwarded messages (sender = forwarder). Not matched: edits, bot senders, service messages. |
+| D6 | Matched: new messages and media captions, forwarded messages (sender = forwarder). Not matched: edits, service messages. Bot senders are skipped unless a moderator turns them on in Settings, which is a per-user decision applied after matching. |
 | D7 | Notification = chat title (link) / sender (link) / message link / date in user tz + "N s ago" / full text with the match in bold + the rule that fired. Inline buttons: ignore sender, add exclusion. |
 | D8 | Flood: each match is its own message; above a threshold pending items collapse into one digest. |
 | D9 | Catch-up after downtime from a persisted per-chat cursor, capped to N hours; such notifications are labelled "missed while offline". |
@@ -359,7 +359,7 @@ on Linux (so the case-sensitive timezone behaviour is what ships).
 ## Edge cases the tests cover
 
 media-only message (`message` is `None`) · caption match · forwarded message · own outgoing
-message · bot sender dropped · deleted account · anonymous admin and channel post
+message · bot sender dropped unless opted in · deleted account · anonymous admin and channel post
 (`sender_id == chat_id`) · forum topic links including the general topic · basic group without
 links · collectible usernames · chat title with `<>&` and emoji · text beyond 4096 UTF-16 units ·
 windowing around a late match · zero-width and NFD text with offset mapping · Cyrillic case ·

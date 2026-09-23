@@ -242,7 +242,11 @@ def build_router(
 
     @router.callback("sub")
     async def subscribe(ctx: Context) -> list[Action]:
-        _, raw_chat, raw_state = (ctx.incoming.data or "").split(":")
+        parts = (ctx.incoming.data or "").split(":")
+        _, raw_chat, raw_state = parts[:3]
+        # The page travels in the callback, so dropping a chat does not throw the moderator
+        # back to the first page of a few hundred. Keyboards sent before this omit it.
+        page_index = _int(parts[3]) if len(parts) > 3 else 0
         chat_id, wanted = _int(raw_chat), raw_state == "1"
         chat = await accessible_chat(ctx, chat_id)
         if chat is None:
@@ -261,7 +265,7 @@ def build_router(
             Edit(
                 "bot.chats.title",
                 {"n": len(subscribed)},
-                buttons=menus.chats_menu(rows, subscribed, 0),
+                buttons=menus.chats_menu(rows, subscribed, page_index),
             ),
         ]
 
@@ -550,90 +554,54 @@ def build_router(
             Toast(t(ctx.lang, "bot.ignored.added_global", sender=sender_id), literal=True),
         ]
 
-    # -- notification exclusion button ------------------------------------------------------
+    # -- notification: drop the rule that fired ---------------------------------------------
 
-    @router.callback("ex")
-    async def exclude_prompt(ctx: Context) -> list[Action]:
-        _, raw_chat, raw_msg = (ctx.incoming.data or "").split(":")
-        chat_id, msg_id = _int(raw_chat), _int(raw_msg)
-        item = await storage.get_delivery(ctx.user_id, chat_id, msg_id)
-        if item is None:
-            return [Toast("bot.err.expired", alert=True)]
-        text = str(item.payload.get("text", ""))
-        spans = [tuple(s) for s in item.payload.get("spans", [])]
-        include_pattern = str(item.payload.get("rule_pattern", ""))
-        candidate = propose_exclusion(text, spans)
-        buttons: list[list[tuple[str, str]]] = []
-        actions: list[Action] = []
-        if candidate and not _conflicts(candidate, include_pattern):
-            router.set_pending(ctx.user_id, "exclude_custom", {"chat_id": chat_id})
-            label = t(ctx.lang, "bot.notif.exclude_btn", pattern=_shorten(candidate))
-            buttons.append([(menus.literal(label), f"exadd:{chat_id}:{msg_id}")])
-        elif candidate:
-            actions.append(
-                Toast(
-                    t(ctx.lang, "bot.notif.exclude_conflict", pattern=include_pattern),
-                    alert=True,
-                    literal=True,
-                )
-            )
-        buttons.append([("bot.notif.exclude_custom", f"excustom:{chat_id}")])
-        router.set_pending(ctx.user_id, "exclude_custom", {"chat_id": chat_id})
-        actions.append(Reply("bot.notif.exclude_prompt", buttons=buttons))
-        return actions
-
-    @router.callback("exadd")
-    async def exclude_add(ctx: Context) -> list[Action]:
-        _, raw_chat, raw_msg = (ctx.incoming.data or "").split(":")
-        chat_id, msg_id = _int(raw_chat), _int(raw_msg)
-        item = await storage.get_delivery(ctx.user_id, chat_id, msg_id)
-        if item is None:
-            return [Toast("bot.err.expired", alert=True)]
-        candidate = propose_exclusion(
-            str(item.payload.get("text", "")),
-            [tuple(s) for s in item.payload.get("spans", [])],
-        )
-        if not candidate:
-            return [Toast("bot.err.expired")]
-        router.clear_pending(ctx.user_id)
-        return await _store_exclusion(ctx, chat_id, candidate)
-
-    @router.callback("excustom")
-    async def exclude_custom(ctx: Context) -> list[Action]:
-        chat_id = _int((ctx.incoming.data or "").split(":", 1)[1])
-        if chat_id != ALL_CHATS and await accessible_chat(ctx, chat_id) is None:
-            return [Toast("bot.err.not_found")]
-        router.set_pending(ctx.user_id, "exclude_custom", {"chat_id": chat_id})
-        return [Reply("bot.rules.prompt")]
-
-    @router.pending("exclude_custom")
-    async def exclude_input(ctx: Context) -> list[Action]:
-        payload = router.pending_payload(ctx.user_id)
-        router.clear_pending(ctx.user_id)
-        chat_id = int(payload.get("chat_id", ALL_CHATS))
-        lines = parse_rule_lines(ctx.incoming.text or "")
-        if not lines:
-            return [Reply("bot.err.not_waiting")]
-        return await _store_exclusion(ctx, chat_id, lines[0])
-
-    async def _store_exclusion(ctx: Context, chat_id: int, pattern: str) -> list[Action]:
-        # UI-8: the exclusion flow has to respect the same caps as the rules screen
-        if await storage.count_rules(ctx.user_id, chat_id) >= MAX_RULES_PER_CHAT:
-            return [Reply("bot.rules.limit_chat", {"limit": MAX_RULES_PER_CHAT})]
-        if await storage.count_rules(ctx.user_id) >= MAX_RULES_PER_USER:
-            return [Reply("bot.rules.limit_user", {"limit": MAX_RULES_PER_USER})]
-        try:
-            compiled = await asyncio.to_thread(compile_rule, pattern, timeout=regex_timeout)
-        except RuleError as exc:
-            return [Reply(t(ctx.lang, exc.key, **exc.params), literal=True)]
-        try:
-            await storage.add_rule(ctx.user_id, chat_id, RuleKind.EXCLUDE, compiled.pattern)
-        except DuplicateRuleError:
-            return [Reply("bot.rules.line_duplicate", {"line": 1})]
-        await invalidate(None if chat_id == ALL_CHATS else chat_id)
+    @router.callback("rdrop")
+    async def drop_rule_prompt(ctx: Context) -> list[Action]:
+        """Ask before removing: one tap must not silently kill a rule on every chat."""
+        rule_id = _int((ctx.incoming.data or "").split(":", 1)[1])
+        rule = await storage.get_rule(rule_id, ctx.user_id)
+        if rule is None:
+            return [Toast("bot.notif.drop_gone", alert=True)]
+        scope = await _rule_scope(ctx, rule)
+        body = t(ctx.lang, "bot.notif.drop_confirm", pattern=_shorten(rule.pattern), scope=scope)
         return [
-            Reply(t(ctx.lang, "bot.notif.exclude_added", pattern=compiled.pattern), literal=True)
+            Reply(
+                body,
+                literal=True,
+                buttons=[
+                    [
+                        ("bot.btn.drop_yes", menus.check_callback(f"rdropok:{rule_id}")),
+                        ("bot.btn.cancel", "menu"),
+                    ]
+                ],
+            )
         ]
+
+    @router.callback("rdropok")
+    async def drop_rule(ctx: Context) -> list[Action]:
+        rule_id = _int((ctx.incoming.data or "").split(":", 1)[1])
+        rule = await storage.get_rule(rule_id, ctx.user_id)
+        if rule is None or not await storage.delete_rule(rule_id, ctx.user_id):
+            return [Toast("bot.notif.drop_gone", alert=True)]
+        await invalidate(None if rule.chat_id == ALL_CHATS else rule.chat_id)
+        return [
+            Toast(
+                t(ctx.lang, "bot.notif.drop_done", pattern=_shorten(rule.pattern)),
+                literal=True,
+            ),
+            Edit(
+                t(ctx.lang, "bot.notif.drop_done", pattern=_shorten(rule.pattern)),
+                literal=True,
+            ),
+        ]
+
+    async def _rule_scope(ctx: Context, rule: Any) -> str:
+        if rule.chat_id == ALL_CHATS:
+            return t(ctx.lang, "notif.rule_scope.global")
+        chat = await storage.get_chat(rule.chat_id)
+        title = chat.ref.title if chat else str(rule.chat_id)
+        return t(ctx.lang, "bot.notif.drop_scope_chat", chat=title)
 
     # -- settings --------------------------------------------------------------------------
 
@@ -647,23 +615,43 @@ def build_router(
             return [Edit("bot.start.timezone", buttons=menus.timezone_menu())]
         if what == "digest":
             router.set_pending(ctx.user_id, "digest")
-            return [Reply("bot.settings.digest_prompt")]
-        body = ctx.t(
+            return [Reply("bot.settings.digest_prompt", {"n": ctx.user.digest_threshold})]
+        user = ctx.user
+        toast: list[Action] = []
+        if what == "bots":
+            user = await storage.update_user(ctx.user_id, include_bots=not user.include_bots)
+            await invalidate(None)  # the preference lives in the matcher's per-chat cache
+            toast = [
+                Toast(
+                    "bot.settings.bots_on_hint"
+                    if user.include_bots
+                    else "bot.settings.bots_off_hint"
+                )
+            ]
+        body = t(
+            ctx.lang,
             "bot.settings.title",
             lang=LANG_NAMES.get(ctx.lang, ctx.lang),
-            tz=ctx.user.tz or "UTC",
-            digest=ctx.user.digest_threshold,
+            tz=user.tz or "UTC",
+            digest=user.digest_threshold,
+            bots=t(
+                ctx.lang, "bot.settings.bots_yes" if user.include_bots else "bot.settings.bots_no"
+            ),
         )
-        return [Edit(body, literal=True, buttons=menus.settings_menu())]
+        return [
+            *toast,
+            Edit(body, literal=True, buttons=menus.settings_menu(include_bots=user.include_bots)),
+        ]
 
     @router.pending("digest")
     async def digest_input(ctx: Context) -> list[Action]:
         raw = (ctx.incoming.text or "").strip()
+        current = {"n": ctx.user.digest_threshold}
         if not raw.isdigit():
-            return [Reply("bot.settings.digest_prompt")]
+            return [Reply("bot.settings.digest_prompt", current)]
         value = int(raw)
         if value != 0 and not (DIGEST_MIN <= value <= DIGEST_MAX):
-            return [Reply("bot.settings.digest_prompt")]
+            return [Reply("bot.settings.digest_prompt", current)]
         router.clear_pending(ctx.user_id)
         await storage.update_user(ctx.user_id, digest_threshold=value)
         return [Reply("bot.settings.digest_set", {"n": value})]
@@ -772,38 +760,6 @@ def _evaluate_preview(
             fragment = prepared.original[original.start : original.end]
             return t(lang, "bot.test.match", chat=chat_title, rule=rule.pattern, fragment=fragment)
     return t(lang, "bot.test.nomatch", chat=chat_title)
-
-
-def propose_exclusion(text: str, spans: Sequence[tuple[int, int]]) -> str | None:
-    """Expand the matched fragment to whole whitespace-delimited tokens.
-
-    Whitespace, not ``\\w``, so hyphenated or punctuated tokens (``казино-бонус``,
-    ``@casino_bot``, ``casino.com``) stay in one piece.
-    """
-    if not text or not spans:
-        return None
-    start, end = spans[0]
-    start = max(0, min(start, len(text)))
-    end = max(start, min(end, len(text)))
-    while start > 0 and not text[start - 1].isspace():
-        start -= 1
-    while end < len(text) and not text[end].isspace():
-        end += 1
-    token = text[start:end].strip().strip(".,;:!?()[]{}\"'«»…")
-    if not token:
-        return None
-    return f"={token}"
-
-
-def _conflicts(candidate: str, include_pattern: str) -> bool:
-    """True when the proposal would silence the keyword entirely.
-
-    Only equality counts. A longer token (``=казино-бонус`` against the keyword ``казино``) is
-    exactly the useful case: it mutes that phrase while the keyword keeps firing elsewhere.
-    """
-    left = candidate.removeprefix("=").casefold()
-    right = include_pattern.removeprefix("=").removeprefix("re:").casefold()
-    return bool(right) and left == right
 
 
 def _shorten(pattern: str) -> str:

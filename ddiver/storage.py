@@ -63,6 +63,7 @@ class User:
     delivery_paused_at: dt.datetime | None
     pause_reason: str | None
     notified_owner_at: dt.datetime | None
+    include_bots: bool = False
     is_owner: bool = False
 
     @property
@@ -213,6 +214,10 @@ _MIGRATIONS: list[str] = [
     CREATE INDEX outbox_pending ON outbox(status, created_at);
     CREATE TABLE boots (started_at TEXT NOT NULL);
     """,
+    # v2: opt in to messages sent by bots (they are skipped by default)
+    """
+    ALTER TABLE users ADD COLUMN include_bots INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 
@@ -311,6 +316,7 @@ class Storage:
             delivery_paused_at=_parse(row["delivery_paused_at"]),
             pause_reason=row["pause_reason"],
             notified_owner_at=_parse(row["notified_owner_at"]),
+            include_bots=bool(row["include_bots"]),
             is_owner=self.is_owner(row["id"]),
         )
 
@@ -345,6 +351,7 @@ class Storage:
             "delivery_paused_at",
             "pause_reason",
             "notified_owner_at",
+            "include_bots",
         }
         unknown = set(fields) - allowed
         if unknown:
@@ -740,6 +747,11 @@ class Storage:
         for r in await cur.fetchall():
             out.setdefault(int(r["user_id"]), set()).add(int(r["sender_id"]))
         return out
+
+    async def bot_watchers(self) -> set[int]:
+        """Users who asked to be notified about messages sent by bots as well."""
+        cur = await self.db.execute("SELECT id FROM users WHERE include_bots=1")
+        return {int(r["id"]) for r in await cur.fetchall()}
 
     # -- cursors ---------------------------------------------------------------------------
 

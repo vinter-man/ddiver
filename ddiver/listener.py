@@ -187,9 +187,12 @@ class Listener:
 
         sender = await sender_of(message, self._senders)
         if sender is not None and sender.is_bot:
-            self.metrics.skipped_bot += 1
-            self.cursors.note(chat_id, message.id, moment)
-            return []
+            # Bots are skipped unless a moderator opted in, so the decision is per match.
+            matches = [m for m in matches if m.accepts_bots]
+            if not matches:
+                self.metrics.skipped_bot += 1
+                self.cursors.note(chat_id, message.id, moment)
+                return []
         if sender is None:
             # No entity came with the update and we refuse to make an RPC here, so we cannot
             # tell a human from a bot. Notify anyway — a missed spammer is worse than a

@@ -6,14 +6,14 @@ A Telethon *user session* (your own account) listens in the chats you pick. When
 matches your rules, a separate bot — which never joins those chats — messages you in private:
 
 ```
-📡 Чат модерации
-👤 Иван · @ivan · 42
+📡 Moderated chat
+👤 Ivan · @ivan · 42
 🔗 https://t.me/c/1234567890/77
 🕒 2026-09-22 14:03:05 +03:00 (Europe/Kyiv) · 12 s ago
-🔑 казино (chat rule)
+🔑 taxi (chat rule)
 
-Заходи в **казино** прямо сейчас
-[🚫 Ignore sender] [➖ Add exclusion]
+cheap **taxi**, write to me
+[🚫 Ignore sender] [🗑 Remove this rule]
 ```
 
 *Українська / Русский: the bot speaks uk, ru and en — it asks on the first `/start`. A Russian
@@ -22,8 +22,8 @@ version of this README is in [README.ru.md](README.ru.md).*
 ## What it does
 
 - **Watches chats you are only a member of.** No admin rights, no bot in the chat.
-- **Per-chat rules.** `казино` (substring, case-insensitive), `=казино` (whole word),
-  `re:каз[иі]но` (regular expression). Exclusions use the same syntax and win over keywords.
+- **Per-chat rules.** `taxi` (substring, case-insensitive), `=taxi` (whole word),
+  `re:tax[iy]` (regular expression). Exclusions use the same syntax and win over keywords.
 - **Several moderators, one listener.** The owner shares specific chats; each moderator has
   their own chats, rules, ignore list, language and timezone.
 - **Survives restarts.** Matches are written to an outbox before they are sent, and the bot
@@ -75,7 +75,7 @@ a lock file and refuses, but a copy of the directory elsewhere would still break
 | 📡 Chats | pick which chats to monitor (moderators see only the chats the owner shared) |
 | 🔑 Rules | keywords and exclusions, per chat or for all your chats |
 | 🚫 Ignored | senders you never want to hear about |
-| ⚙️ Settings | language, timezone, digest threshold |
+| ⚙️ Settings | language, timezone, digest threshold, whether bot messages count |
 | 📊 Status | listener state, uptime, counters, queue length |
 | 🗂 Shared chats | *(owner)* which of your chats moderators may see |
 | 👥 Users | *(owner)* approve, deny or revoke moderators |
@@ -89,13 +89,13 @@ per chat, whether that text would notify you.
 
 | Pattern | Matches |
 |---|---|
-| `казино` | any message containing "казино", ignoring case — including "казино-бонус" |
-| `=казино` | the whole word only, so not "казиношный"; punctuation is a boundary, so `=c++` works |
-| `re:каз[иі]но` | a regular expression (case-insensitive; opt out with `(?-i:…)`) |
-| `#промо` | a hashtag is an ordinary keyword — there is no comment syntax |
+| `taxi` | any message containing "taxi", ignoring case — including "taxidermy" |
+| `=taxi` | the whole word only, so not "taxidermy"; punctuation is a boundary, so `=c++` and `taxi-service` both work |
+| `re:tax[iy]` | a regular expression (case-insensitive; opt out with `(?-i:…)`) |
+| `#promo` | a hashtag is an ordinary keyword — there is no comment syntax |
 
 Rules are matched against text with invisible characters removed and Unicode normalised, so
-`ка<zero-width space>зино` still matches `казино`. Latin/Cyrillic look-alikes (`кaзино` with a
+`ta<zero-width space>xi` still matches `taxi`. Latin/Cyrillic look-alikes (`тaкси` with a
 Latin "a") are **not** normalised — use a regex if you need them.
 
 A regular expression that takes too long is skipped, and after three timeouts it is disabled

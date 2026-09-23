@@ -3,14 +3,14 @@ import datetime as dt
 import pytest
 
 from ddiver.bot import menus
-from ddiver.bot.handlers import StatusInfo, build_router, propose_exclusion
+from ddiver.bot.handlers import StatusInfo, build_router
 from ddiver.bot.router import Edit, Incoming, Reply, Send, Toast
 from ddiver.i18n import t
 from ddiver.links import ChatRef
 from ddiver.matcher import Matcher
 from ddiver.rules import RuleKind
 from ddiver.storage import ALL_CHATS, ChatRow, IgnoredSender, Role, Rule, Storage
-from tests.fakes import T0, FakeClock
+from tests.fakes import FakeClock
 
 OWNER = 1
 MOD = 2
@@ -211,6 +211,14 @@ class TestChatsAndSharing:
         assert await store.list_subscriptions(MOD) == []
         assert not matcher.is_monitored(CHAT_A.id)
 
+    async def test_dropping_a_chat_stays_on_the_same_page(self, router, store):
+        """A moderator paging through hundreds of dialogs must not be sent back to page 1."""
+        for i in range(30):
+            await store.upsert_chat(ChatRef(-2000 - i, f"Чат {i:02d}", None, "supergroup"))
+        actions = await cb(router, OWNER, f"sub:{CHAT_A.id}:0:2")
+        nav = [data for row in actions[-1].buttons for _, data in row if data.startswith("chats:")]
+        assert {"chats:1", "chats:3"} <= set(nav)  # still looking at page 2
+
     async def test_moderator_cannot_subscribe_to_an_unshared_chat(self, router, store):
         actions = await cb(router, MOD, f"sub:{CHAT_B.id}:1")
         assert actions[0].key_or_text == "bot.err.not_found"
@@ -310,74 +318,47 @@ class TestIgnoreAndExclude:
         entry = (await store.list_ignored(OWNER))[0]
         assert entry.note == t("ru", "bot.ignored.anonymous")
 
-    async def test_exclude_reads_the_outbox_row(self, router, store):
-        payload = {
-            "chat_id": CHAT_A.id,
-            "chat_title": "Модерация",
-            "msg_id": 9,
-            "date": T0.isoformat(),
-            "text": "купи казино-бонус сегодня",
-            "spans": [[5, 11]],
-            "rule_pattern": "казино",
-        }
-        await store.claim_delivery(OWNER, CHAT_A.id, 9, 1, payload)
-        actions = await cb(router, OWNER, f"ex:{CHAT_A.id}:9")
-        assert "exadd:-1001:9" in callbacks(actions)
-        await cb(router, OWNER, f"exadd:{CHAT_A.id}:9")
-        rules = await store.list_rules(OWNER, CHAT_A.id, RuleKind.EXCLUDE)
-        assert [r.pattern for r in rules] == ["=казино-бонус"]
+    async def test_the_notification_button_removes_the_rule_after_a_confirmation(
+        self, router, store
+    ):
+        """One tap must not silently kill a rule; the confirmation names it and its scope."""
+        rule = await store.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "такси")
+        prompt = await cb(router, OWNER, f"rdrop:{rule.id}")
+        assert f"rdropok:{rule.id}" in callbacks(prompt)
+        assert "такси" in texts(prompt)[0]
+        assert await store.list_rules(OWNER, CHAT_A.id) == [rule]  # nothing dropped yet
 
-    async def test_exclude_on_a_pruned_row_expires(self, router):
-        actions = await cb(router, OWNER, f"ex:{CHAT_A.id}:404")
-        assert actions[0].key_or_text == "bot.err.expired"
+        await cb(router, OWNER, f"rdropok:{rule.id}")
+        assert await store.list_rules(OWNER, CHAT_A.id) == []
 
-    async def test_exclude_cannot_read_another_users_row(self, router, store):
-        payload = {"chat_id": CHAT_A.id, "chat_title": "x", "msg_id": 9, "date": T0.isoformat()}
-        await store.claim_delivery(MOD, CHAT_A.id, 9, 1, payload)
-        actions = await cb(router, OWNER, f"ex:{CHAT_A.id}:9")
-        assert actions[0].key_or_text == "bot.err.expired"
+    async def test_a_global_rule_says_so_before_it_is_dropped(self, router, store):
+        rule = await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "такси")
+        prompt = await cb(router, OWNER, f"rdrop:{rule.id}")
+        assert t("ru", "notif.rule_scope.global") in texts(prompt)[0]
 
-    async def test_exclusion_equal_to_the_keyword_is_refused(self, router, store):
-        payload = {
-            "chat_id": CHAT_A.id,
-            "chat_title": "Модерация",
-            "msg_id": 10,
-            "date": T0.isoformat(),
-            "text": "казино",
-            "spans": [[0, 6]],
-            "rule_pattern": "казино",
-        }
-        await store.claim_delivery(OWNER, CHAT_A.id, 10, 1, payload)
-        actions = await cb(router, OWNER, f"ex:{CHAT_A.id}:10")
-        assert any(a.key_or_text.startswith("⚠️") for a in actions if isinstance(a, Toast))
-        assert "exadd:-1001:10" not in callbacks(actions)
+    async def test_dropping_someone_elses_rule_is_refused(self, router, store):
+        rule = await store.add_rule(MOD, ALL_CHATS, RuleKind.INCLUDE, "такси")
+        assert (await cb(router, OWNER, f"rdrop:{rule.id}"))[0].key_or_text == (
+            "bot.notif.drop_gone"
+        )
+        assert (await cb(router, OWNER, f"rdropok:{rule.id}"))[0].key_or_text == (
+            "bot.notif.drop_gone"
+        )
+        assert len(await store.list_rules(MOD)) == 1
 
-    async def test_custom_exclusion_input(self, router, store):
-        await cb(router, OWNER, f"excustom:{CHAT_A.id}")
-        actions = await msg(router, OWNER, "re:промокод")
-        assert "промокод" in texts(actions)[0]
-        rules = await store.list_rules(OWNER, CHAT_A.id, RuleKind.EXCLUDE)
-        assert [r.pattern for r in rules] == ["re:промокод"]
+    async def test_dropping_a_rule_twice_is_harmless(self, router, store):
+        rule = await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "такси")
+        await cb(router, OWNER, f"rdropok:{rule.id}")
+        again = await cb(router, OWNER, f"rdropok:{rule.id}")
+        assert again[0].key_or_text == "bot.notif.drop_gone"
 
-
-class TestProposeExclusion:
-    @pytest.mark.parametrize(
-        ("text", "span", "expected"),
-        [
-            ("купи казино-бонус сегодня", (5, 11), "=казино-бонус"),
-            ("пиши @casino_bot тут", (6, 12), "=@casino_bot"),
-            ("смотри casino.com!", (7, 13), "=casino.com"),
-            ("казино", (0, 6), "=казино"),
-            ("  казино  ", (2, 8), "=казино"),
-        ],
-    )
-    def test_expands_to_whole_tokens(self, text, span, expected):
-        assert propose_exclusion(text, [span]) == expected
-
-    def test_empty_inputs(self):
-        assert propose_exclusion("", [(0, 1)]) is None
-        assert propose_exclusion("text", []) is None
-        assert propose_exclusion("...", [(0, 3)]) is None
+    async def test_the_matcher_forgets_a_dropped_rule(self, router, store, matcher):
+        rule = await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "такси")
+        await store.set_chat_shared(CHAT_A.id, True)
+        await cb(router, OWNER, f"sub:{CHAT_A.id}:1")
+        assert await matcher.evaluate(CHAT_A.id, "нужно такси", 55)
+        await cb(router, OWNER, f"rdropok:{rule.id}")
+        assert not await matcher.evaluate(CHAT_A.id, "нужно такси", 55)
 
 
 class TestPendingInput:
@@ -443,6 +424,17 @@ class TestSettings:
         await cb(router, OWNER, "set:digest")
         await msg(router, OWNER, "0")
         assert (await store.get_user(OWNER)).digest_threshold == 0
+
+    async def test_the_digest_prompt_states_the_current_value(self, router, store):
+        """Asking for a number without showing the one in force leaves nothing to compare to."""
+        actions = await cb(router, OWNER, "set:digest")
+        assert actions[-1].params == {"n": 20}
+        await msg(router, OWNER, "7")
+        again = await cb(router, OWNER, "set:digest")
+        assert again[-1].params == {"n": 7}
+        rejected = await msg(router, OWNER, "1")  # out of range: the prompt repeats
+        assert rejected[-1].params == {"n": 7}
+        assert (await store.get_user(OWNER)).digest_threshold == 7
 
     async def test_settings_view_shows_current_values(self, router):
         actions = await cb(router, OWNER, "set:main")
@@ -523,6 +515,28 @@ class TestMenuRendering:
         nav = [cb for row in middle for _, cb in row if cb.startswith("chats:")]
         assert {"chats:0", "chats:2"} <= set(nav)
 
+    def test_watched_chats_come_first_so_they_can_be_dropped(self):
+        """Alphabetical order buries a watched chat among hundreds of cached dialogs."""
+        rows = [
+            ChatRow(ChatRef(-1000 - i, f"Chat {i:02d}", None, "supergroup"), True, True, None)
+            for i in range(20)
+        ]
+        watched = {rows[17].id, rows[3].id}
+        keyboard = menus.chats_menu(rows, watched, 0)
+        labels = [menus.unwrap(row[0][0]) for row in keyboard[:2]]
+        assert all(label.startswith("✅") for label in labels)
+        assert {"Chat 03", "Chat 17"} == {label.split(" ", 1)[1] for label in labels}
+
+    def test_the_toggle_callback_carries_the_page(self):
+        """Otherwise dropping a chat on page 3 bounces the moderator back to page 1."""
+        rows = [
+            ChatRow(ChatRef(-1000 - i, f"Chat {i:02d}", None, "supergroup"), True, True, None)
+            for i in range(20)
+        ]
+        keyboard = menus.chats_menu(rows, set(), 2)
+        toggles = [cb for row in keyboard for _, cb in row if cb.startswith("sub:")]
+        assert toggles and all(cb.endswith(":2") for cb in toggles)
+
     def test_rules_menu_navigation_keeps_chat_and_kind(self):
         rules = [
             Rule(i, OWNER, CHAT_A.id, RuleKind.INCLUDE, f"rule{i}", None, 0) for i in range(25)
@@ -597,10 +611,6 @@ class TestForgedChatIds:
         assert actions[0].key_or_text == "bot.err.not_found"
         assert await store.list_ignored(MOD) == []
 
-    async def test_custom_exclusion_for_an_unshared_chat_is_refused(self, router, store):
-        actions = await cb(router, MOD, f"excustom:{CHAT_B.id}")
-        assert actions[0].key_or_text == "bot.err.not_found"
-
     async def test_the_owner_still_reaches_their_own_chats(self, router, store):
         actions = await cb(router, OWNER, f"rules:{CHAT_B.id}:include:0")
         assert "Приватный семейный" in actions[0].key_or_text
@@ -657,3 +667,28 @@ class TestDenyIsReversible:
         assert "allow:3" in callbacks(actions)  # the Users screen offers the way back
         await cb(router, OWNER, "allow:3")
         assert (await store.get_user(STRANGER)).role is Role.ALLOWED
+
+
+class TestBotMessagesSetting:
+    async def test_the_toggle_flips_the_setting_and_says_so(self, router, store):
+        settings = await cb(router, OWNER, "set:main")
+        assert t("ru", "bot.settings.bots_no") in settings[0].key_or_text
+
+        on = await cb(router, OWNER, "set:bots")
+        assert (await store.get_user(OWNER)).include_bots is True
+        assert t("ru", "bot.settings.bots_yes") in on[-1].key_or_text
+        assert "set:bots" in callbacks(on)
+
+        off = await cb(router, OWNER, "set:bots")
+        assert (await store.get_user(OWNER)).include_bots is False
+        assert t("ru", "bot.settings.bots_no") in off[-1].key_or_text
+
+    async def test_the_matcher_is_told_about_the_change(self, router, store, matcher):
+        """The preference lives in the per-chat rule cache, so it has to be invalidated."""
+        await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "такси")
+        await store.set_chat_shared(CHAT_A.id, True)
+        await cb(router, OWNER, f"sub:{CHAT_A.id}:1")
+        assert [m.accepts_bots for m in await matcher.evaluate(CHAT_A.id, "такси", 5)] == [False]
+
+        await cb(router, OWNER, "set:bots")
+        assert [m.accepts_bots for m in await matcher.evaluate(CHAT_A.id, "такси", 5)] == [True]

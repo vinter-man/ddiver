@@ -105,12 +105,20 @@ def chat_label(chat: ChatRow, *, subscribed: bool) -> str:
 
 
 def chats_menu(chats: Sequence[ChatRow], subscribed: set[int], page_index: int) -> Keyboard:
-    page = paginate(chats, page_index, CHATS_PER_PAGE)
+    # Watched chats come first: with a few hundred cached dialogs, the alphabetical position of
+    # a chat you subscribed to is no help at all when you want to drop it again.
+    ordered = sorted(chats, key=lambda chat: chat.id not in subscribed)
+    page = paginate(ordered, page_index, CHATS_PER_PAGE)
     rows: Keyboard = []
     for chat in page.items:
         target = 0 if chat.id in subscribed else 1
         rows.append(
-            [(chat_label(chat, subscribed=chat.id in subscribed), f"sub:{chat.id}:{target}")]
+            [
+                (
+                    chat_label(chat, subscribed=chat.id in subscribed),
+                    check_callback(f"sub:{chat.id}:{target}:{page.index}"),
+                )
+            ]
         )
     nav = nav_row("chats", page)
     if nav:
@@ -198,21 +206,27 @@ def ignored_menu(entries: Sequence[IgnoredSender], page_index: int) -> Keyboard:
     return rows
 
 
-def settings_menu() -> Keyboard:
+def settings_menu(*, include_bots: bool = False) -> Keyboard:
+    bots = "bot.settings.bots_on" if include_bots else "bot.settings.bots_off"
     return [
         [("bot.settings.language", "set:lang"), ("bot.settings.timezone", "set:tz")],
         [("bot.settings.digest", "set:digest")],
+        [(bots, "set:bots")],
         [("bot.btn.back", "menu")],
     ]
 
 
-def notification_buttons(chat_id: int, msg_id: int, sender_id: int | None) -> Keyboard:
+def notification_buttons(
+    chat_id: int, msg_id: int, sender_id: int | None, rule_id: int | None = None
+) -> Keyboard:
     """Buttons under a notification. No nonce: the handler reads the user's own outbox row."""
+    del msg_id  # kept in the signature: the callbacks are built from the row, not the message
     row: list[Button] = []
     if sender_id is not None:
         row.append(("notif.btn.ignore", check_callback(f"ig:{chat_id}:{sender_id}")))
-    row.append(("notif.btn.exclude", check_callback(f"ex:{chat_id}:{msg_id}")))
-    return [row]
+    if rule_id is not None:
+        row.append(("notif.btn.drop_rule", check_callback(f"rdrop:{rule_id}")))
+    return [row] if row else []
 
 
 def users_menu(

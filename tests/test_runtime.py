@@ -190,15 +190,21 @@ class TestNotificationButtons:
         item = OutboxItem(1, -1001, 7, 3, "pending", 0, PAYLOAD, T0)
         rows = notification_buttons_factory(None)(item, "ru")
         labels = [button.text for button in rows[0]]
-        assert labels == ["🚫 Игнорировать отправителя", "➖ Добавить исключение"]
+        assert labels == ["🚫 Игнорировать отправителя", "🗑 Убрать это правило"]
         data = [button.type.data.decode() for button in rows[0]]
-        assert data == ["ig:-1001:42", "ex:-1001:7"]
+        assert data == ["ig:-1001:42", "rdrop:3"]
 
-    def test_only_exclude_when_the_sender_is_unknown(self):
+    def test_only_the_rule_button_when_the_sender_is_unknown(self):
         payload = {**PAYLOAD, "sender_id": None}
         item = OutboxItem(1, -1001, 7, 3, "pending", 0, payload, T0)
         rows = notification_buttons_factory(None)(item, "en")
-        assert [b.type.data.decode() for b in rows[0]] == ["ex:-1001:7"]
+        assert [b.type.data.decode() for b in rows[0]] == ["rdrop:3"]
+
+    def test_no_keyboard_at_all_when_the_row_has_neither(self):
+        """A catch-up row whose rule was deleted meanwhile has nothing to offer."""
+        payload = {**PAYLOAD, "sender_id": None}
+        item = OutboxItem(1, -1001, 7, None, "pending", 0, payload, T0)
+        assert notification_buttons_factory(None)(item, "en") == []
 
     def test_payload_of_parses_the_row(self):
         item = OutboxItem(1, -1001, 7, 3, "pending", 0, PAYLOAD, T0)
@@ -697,5 +703,43 @@ class TestBootStormDelay:
             reconcile = next(t for t in app._tasks if t._name == "reconcile")
             assert reconcile._first_delay == RECONCILE_SECONDS
             await asyncio.gather(*(t.stop() for t in app._tasks))
+        finally:
+            await app.storage.close()
+
+
+class TestCommandList:
+    """Telegram only offers a "/" menu for commands the bot has registered."""
+
+    async def test_every_language_gets_the_command_list(self, tmp_path, monkeypatch):
+        from ddiver.i18n import LANGS
+
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+            sent: list[Any] = []
+
+            async def call(request):
+                sent.append(request)
+
+            monkeypatch.setattr(type(app.bot_client), "__call__", staticmethod(call), raising=False)
+            await app._publish_commands()
+
+            assert [r.lang_code for r in sent] == [*LANGS, ""]
+            names = [c.command for c in sent[0].commands]
+            assert names == ["start", "menu", "test", "status", "help", "cancel"]
+            assert all(c.description for r in sent for c in r.commands)
+            russian = next(r for r in sent if r.lang_code == "ru")
+            assert russian.commands[0].description == "Начать и открыть меню"
+        finally:
+            await app.storage.close()
+
+    async def test_a_failure_does_not_stop_the_bot(self, tmp_path, monkeypatch):
+        app = await make_app(tmp_path, monkeypatch)
+        try:
+
+            async def call(_request):
+                raise errors.RPCError("request", "nope", 400)
+
+            monkeypatch.setattr(type(app.bot_client), "__call__", staticmethod(call), raising=False)
+            await app._publish_commands()  # must not raise
         finally:
             await app.storage.close()

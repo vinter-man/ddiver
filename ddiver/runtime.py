@@ -16,6 +16,7 @@ from typing import Any
 
 from telethon import Button, TelegramClient, errors, events, utils
 from telethon.tl import types as tl
+from telethon.tl.functions.bots import SetBotCommandsRequest
 from telethon.tl.functions.updates import GetStateRequest
 
 from ddiver.app import (
@@ -34,7 +35,7 @@ from ddiver.config import Settings
 from ddiver.delivery import Delivery
 from ddiver.formatter import Payload
 from ddiver.health import Heartbeat, write_heartbeat
-from ddiver.i18n import DEFAULT_LANG, t
+from ddiver.i18n import DEFAULT_LANG, LANGS, t
 from ddiver.links import ChatRef
 from ddiver.listener import CURSOR_FLUSH_SECONDS, Listener, chat_ref_of
 from ddiver.matcher import Matcher
@@ -169,7 +170,9 @@ def notification_buttons_factory(lang_of: Any) -> Any:
 
     def factory(item: OutboxItem, lang: str) -> Any:
         payload = item.payload
-        rows = menus.notification_buttons(item.chat_id, item.msg_id, payload.get("sender_id"))
+        rows = menus.notification_buttons(
+            item.chat_id, item.msg_id, payload.get("sender_id"), item.rule_id
+        )
         return [[Button.inline(t(lang, label), data) for label, data in row] for row in rows]
 
     del lang_of
@@ -304,6 +307,7 @@ class Application:
         if not await self.user_client.is_user_authorized():
             log.error("the user session is not authorized; run `ddiver login`")
             return 3
+        await self._publish_commands()
         boots = await self.storage.record_boot()
         assert self.delivery is not None  # noqa: S101
         await self.delivery.replay_pending()
@@ -311,6 +315,31 @@ class Application:
         self._spawn(self._boot_catch_up(boots), "catchup-boot")
         self._spawn(self._watch_reconnects(), "reconnect-watch")
         return await self.supervisor.run()
+
+    async def _publish_commands(self) -> None:
+        """Register the command list so Telegram offers it when a moderator types "/".
+
+        Purely cosmetic, and Telegram remembers it, so a failure here must never keep the
+        bot from starting.
+        """
+        commands = ("start", "menu", "test", "status", "help", "cancel")
+        for lang in (*LANGS, ""):
+            try:
+                await self.bot_client(
+                    SetBotCommandsRequest(
+                        scope=tl.BotCommandScopeDefault(),
+                        lang_code=lang,
+                        commands=[
+                            tl.BotCommand(
+                                command=name,
+                                description=t(lang or DEFAULT_LANG, f"bot.cmd.{name}"),
+                            )
+                            for name in commands
+                        ],
+                    )
+                )
+            except (errors.RPCError, ConnectionError, TimeoutError) as exc:
+                log.warning("could not publish the command list for %r: %s", lang, exc)
 
     async def _boot_catch_up(self, boots: int) -> None:
         """Catch up once the process has proved it is not crash-looping.

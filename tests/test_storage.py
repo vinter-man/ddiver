@@ -55,14 +55,42 @@ async def seeded(store):
 
 class TestLifecycle:
     async def test_migrations_run_once(self, tmp_path, clock):
+        latest = len(storage_module._MIGRATIONS)
         s = Storage(tmp_path / "db.sqlite3", clock=clock)
         await s.open()
-        assert await s.schema_version() == 1
+        assert await s.schema_version() == latest
         await s.close()
         s2 = Storage(tmp_path / "db.sqlite3", clock=clock)
         await s2.open()
-        assert await s2.schema_version() == 1
+        assert await s2.schema_version() == latest
         await s2.close()
+
+    async def test_an_older_database_is_upgraded_without_losing_rows(self, tmp_path, monkeypatch):
+        """A live database is upgraded in place; the user's chats and rules must survive."""
+        path = tmp_path / "db.sqlite3"
+        monkeypatch.setattr(storage_module, "_MIGRATIONS", storage_module._MIGRATIONS[:1])
+        old = Storage(path, owner_id=1)
+        await old.open()
+        # written the way the old schema would have: the current mappers know the new column
+        await old.db.execute(
+            "INSERT INTO users (id, role, created_at, updated_at) VALUES (1,'allowed','t','t')"
+        )
+        await old.upsert_chat(ChatRef(-1001, "Чат", None, "supergroup"))
+        await old.add_rule(1, ALL_CHATS, RuleKind.INCLUDE, "такси")
+        assert await old.schema_version() == 1
+        await old.close()
+
+        monkeypatch.undo()
+        upgraded = Storage(path, owner_id=1)
+        await upgraded.open()
+        try:
+            assert await upgraded.schema_version() == len(storage_module._MIGRATIONS)
+            assert [r.pattern for r in await upgraded.list_rules(1)] == ["такси"]
+            user = await upgraded.get_user(1)
+            assert user is not None
+            assert user.include_bots is False  # the new column defaults to the old behaviour
+        finally:
+            await upgraded.close()
 
     async def test_open_failure_closes_connection(self, tmp_path, monkeypatch):
         monkeypatch.setattr(storage_module, "_MIGRATIONS", ["CREATE TABLE broken ("])
