@@ -28,8 +28,9 @@ version of this README is in [README.ru.md](README.ru.md).*
   their own chats, rules, ignore list, language and timezone.
 - **Survives restarts.** Matches are written to an outbox before they are sent, and the bot
   backfills what it missed while it was offline (labelled "missed while offline").
-- **Behaves under load.** 50+ chats and 100k+ messages a day: bounded queues, one shared flood
-  gate, digests when a burst arrives, automatic disabling of catastrophic regexes.
+- **Built for load.** Designed against a target of 50+ chats and 100k+ messages a day: bounded
+  queues, one shared flood gate, digests when a burst arrives, automatic disabling of
+  catastrophic regexes. The longest measured run so far is 1301 messages over five hours.
 
 ## Requirements
 

@@ -8,6 +8,7 @@ payload can only ever touch the sender's own rows.
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -36,7 +37,7 @@ from ddiver.storage import (
     Storage,
     User,
 )
-from ddiver.timeutil import Clock, format_clock, resolve_tz, utcnow
+from ddiver.timeutil import Clock, format_clock, relative, resolve_tz, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -71,7 +72,8 @@ class StatusInfo:
     digested: int = 0
     failed: int = 0
     queue: int = 0
-    last_update: str = "—"
+    last_update_at: dt.datetime | None = None
+    """Left unrendered: /status is written in the reader's language, not the server's."""
 
 
 StatusProvider = Callable[[], Awaitable[StatusInfo]]
@@ -692,7 +694,15 @@ def build_router(
                     digested=info.digested,
                     failed=info.failed,
                 ),
-                ctx.t("bot.status.queue", queue=info.queue, last_update=info.last_update),
+                ctx.t(
+                    "bot.status.queue",
+                    queue=info.queue,
+                    last_update=(
+                        relative(info.last_update_at, clock(), ctx.lang)
+                        if info.last_update_at is not None
+                        else "—"
+                    ),
+                ),
                 "",
                 ctx.t("bot.status.lifetime", hits=await storage.total_rule_hits(ctx.user_id)),
             ]

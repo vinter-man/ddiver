@@ -44,7 +44,8 @@ Postgres, multiple listener accounts, matching on edits, homoglyph-normalised ma
    cursor advances past the message, so a crash cannot silently drop a notification.
 4. **A delivery worker never dies.** Any exception marks the item and the loop continues.
 5. **The listener never monitors a private chat.** The monitored set is built from `chats` rows
-   of kind group/supergroup/channel; `event.is_private` is rejected in the fast path as well.
+   of kind group/supergroup/channel, and the fast path drops anything whose *marked* chat id is
+   non-negative — a cheaper and surer test than `is_private`, since a user id is always positive.
 
 ## Process model
 
@@ -185,8 +186,10 @@ without re-approval).
   (shared across chats, because a global rule is compiled into every chat's set).
 - Matching is a pure function of (rule set, text, sender). Above 20 rules for a chat the whole
   evaluation moves to a worker thread (`regex` releases the GIL — verified: 8.4 M loop iterations
-  during a 1 s match in a thread), and a 500 ms per-message budget stops a pathological rule set
-  from holding either the loop or the thread.
+  during a 1 s match in a thread), and a 500 ms budget **per subscriber** stops a pathological
+  rule set from holding either the loop or the thread. Per subscriber, not per message, on
+  purpose: a shared budget would let one moderator's slow regex silence everybody else's rules
+  on the same message.
 
 ## Notification
 

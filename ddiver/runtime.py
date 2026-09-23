@@ -36,7 +36,7 @@ from ddiver.listener import CURSOR_FLUSH_SECONDS, Listener, chat_ref_of
 from ddiver.matcher import Matcher
 from ddiver.senders import SenderCache
 from ddiver.storage import OutboxItem, Rule, Storage, safe_write
-from ddiver.timeutil import Clock, relative, utcnow
+from ddiver.timeutil import Clock, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -748,9 +748,6 @@ class Application:
         delivery = self.delivery
         supervisor = self.supervisor
         now = self.clock()
-        last_update = "—"
-        if listener is not None and listener.last_update_at is not None:
-            last_update = relative(listener.last_update_at, now, DEFAULT_LANG)
         return StatusInfo(
             listener_ok=supervisor.state.listener_ok if supervisor else True,
             uptime=format_uptime(supervisor.state.started_at if supervisor else None, now),
@@ -762,7 +759,7 @@ class Application:
             digested=delivery.metrics.digested if delivery else 0,
             failed=delivery.metrics.failed if delivery else 0,
             queue=delivery.total_queued() if delivery else 0,
-            last_update=last_update,
+            last_update_at=listener.last_update_at if listener else None,
         )
 
 

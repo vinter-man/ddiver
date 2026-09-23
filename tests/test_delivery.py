@@ -5,7 +5,7 @@ import pytest
 from telethon import errors
 from telethon.tl import types as tl
 
-from ddiver.delivery import Delivery
+from ddiver.delivery import MAX_ATTEMPTS, Delivery
 from ddiver.storage import DeliveryStatus, Role, Storage
 from tests.fakes import T0, FakeBotClient
 
@@ -163,6 +163,24 @@ class TestFlood:
         assert len(bot.sent) == 1
         row = await store.get_delivery(*item.key)
         assert row.status is DeliveryStatus.SENT
+
+    async def test_a_flood_wait_does_not_spend_one_of_the_retries(self, delivery, bot, store):
+        """Otherwise a busy hour eats the budget a real failure needs.
+
+        Four floods and four transient errors is eight trips round the loop, above
+        MAX_ATTEMPTS=5; the item still lands because only the failures count against it.
+        """
+        bot.fail_next(
+            *[errors.FloodWaitError(request=None, capture=1) for _ in range(4)],
+            *[ConnectionError("reset") for _ in range(4)],
+        )
+        item = await claim(store, MOD, 1)
+        await delivery.enqueue(item)
+        await settle(delivery)
+
+        row = await store.get_delivery(*item.key)
+        assert row.status is DeliveryStatus.SENT
+        assert row.attempts < MAX_ATTEMPTS  # the floods left the counter alone
 
 
 class TestErrors:

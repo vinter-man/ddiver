@@ -72,6 +72,8 @@ def test_build_strips_trailing_whitespace_and_clips_entities():
 
 
 def test_build_caps_entities():
+    """Telegram rejects a message with more than 100 entities, so the cap must stay below it."""
+    assert MAX_ENTITIES < 100
     rt = RichText()
     for i in range(MAX_ENTITIES + 20):
         rt.add(f"{i} ", bold=True)
@@ -90,6 +92,23 @@ def test_window_uses_head_when_match_is_early():
     assert w.text == text[:60]
     assert w.spans == [Span(0, 4)]
     assert (w.cut_before, w.cut_after) == (0, 440)
+
+
+def test_window_recentres_a_match_sitting_near_the_end_of_the_head():
+    """The head branch must leave room after the match, not merely contain it.
+
+    A match that lands inside the head but within half a context of its end would be shown
+    with no text following it — which is exactly the part a moderator needs to judge a
+    message. Relaxing the boundary to `first_start < len(head)` survives every other test.
+    """
+    text = "a" * 250 + "казино" + "b" * 250
+    limit, context = 300, 160
+    w = window(text, [Span(250, 256)], limit, context=context)
+
+    assert w.cut_before > 0, "the match sat too close to the end of the head to use it"
+    shown_after = len(w.text) - (w.spans[0].end)
+    assert shown_after >= context // 2  # there is context on the far side of the match
+    assert w.text[w.spans[0].start : w.spans[0].end] == "казино"
 
 
 def test_window_centres_on_late_match_and_rebases_spans():

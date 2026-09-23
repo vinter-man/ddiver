@@ -710,3 +710,15 @@ class TestRuleCheck:
         await msg(router, OWNER, "/test")
         verdict = await msg(router, OWNER, "нужно такси")
         assert "✅" in verdict[0].key_or_text
+
+
+class TestStatusLanguage:
+    async def test_the_relative_time_is_rendered_in_the_readers_language(self, router, store):
+        """It used to be pre-rendered in English, inside an otherwise translated card."""
+        await store.update_user(OWNER, lang="uk")
+        actions = await msg(router, OWNER, "/status")
+        assert "тому" in actions[0].key_or_text  # Ukrainian for "ago"
+
+        await store.update_user(OWNER, lang="en")
+        actions = await msg(router, OWNER, "/status")
+        assert "ago" in actions[0].key_or_text

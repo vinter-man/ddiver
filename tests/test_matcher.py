@@ -139,26 +139,36 @@ async def test_timeout_counts_and_disables_after_threshold(store, monkeypatch):
 
 
 class TestOffloadAndBudget:
-    async def test_many_rules_keep_the_event_loop_responsive(self, store, matcher):
-        """A hostile moderator with hundreds of slow rules must not freeze everything."""
-        from ddiver.matcher import OFFLOAD_ABOVE_RULES
+    async def test_a_big_rule_set_is_matched_off_the_event_loop(self, store, matcher, monkeypatch):
+        """A hostile moderator with hundreds of slow rules must not freeze everything.
 
-        for i in range(OFFLOAD_ABOVE_RULES + 5):
+        Asserted on the mechanism rather than on timing: a wall-clock test here passed even
+        with the offload removed, because awaiting the ticker drove it to completion anyway.
+        """
+        import ddiver.matcher as matcher_module
+
+        offloaded = []
+        real_to_thread = asyncio.to_thread
+
+        async def spy(func, *args):
+            offloaded.append(func.__name__)
+            return await real_to_thread(func, *args)
+
+        monkeypatch.setattr(matcher_module.asyncio, "to_thread", spy)
+
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "needle")
+        await matcher.invalidate()
+        await matcher.evaluate(CHAT_A.id, "ничего похожего", 1)
+        assert offloaded == []  # one rule: a thread hop would cost more than it saves
+
+        # A fixed count, not OFFLOAD_ABOVE_RULES + n: deriving it from the constant makes the
+        # test follow the constant wherever it goes, so raising the threshold would not fail.
+        assert matcher_module.OFFLOAD_ABOVE_RULES < 30, "the count below must clear the threshold"
+        for i in range(30):
             await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, f"needle{i}")
         await matcher.invalidate()
-
-        ticks = 0
-
-        async def ticker():
-            nonlocal ticks
-            for _ in range(200):
-                ticks += 1
-                await asyncio.sleep(0)
-
-        task = asyncio.create_task(ticker())
         await matcher.evaluate(CHAT_A.id, "ничего похожего " * 200, 1)
-        await task
-        assert ticks == 200  # the loop kept running while matching happened elsewhere
+        assert offloaded == ["_evaluate_sync"]
 
     async def test_budget_stops_a_pathological_rule_set(self, store, monkeypatch):
         m = Matcher(store, timeout=0.02)
