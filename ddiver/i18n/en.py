@@ -177,11 +177,28 @@ STRINGS.update(
             "Across your rules, all time: {hits} — this one survives a restart"
         ),
         "bot.status.queue": "Queue: {queue} · last update {last_update} ago",
-        "bot.test.prompt": "Send the text you want to test.",
+        "bot.test.prompt": (
+            "<b>Rule check</b>\n\n"
+            "Send any text and I will run it through your rules exactly as if it were a real "
+            "message, then show the verdict for every chat you watch.\n\n"
+            "This checks a text, it does not search history: nothing is looked up and no time "
+            "window applies. The sender and your ignore list are not considered either — text "
+            "only.\n\n"
+            "You can do it in one go:\n"
+            "<code>/test cheap ride, taxi anywhere</code>\n\n"
+            "What comes back, per chat:\n"
+            "  ✅ matched — which rule, and the fragment it hit\n"
+            "  🚫 dropped by one of your exclusions\n"
+            "  — no match"
+        ),
         "bot.test.match": "✅ {chat} — {rule} ({fragment})",
         "bot.test.excluded": "🚫 {chat} — excluded by {rule}",
         "bot.test.nomatch": "— {chat} — no match",
-        "bot.test.no_chats": "You have no chats yet; testing global rules only.",
+        "bot.test.no_chats": (
+            "⚠️ You are not watching any chat yet, so no rule can notify you. Below is "
+            "what your rules for all chats would have done."
+        ),
+        "bot.test.global_scope": "rules for all chats",
         "bot.users.title": (
             "👥 Users\n\n"
             "Anyone who sends /start to the bot lands here as “waiting” and gets nothing "

@@ -692,3 +692,45 @@ class TestBotMessagesSetting:
 
         await cb(router, OWNER, "set:bots")
         assert [m.accepts_bots for m in await matcher.evaluate(CHAT_A.id, "такси", 5)] == [True]
+
+
+class TestRuleCheck:
+    """`/test` runs a text through the rules; it never touches real messages."""
+
+    async def test_it_reports_a_verdict_per_watched_chat(self, router, store):
+        await store.set_chat_shared(CHAT_A.id, True)
+        await cb(router, OWNER, f"sub:{CHAT_A.id}:1")
+        await store.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "такси")
+
+        hit = await msg(router, OWNER, "/test дёшево подвезу, такси недорого")
+        assert "✅" in hit[0].key_or_text
+        assert "такси" in hit[0].key_or_text
+
+        miss = await msg(router, OWNER, "/test обычное сообщение")
+        assert "✅" not in miss[0].key_or_text
+
+    async def test_an_exclusion_wins_and_says_so(self, router, store):
+        await store.set_chat_shared(CHAT_A.id, True)
+        await cb(router, OWNER, f"sub:{CHAT_A.id}:1")
+        await store.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "такси")
+        await store.add_rule(OWNER, CHAT_A.id, RuleKind.EXCLUDE, "=такси-сервис")
+
+        actions = await msg(router, OWNER, "/test такси-сервис приедет")
+        assert "🚫" in actions[0].key_or_text
+
+    async def test_without_chats_it_says_nothing_would_arrive_but_still_checks(self, router, store):
+        """The old wording promised a global check that never ran."""
+        await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "такси")
+        actions = await msg(router, OWNER, "/test нужно такси")
+        body = actions[0].key_or_text
+        assert "⚠️" in body  # no chats: nothing could be delivered
+        assert "✅" in body  # but the global rule is still evaluated
+        assert t("ru", "bot.test.global_scope") in body
+
+    async def test_the_bare_command_explains_itself(self, router):
+        actions = await msg(router, OWNER, "/test")
+        assert actions[0].key_or_text == "bot.test.prompt"
+        assert actions[0].html is True
+        # and the text that follows is then checked
+        verdict = await msg(router, OWNER, "что угодно")
+        assert verdict[0].literal is True

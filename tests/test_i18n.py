@@ -23,7 +23,7 @@ def test_the_english_catalog_is_readable_to_an_english_speaker():
     assert cyrillic == []
 
 
-HTML_KEYS = {"bot.help", "bot.rules.prompt"}
+HTML_KEYS = {"bot.help", "bot.rules.prompt", "bot.test.prompt"}
 
 
 def test_html_strings_parse_and_nothing_else_carries_tags():

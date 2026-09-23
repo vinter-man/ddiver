@@ -698,7 +698,7 @@ def build_router(
     async def test_cmd(ctx: Context) -> list[Action]:
         if not ctx.incoming.args:
             router.set_pending(ctx.user_id, "test")
-            return [Reply("bot.test.prompt")]
+            return [Reply("bot.test.prompt", html=True)]
         return [Reply(await _test_text(ctx, ctx.incoming.args), literal=True)]
 
     @router.pending("test")
@@ -714,7 +714,22 @@ def build_router(
         chats = await storage.list_subscriptions(ctx.user_id)
         lines: list[str] = []
         if not chats:
+            # Nothing can ever arrive without a watched chat, so say that plainly — but still
+            # run the global rules, since testing them before adding a chat is a fair thing
+            # to want.
             lines.append(ctx.t("bot.test.no_chats"))
+            globals_ = await storage.list_rules(ctx.user_id, ALL_CHATS)
+            if globals_:
+                lines.append(
+                    await asyncio.to_thread(
+                        _evaluate_preview,
+                        prepared,
+                        globals_,
+                        ctx.lang,
+                        ctx.t("bot.test.global_scope"),
+                        regex_timeout,
+                    )
+                )
         for chat in chats:
             rules = await storage.rules_for_chat(chat.id)
             mine = [r for r in rules if r.user_id == ctx.user_id]
