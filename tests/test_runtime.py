@@ -657,7 +657,7 @@ class TestCommandList:
 
         assert [r.lang_code for r in sent] == [*LANGS, ""]
         names = [c.command for c in sent[0].commands]
-        assert names == ["start", "menu", "test", "status", "help", "cancel"]
+        assert names == ["start", "menu", "test", "status", "export", "import", "help", "cancel"]
         assert all(c.description for r in sent for c in r.commands)
         russian = next(r for r in sent if r.lang_code == "ru")
         assert russian.commands[0].description == "Начать и открыть меню"

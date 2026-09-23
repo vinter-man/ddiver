@@ -1,0 +1,95 @@
+# Metrics, logs and dashboards for a ddiver running on the same machine.
+#
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.observability.yml up -d
+#
+# Everything binds to 127.0.0.1. Grafana has no password worth the name and Prometheus has
+# none at all, so reaching them from anywhere else is a tunnel:
+#
+#   ssh -L 3000:127.0.0.1:3000 you@your-box
+#
+# Budget on a small box: Prometheus ~150 MB, Loki ~120 MB, Grafana ~120 MB, Alloy ~60 MB.
+# Together they need more memory than ddiver does, which is why they are a separate file.
+
+services:
+  ddiver:
+    environment:
+      # the collector reaches the container by name, so bind beyond localhost
+      METRICS_HOST: 0.0.0.0
+      METRICS_PORT: 9109
+      LOG_FORMAT: json
+    labels:
+      ddiver.logs: "true"
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: ddiver-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=90d
+      - --storage.tsdb.retention.size=2GB
+      - --web.listen-address=0.0.0.0:9090
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: ddiver-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./deploy/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+    ports:
+      - "127.0.0.1:3100:3100"
+
+  alloy:
+    image: grafana/alloy:v1.6.1
+    container_name: ddiver-alloy
+    restart: unless-stopped
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./deploy/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    depends_on: [loki]
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: ddiver-node-exporter
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+
+  grafana:
+    image: grafana/grafana:11.5.1
+    container_name: ddiver-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on: [prometheus, loki]
+
+volumes:
+  prometheus-data:
+  loki-data:
+  grafana-data:
+  alloy-data:

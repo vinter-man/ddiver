@@ -24,7 +24,7 @@ from ddiver.timeutil import Clock, utcnow
 log = logging.getLogger(__name__)
 
 PENDING_TTL = dt.timedelta(minutes=15)
-COMMANDS = ("start", "help", "test", "cancel", "status", "menu")
+COMMANDS = ("start", "help", "test", "cancel", "status", "menu", "export", "import")
 GATE_REMINDER = dt.timedelta(days=1)
 
 
@@ -38,6 +38,9 @@ class Incoming:
     msg_id: int | None = None
     lang_code: str | None = None  # Telegram's client language, used to seed the UI language
     is_private: bool = True
+    document: bytes | None = None
+    """An attached file, already downloaded. Only /import ever looks at one."""
+    document_name: str | None = None
 
     @property
     def command(self) -> str | None:
@@ -111,7 +114,17 @@ class Send:
     literal: bool = False
 
 
-Action = Reply | Edit | Toast | Send
+@dataclass(frozen=True, slots=True)
+class SendDocument:
+    """A file back to the acting user. Used by /export, which can outgrow a message."""
+
+    filename: str
+    content: bytes
+    caption_key: str
+    params: dict[str, Any] = field(default_factory=dict)
+
+
+Action = Reply | Edit | Toast | Send | SendDocument
 Handler = Callable[["Context"], Awaitable[list[Action]]]
 
 

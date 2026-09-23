@@ -73,6 +73,27 @@ STRINGS.update(
         "bot.cmd.status": "What is going on right now",
         "bot.cmd.help": "Rule syntax and what the bot does",
         "bot.cmd.cancel": "Cancel the current input",
+        "bot.cmd.export": "Save your chats and rules to a file",
+        "bot.cmd.import": "Load chats and rules from a file",
+        "bot.export.caption": (
+            "📦 Your configuration: {chats} chats, {rules} rules, {ignored} ignored.\n"
+            "Keep the file somewhere else — /import restores it.\n"
+            "It contains no Telegram session, and never will."
+        ),
+        "bot.import.prompt": (
+            "<b>Load a configuration</b>\n\n"
+            "Send the file /export gave you. A small one can be pasted as text.\n\n"
+            "Importing <b>adds</b> rather than replaces: nothing you already have is removed, "
+            "and duplicates are skipped.\n\n"
+            "Chats are matched by @username first and by id second — so public chats move "
+            "between accounts, private ones only where the listener already sees them."
+        ),
+        "bot.import.need_file": "Waiting for the file or the configuration text. /cancel to stop.",
+        "bot.import.bad_file": "Could not read it: {reason}",
+        "bot.import.done": "✅ Imported: {chats} chats, {rules} rules, {ignored} ignored.",
+        "bot.import.duplicates": "↩️ Skipped {n} duplicate rules.",
+        "bot.import.missing_chats": "⚠️ These chats were not found: {chats}",
+        "bot.import.bad_rules": "⚠️ These rules were rejected: {rules}",
         "bot.menu.title": "What would you like to do?",
         "bot.menu.chats": "📡 Chats",
         "bot.menu.rules": "🔑 Rules",

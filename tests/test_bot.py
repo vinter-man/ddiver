@@ -1,7 +1,9 @@
 import datetime as dt
+import json
 
 import pytest
 
+from ddiver import portable
 from ddiver.bot import menus
 from ddiver.bot.handlers import StatusInfo, build_router
 from ddiver.bot.router import Edit, Incoming, Reply, Send, Toast
@@ -722,3 +724,68 @@ class TestStatusLanguage:
         await store.update_user(OWNER, lang="en")
         actions = await msg(router, OWNER, "/status")
         assert "ago" in actions[0].key_or_text
+
+
+class TestExportImport:
+    async def test_export_hands_back_a_document(self, router, store):
+        await store.set_chat_shared(CHAT_A.id, True)
+        await cb(router, OWNER, f"sub:{CHAT_A.id}:1")
+        await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "такси")
+
+        actions = await msg(router, OWNER, "/export")
+        doc = actions[0]
+        assert doc.filename.startswith("ddiver-") and doc.filename.endswith(".json")
+        config = portable.loads(doc.content)
+        assert {r["pattern"] for r in config["rules"]} == {"такси"}
+
+    async def test_import_takes_a_pasted_file_and_reports_what_landed(self, router, store):
+        config = {
+            "format": portable.FORMAT,
+            "version": 1,
+            "rules": [
+                {"chat_id": 0, "kind": "include", "pattern": "такси"},
+                {"chat_id": 0, "kind": "include", "pattern": "re:[broken"},
+            ],
+        }
+        await msg(router, OWNER, "/import")
+        actions = await msg(router, OWNER, json.dumps(config))
+        body = actions[0].key_or_text
+        assert "1" in body  # one rule landed
+        assert "re:[broken" in body  # and the other is named
+        assert {r.pattern for r in await store.list_rules(OWNER)} == {"такси"}
+
+    async def test_import_refuses_a_file_that_is_not_ours(self, router, store):
+        await msg(router, OWNER, "/import")
+        actions = await msg(router, OWNER, '{"hello": "world"}')
+        assert "not a ddiver export" in actions[0].key_or_text
+        assert await store.list_rules(OWNER) == []
+
+    async def test_import_tells_the_matcher_about_the_new_rules(self, router, store, matcher):
+        await store.set_chat_shared(CHAT_A.id, True)
+        await cb(router, OWNER, f"sub:{CHAT_A.id}:1")
+        config = {
+            "format": portable.FORMAT,
+            "version": 1,
+            "rules": [{"chat_id": 0, "kind": "include", "pattern": "такси"}],
+        }
+        await msg(router, OWNER, "/import")
+        await msg(router, OWNER, json.dumps(config))
+        assert await matcher.evaluate(CHAT_A.id, "нужно такси", 5)
+
+    async def test_a_document_is_preferred_over_the_caption(self, router, store):
+        """Telegram puts a caption on an attachment; the file is what was meant."""
+        config = {
+            "format": portable.FORMAT,
+            "version": 1,
+            "rules": [{"chat_id": 0, "kind": "include", "pattern": "изфайла"}],
+        }
+        await msg(router, OWNER, "/import")
+        await router.dispatch(
+            Incoming(
+                user_id=OWNER,
+                text="вот держи",
+                document=json.dumps(config).encode(),
+                document_name="ddiver.json",
+            )
+        )
+        assert {r.pattern for r in await store.list_rules(OWNER)} == {"изфайла"}

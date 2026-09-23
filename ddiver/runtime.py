@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import datetime as dt
+import io
 import logging
 from typing import Any
 
@@ -21,10 +22,11 @@ from telethon.tl import types as tl
 from telethon.tl.functions.bots import SetBotCommandsRequest
 from telethon.tl.functions.updates import GetStateRequest
 
+from ddiver import portable
 from ddiver.app import PeriodicTask, Supervisor, boot_delay, format_uptime
 from ddiver.bot import menus
 from ddiver.bot.handlers import StatusInfo, build_router
-from ddiver.bot.router import Edit, Incoming, Reply, Router, Send, Toast
+from ddiver.bot.router import Edit, Incoming, Reply, Router, Send, SendDocument, Toast
 from ddiver.catchup import Catchup, telethon_history
 from ddiver.clients import connect_with_timeout, make_bot_client, make_user_client
 from ddiver.config import Settings
@@ -34,9 +36,11 @@ from ddiver.i18n import DEFAULT_LANG, LANGS, t
 from ddiver.links import ChatRef
 from ddiver.listener import CURSOR_FLUSH_SECONDS, Listener, chat_ref_of
 from ddiver.matcher import Matcher
+from ddiver.metrics import MetricsServer, MetricsSource
 from ddiver.senders import SenderCache
 from ddiver.storage import OutboxItem, Rule, Storage, safe_write
 from ddiver.timeutil import Clock, utcnow
+from ddiver.watchdog import Watchdog
 
 log = logging.getLogger(__name__)
 
@@ -116,6 +120,15 @@ class BotAdapter:
                 buttons=self._buttons(action.buttons, lang),
                 link_preview=False,
                 parse_mode=_parse_mode(action),
+            )
+            return
+        if isinstance(action, SendDocument):
+            await self._client.send_file(
+                await self._peer(event),
+                io.BytesIO(action.content),
+                attributes=[tl.DocumentAttributeFilename(action.filename)],
+                caption=t(lang, action.caption_key, **action.params),
+                parse_mode=None,
             )
             return
         if isinstance(action, Send):
@@ -198,6 +211,8 @@ class Application:
         self.catchup: Catchup | None = None
         self.router: Router | None = None
         self.supervisor: Supervisor | None = None
+        self.watchdog = Watchdog(settings.ping_url, timeout=settings.ping_timeout)
+        self.metrics_server: MetricsServer | None = None
         # No resolver: the listener must never make an RPC from a message handler. Entities
         # attached to updates carry everything a notification needs most of the time.
         self.senders = SenderCache(None, clock=clock)
@@ -279,6 +294,9 @@ class Application:
 
     async def close(self) -> None:
         """Shut down in an order the next start can pick up from."""
+        if self.metrics_server is not None:
+            await self.metrics_server.stop()
+            self.metrics_server = None
         for task in self._tasks:
             await task.stop()
         for owned in self._owned:
@@ -318,6 +336,7 @@ class Application:
         boots = await self.storage.record_boot()
         assert self.delivery is not None  # noqa: S101
         await self.delivery.replay_pending()
+        await self._start_metrics()
         self._start_background_tasks()
         self._spawn(self._boot_catch_up(boots), "catchup-boot")
         self._spawn(self._watch_reconnects(), "reconnect-watch")
@@ -329,7 +348,7 @@ class Application:
         Purely cosmetic, and Telegram remembers it, so a failure here must never keep the
         bot from starting.
         """
-        commands = ("start", "menu", "test", "status", "help", "cancel")
+        commands = ("start", "menu", "test", "status", "export", "import", "help", "cancel")
         for lang in (*LANGS, ""):
             try:
                 await self.bot_client(
@@ -347,6 +366,41 @@ class Application:
                 )
             except (errors.RPCError, ConnectionError, TimeoutError) as exc:
                 log.warning("could not publish the command list for %r: %s", lang, exc)
+
+    async def _start_metrics(self) -> None:
+        """Serve /metrics, unless the port is 0 — which is the default and means "no server"."""
+        if not self.settings.metrics_port:
+            return
+        supervisor = self.supervisor
+        source = MetricsSource(
+            listener=self.listener,
+            delivery=self.delivery,
+            matcher=self.matcher,
+            supervisor=supervisor,
+            transport=self._transport_state,
+            uptime=lambda: (
+                (self.clock() - supervisor.state.started_at).total_seconds()
+                if supervisor is not None and supervisor.state.started_at is not None
+                else 0.0
+            ),
+        )
+        server = MetricsServer(source, self.settings.metrics_host, self.settings.metrics_port)
+        try:
+            await server.start()
+        except OSError as exc:
+            # A busy port must not keep the listener off the air: observability is a
+            # convenience, monitoring the chats is the job.
+            log.warning("could not serve metrics on port %d: %s", self.settings.metrics_port, exc)
+            return
+        self.metrics_server = server
+
+    def _transport_state(self) -> bool | None:
+        sender = getattr(self.user_client, "_sender", None)
+        if sender is None:
+            return None
+        with contextlib.suppress(Exception):  # private API; never break a scrape over it
+            return bool(sender._transport_connected())  # noqa: SLF001
+        return None
 
     async def _boot_catch_up(self, boots: int) -> None:
         """Catch up once the process has proved it is not crash-looping.
@@ -411,15 +465,43 @@ class Application:
 
         @self.bot_client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
         async def on_bot_message(event: Any) -> None:
-            await self._on_bot_update(event, text=event.raw_text)
+            document, name = await self._attached_document(event)
+            await self._on_bot_update(
+                event, text=event.raw_text, document=document, document_name=name
+            )
 
         @self.bot_client.on(events.CallbackQuery(func=lambda e: e.is_private))
         async def on_bot_callback(event: Any) -> None:
             data = event.data.decode("utf-8", "replace") if event.data else ""
             await self._on_bot_update(event, data=data)
 
+    async def _attached_document(self, event: Any) -> tuple[bytes | None, str | None]:
+        """Download a small attached file, or return nothing at all.
+
+        Bounded before the download: a moderator who attaches a video must not make the bot
+        pull it into memory to find out it is not a configuration.
+        """
+        document = getattr(getattr(event, "message", None), "document", None)
+        if document is None or int(getattr(document, "size", 0) or 0) > portable.MAX_BYTES:
+            return None, None
+        name = None
+        for attribute in getattr(document, "attributes", None) or []:
+            name = getattr(attribute, "file_name", None) or name
+        try:
+            content = await self.bot_client.download_media(event.message, file=bytes)
+        except (errors.RPCError, ConnectionError, TimeoutError, ValueError):
+            log.warning("could not download an attached file", exc_info=True)
+            return None, None
+        return (content if isinstance(content, bytes) else None), name
+
     async def _on_bot_update(
-        self, event: Any, *, text: str | None = None, data: str | None = None
+        self,
+        event: Any,
+        *,
+        text: str | None = None,
+        data: str | None = None,
+        document: bytes | None = None,
+        document_name: str | None = None,
     ) -> None:
         assert self.router is not None  # noqa: S101
         try:
@@ -431,6 +513,8 @@ class Application:
                 msg_id=getattr(event, "message_id", None),
                 lang_code=getattr(sender, "lang_code", None),
                 is_private=True,
+                document=document,
+                document_name=document_name,
             )
             actions = await self.router.dispatch(incoming)
             user = await self.storage.get_user(incoming.user_id)
@@ -544,11 +628,12 @@ class Application:
             await safe_write(self.matcher.flush_hits(), "rule hits")
 
     async def _heartbeat(self) -> None:
+        if self.watchdog.enabled:
+            await self.watchdog.ping()
         sender = getattr(self.user_client, "_sender", None)
-        transport: bool | None = None
+        transport = self._transport_state()
         reconnecting: bool | None = None
         with contextlib.suppress(Exception):  # private API: never let it break the heartbeat
-            transport = bool(sender._transport_connected()) if sender else None  # noqa: SLF001
             reconnecting = bool(getattr(sender, "_reconnecting", False)) if sender else None
         listener = self.listener
         supervisor = self.supervisor

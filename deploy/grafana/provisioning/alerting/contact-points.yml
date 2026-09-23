@@ -1,0 +1,28 @@
+# Where an alert goes. Set ALERT_TELEGRAM_TOKEN and ALERT_TELEGRAM_CHAT_ID in .env.
+#
+# Use a SECOND BotFather bot, not the delivery bot. Sharing one token means an alert about
+# delivery being stuck travels over the thing that is stuck.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: telegram
+    receivers:
+      - uid: ddiver-telegram
+        type: telegram
+        settings:
+          bottoken: $ALERT_TELEGRAM_TOKEN
+          chatid: $ALERT_TELEGRAM_CHAT_ID
+          message: |
+            {{ range .Alerts }}{{ .Status | toUpper }} — {{ .Labels.alertname }}
+            {{ .Annotations.summary }}
+            {{ end }}
+        disableResolveMessage: false
+
+policies:
+  - orgId: 1
+    receiver: telegram
+    group_by: [alertname]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 6h

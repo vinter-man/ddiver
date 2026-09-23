@@ -1,0 +1,792 @@
+{
+  "uid": "ddiver-overview",
+  "title": "ddiver",
+  "tags": [
+    "ddiver"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "search",
+        "label": "Search logs",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Is it alive?",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Process",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "ddiver_up",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "down"
+                },
+                "1": {
+                  "text": "up"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Listener",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "ddiver_listener_connected",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "disconnected"
+                },
+                "1": {
+                  "text": "connected"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Needs login",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "ddiver_degraded",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "no"
+                },
+                "1": {
+                  "text": "yes"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Uptime",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "ddiver_uptime_seconds",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Chats watched",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "ddiver_monitored_chats",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Queued now",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "ddiver_delivery_queued",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Traffic",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Messages per second",
+      "description": "seen is everything the listener looked at; matched is what hit a rule.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(ddiver_messages_seen_total[5m])",
+          "legendFormat": "seen",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "rate(ddiver_messages_matched_total[5m])",
+          "legendFormat": "matched",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "rate(ddiver_messages_claimed_total[5m])",
+          "legendFormat": "claimed",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Dropped on purpose (per second)",
+      "description": "All of these are designed behaviour. A jump in 'bot senders' usually means somebody added a feed bot to a watched chat.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(ddiver_messages_skipped_bot_total[5m])",
+          "legendFormat": "bot senders",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "rate(ddiver_messages_skipped_own_total[5m])",
+          "legendFormat": "own messages",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "rate(ddiver_messages_duplicates_total[5m])",
+          "legendFormat": "duplicates",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "rate(ddiver_messages_unknown_sender_total[5m])",
+          "legendFormat": "unknown sender",
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Delivery",
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Notifications per second",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(ddiver_delivery_delivered_total[5m])",
+          "legendFormat": "delivered",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "rate(ddiver_delivery_digested_total[5m])",
+          "legendFormat": "digested",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "rate(ddiver_delivery_failed_total[5m])",
+          "legendFormat": "failed",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "rate(ddiver_delivery_dropped_total[5m])",
+          "legendFormat": "dropped (queue full)",
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Flood waits",
+      "description": "Telegram telling the bot to slow down. Sustained non-zero means the digest threshold is too high for the traffic.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 15,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(ddiver_delivery_flood_waits_total[5m])",
+          "legendFormat": "events/s",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "rate(ddiver_delivery_flood_seconds_total[5m])",
+          "legendFormat": "seconds waited/s",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Matching",
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Rule health",
+      "description": "Both should sit at zero. A rule that times out three times is disabled automatically and its owner is told which one.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(ddiver_matcher_timeouts_total[5m])",
+          "legendFormat": "regex timeouts/s",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "rate(ddiver_matcher_budget_exceeded_total[5m])",
+          "legendFormat": "budget exceeded/s",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Host",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))",
+          "legendFormat": "CPU busy",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
+          "legendFormat": "memory used",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Logs",
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false
+    },
+    {
+      "type": "logs",
+      "title": "ddiver (filter with the Level variable)",
+      "datasource": {
+        "type": "loki",
+        "uid": "ddiver-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "expr": "{service=~\"ddiver.*\"} |~ \"$search\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "ddiver-loki"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending"
+      }
+    }
+  ]
+}

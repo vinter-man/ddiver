@@ -20,6 +20,16 @@ class Settings(BaseSettings):
 
     data_dir: Path = Field(default=Path("data"), description="session files, SQLite, heartbeat")
     log_level: str = "INFO"
+    log_format: str = Field(default="text", description="text for a terminal, json for Loki")
+
+    metrics_host: str = Field(default="127.0.0.1", description="0.0.0.0 to expose to a container")
+    metrics_port: int = Field(default=0, ge=0, le=65535, description="0 disables /metrics")
+
+    ping_url: str = Field(
+        default="",
+        description="dead-man's switch: pinged on every heartbeat, alerts you when it stops",
+    )
+    ping_timeout: float = Field(default=5.0, gt=0, le=60)
 
     catchup_hours: int = Field(default=24, ge=0, le=24 * 14)
     catchup_max_per_chat: int = Field(default=500, ge=0, le=5000)
@@ -34,6 +44,23 @@ class Settings(BaseSettings):
         digits, sep, rest = raw.partition(":")
         if not sep or not digits.isdigit() or len(rest) < 20:
             msg = "BOT_TOKEN must look like 123456789:AA... (from @BotFather)"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("log_format")
+    @classmethod
+    def _log_format(cls, value: str) -> str:
+        lower = value.lower()
+        if lower not in {"text", "json"}:
+            msg = "LOG_FORMAT must be text or json"
+            raise ValueError(msg)
+        return lower
+
+    @field_validator("ping_url")
+    @classmethod
+    def _ping_url(cls, value: str) -> str:
+        if value and not value.startswith(("http://", "https://")):
+            msg = "PING_URL must be an http(s) URL"
             raise ValueError(msg)
         return value
 

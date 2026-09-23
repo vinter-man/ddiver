@@ -1,0 +1,92 @@
+# What is worth waking up for.
+#
+# Note what is NOT here: "the whole machine is down". Grafana lives on the same box as ddiver,
+# so it cannot report its own funeral. That is what PING_URL and an external dead-man's switch
+# are for — see the observability section of the README.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: ddiver
+    folder: ddiver
+    interval: 1m
+    rules:
+      - uid: ddiver-absent
+        title: ddiver is not reporting
+        condition: absent
+        for: 5m
+        annotations:
+          summary: No metrics scraped for five minutes. The process is gone, or Prometheus cannot reach it.
+        labels: {severity: critical}
+        data:
+          - refId: absent
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: ddiver-prometheus
+            model:
+              expr: absent(ddiver_up)
+              instant: true
+              refId: absent
+
+      - uid: ddiver-needs-login
+        title: The listener needs ddiver login
+        condition: degraded
+        for: 2m
+        annotations:
+          summary: The Telegram session is invalid. Restarting will not help — run `ddiver login`.
+        labels: {severity: critical}
+        data:
+          - refId: degraded
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: ddiver-prometheus
+            model:
+              expr: ddiver_degraded == 1
+              instant: true
+              refId: degraded
+
+      - uid: ddiver-disconnected
+        title: The listener has been disconnected
+        condition: down
+        for: 10m
+        annotations:
+          summary: The user session's transport has been down for ten minutes. Messages are being missed.
+        labels: {severity: warning}
+        data:
+          - refId: down
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: ddiver-prometheus
+            model:
+              expr: ddiver_listener_connected == 0
+              instant: true
+              refId: down
+
+      - uid: ddiver-queue-backed-up
+        title: Notifications are piling up
+        condition: queued
+        for: 15m
+        annotations:
+          summary: More than 500 notifications have been queued for fifteen minutes. Check for flood waits or a blocked bot.
+        labels: {severity: warning}
+        data:
+          - refId: queued
+            relativeTimeRange: {from: 1200, to: 0}
+            datasourceUid: ddiver-prometheus
+            model:
+              expr: ddiver_delivery_queued > 500
+              instant: true
+              refId: queued
+
+      - uid: ddiver-rules-timing-out
+        title: A rule keeps timing out
+        condition: timeouts
+        for: 10m
+        annotations:
+          summary: Regex timeouts are happening continuously. A rule is about to be disabled automatically.
+        labels: {severity: warning}
+        data:
+          - refId: timeouts
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: ddiver-prometheus
+            model:
+              expr: rate(ddiver_matcher_timeouts_total[10m]) > 0
+              instant: true
+              refId: timeouts

@@ -1,0 +1,67 @@
+// Collects ddiver's container logs and ships them to Loki.
+//
+// Docker rather than a log file: the container writes JSON to stdout and Docker already
+// rotates it (50 MB x 5 in docker-compose.yml), so tailing the engine avoids a second copy
+// of every line on disk.
+
+discovery.docker "containers" {
+	host             = "unix:///var/run/docker.sock"
+	refresh_interval = "30s"
+}
+
+// Keep only the containers that opted in, and give every line a readable service name.
+discovery.relabel "ddiver" {
+	targets = discovery.docker.containers.targets
+
+	rule {
+		source_labels = ["__meta_docker_container_label_ddiver_logs"]
+		regex         = "true"
+		action        = "keep"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.*)"
+		target_label  = "service"
+	}
+}
+
+loki.source.docker "ddiver" {
+	host       = "unix:///var/run/docker.sock"
+	targets    = discovery.relabel.ddiver.output
+	forward_to = [loki.process.ddiver.receiver]
+}
+
+// ddiver logs one JSON object per line when LOG_FORMAT=json. Lifting `level` and `logger`
+// into labels is what makes `{service="ddiver", level="ERROR"}` a query rather than a grep.
+loki.process "ddiver" {
+	forward_to = [loki.write.default.receiver]
+
+	stage.json {
+		expressions = {
+			level  = "level",
+			logger = "logger",
+			ts     = "ts",
+		}
+	}
+
+	stage.timestamp {
+		source = "ts"
+		format = "RFC3339Nano"
+	}
+
+	// Labels are an index, not a column store: only values with a handful of possibilities
+	// belong here. `msg` stays in the line, where it is searched rather than indexed.
+	stage.labels {
+		values = {
+			level  = "",
+			logger = "",
+		}
+	}
+}
+
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}

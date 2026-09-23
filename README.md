@@ -81,7 +81,7 @@ a lock file and refuses, but a copy of the directory elsewhere would still break
 | 🗂 Shared chats | *(owner)* which of your chats moderators may see |
 | 👥 Users | *(owner)* approve, deny or revoke moderators |
 
-Commands: `/menu` `/test <text>` `/status` `/help` `/cancel`.
+Commands: `/menu` `/test <text>` `/status` `/export` `/import` `/help` `/cancel`.
 
 `/test` runs the real pipeline — exclusions first, chat rules before global ones — and tells you,
 per chat, whether that text would notify you.
@@ -109,8 +109,80 @@ automatically and you are told which one.
   it keeps the bot running, tells you in `/status` and by message, and waits for `ddiver login`.
 - Logs are a 60-second summary line plus one line per notification; Telethon's flood waits are
   visible at INFO.
-- Back up `data/ddiver.sqlite3` for your configuration. A backup of `data/user.session` is a
-  backup of *your account* — treat it accordingly.
+- `/export` hands you a JSON file with your chats, rules and ignore list; `/import` loads one
+  back, adding rather than replacing. That is the backup worth keeping off the machine — it
+  contains no session and no token, so it is safe to put where a backup normally goes.
+- A copy of `data/user.session` is a copy of *your Telegram account*. If you back the whole
+  directory up, back it up somewhere you would be willing to keep your password.
+
+## Watching it
+
+Nothing here is required; ddiver runs without any of it.
+
+### A dead-man's switch
+
+Set `PING_URL` and ddiver pings it every thirty seconds. Point it at a push monitor — a free
+healthchecks.io check, an Uptime Kuma push URL, anything that shouts when the pings stop:
+
+```dotenv
+PING_URL=https://hc-ping.com/your-uuid-here
+```
+
+This is the only alert that survives the machine dying, which is exactly the failure a quiet
+chat looks like. Everything below runs on the same box as ddiver and cannot report its own
+funeral.
+
+### Metrics, logs and dashboards
+
+```bash
+docker compose -f docker-compose.yml -f deploy/docker-compose.observability.yml up -d
+ssh -L 3000:127.0.0.1:3000 you@your-box   # Grafana is bound to localhost
+```
+
+That brings up Prometheus, Loki, Grafana, Alloy and node-exporter with a dashboard already
+provisioned: is it alive, messages and matches per second, delivery and flood waits, rule
+timeouts, host CPU and memory, and a searchable log panel. Budget about 450 MB of RAM for the
+five of them — more than ddiver itself, which is why they live in a separate compose file.
+
+Without Docker, `METRICS_PORT=9109` exposes `/metrics` on its own and `LOG_FORMAT=json` makes
+the logs machine-readable.
+
+Grafana can message you on Telegram when something is wrong but the machine is still up — the
+session needs a re-login, the listener has been disconnected for ten minutes, notifications are
+piling up. Use a **second** BotFather bot for this: an alert about delivery being stuck should
+not travel over the bot that is stuck.
+
+```dotenv
+ALERT_TELEGRAM_TOKEN=123456:AA...
+ALERT_TELEGRAM_CHAT_ID=your-numeric-id
+```
+
+### Asking an agent about the logs
+
+Logs arrive in Loki as JSON with `level` and `logger` as labels, so they are queryable rather
+than greppable: `{service="ddiver", level="ERROR"} | json | msg =~ ".*flood.*"`. Point an LLM
+agent at Grafana's MCP server (`grafana/mcp-grafana`) and "go find out why nothing arrived from
+that chat this morning" becomes a question it can answer by itself.
+
+## Privacy
+
+ddiver reads chats you are a member of, and the people in them have not agreed to anything.
+Worth knowing before you run it, and before you share it with other moderators:
+
+- **What is stored.** Matched messages only — never the whole stream. For each match: the text,
+  the chat title, the sender's id, name and username, and the link. Non-matching messages are
+  evaluated in memory and forgotten.
+- **For how long.** Seven days, then a daily job deletes them. The rest of the database is
+  configuration: your chats, rules and ignore list.
+- **Who can read it.** Whoever can read the machine's disk, plus every moderator you shared a
+  chat with — they get the message text of that chat in their own DM.
+- **What leaves the machine.** Notifications to the moderators' DMs through your bot, and
+  nothing else. There is no telemetry and no third-party service.
+- **Deleting it.** Removing a rule stops new matches; `data/ddiver.sqlite3` holds the old ones
+  until the seven days run out, or until you delete the file.
+
+If you are in the EU this is personal data under the GDPR, and running it makes you the
+controller. For a personal moderation aid that is a low bar, but it is not nothing.
 
 ## Security
 

@@ -1,0 +1,18 @@
+# ddiver emits about thirty series. The scrape interval is 15s because that is what makes a
+# rate() over five minutes meaningful, not because anything here moves quickly.
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  - job_name: ddiver
+    static_configs:
+      - targets: ["ddiver:9109"]
+
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

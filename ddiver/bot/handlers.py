@@ -13,8 +13,9 @@ import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 
+from ddiver import portable
 from ddiver.bot import menus
-from ddiver.bot.router import Action, Context, Edit, Reply, Router, Send, Toast
+from ddiver.bot.router import Action, Context, Edit, Reply, Router, Send, SendDocument, Toast
 from ddiver.i18n import LANG_NAMES, LANGS, t
 from ddiver.matcher import Matcher
 from ddiver.rules import (
@@ -707,6 +708,68 @@ def build_router(
                 ctx.t("bot.status.lifetime", hits=await storage.total_rule_hits(ctx.user_id)),
             ]
         )
+
+    # -- config export / import --------------------------------------------------------------
+
+    @router.command("export")
+    async def export_cmd(ctx: Context) -> list[Action]:
+        """Hand back the part of the configuration that is worth keeping: chats and rules."""
+        config = await portable.export_config(storage, ctx.user_id, now=clock())
+        body = portable.dumps(config).encode()
+        stamp = clock().strftime("%Y-%m-%d")
+        return [
+            SendDocument(
+                filename=f"ddiver-{stamp}.json",
+                content=body,
+                caption_key="bot.export.caption",
+                params={
+                    "chats": len(config["chats"]),
+                    "rules": len(config["rules"]),
+                    "ignored": len(config["ignored"]),
+                },
+            )
+        ]
+
+    @router.command("import")
+    async def import_cmd(ctx: Context) -> list[Action]:
+        router.set_pending(ctx.user_id, "import")
+        return [Reply("bot.import.prompt", html=True)]
+
+    @router.pending("import")
+    async def import_input(ctx: Context) -> list[Action]:
+        raw: bytes | str | None = ctx.incoming.document
+        if raw is None and ctx.incoming.text and not ctx.incoming.looks_like_command:
+            raw = ctx.incoming.text  # a small export pasted rather than attached
+        if raw is None:
+            return [Reply("bot.import.need_file")]
+        router.clear_pending(ctx.user_id)
+        try:
+            data = portable.loads(raw)
+        except portable.BadExportError as exc:
+            return [Reply(t(ctx.lang, "bot.import.bad_file", reason=str(exc)), literal=True)]
+        report = await portable.import_config(
+            storage,
+            ctx.user_id,
+            data,
+            regex_timeout=regex_timeout,
+            is_owner=ctx.is_owner,
+        )
+        await invalidate(None)
+        lines = [
+            ctx.t(
+                "bot.import.done",
+                chats=report.chats_subscribed,
+                rules=report.rules_added,
+                ignored=report.ignored_added,
+            )
+        ]
+        if report.rules_duplicate:
+            lines.append(ctx.t("bot.import.duplicates", n=report.rules_duplicate))
+        if report.chats_missing:
+            lines.append(ctx.t("bot.import.missing_chats", chats=", ".join(report.chats_missing)))
+        if report.rules_invalid:
+            lines.append(ctx.t("bot.import.bad_rules", rules=", ".join(report.rules_invalid)))
+        return [Reply(_clamp("\n".join(lines)), literal=True)]
 
     @router.command("test")
     async def test_cmd(ctx: Context) -> list[Action]:

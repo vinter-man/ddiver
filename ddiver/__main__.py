@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import datetime as dt
+import json
 import logging
 import os
 import signal
@@ -31,12 +33,33 @@ LOCK_NAME = "ddiver.lock"
 LOGIN_BLOCK_SECONDS = 120
 
 
-def configure_logging(level: str) -> None:
-    logging.basicConfig(
-        level=getattr(logging, level, logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        stream=sys.stdout,
-    )
+class JsonFormatter(logging.Formatter):
+    """One JSON object per line, which is what a log shipper wants to index.
+
+    Deliberately small: a level, a logger, a message and — for an exception — the traceback.
+    Anything richer would mean structured logging calls all over the codebase for a project
+    whose log volume is a line a minute.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload: dict[str, Any] = {
+            "ts": dt.datetime.fromtimestamp(record.created, dt.UTC).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "msg": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exc"] = self.formatException(record.exc_info)
+        return json.dumps(payload, ensure_ascii=False)
+
+
+def configure_logging(level: str, fmt: str = "text") -> None:
+    handler = logging.StreamHandler(sys.stdout)
+    if fmt == "json":
+        handler.setFormatter(JsonFormatter())
+    else:
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    logging.basicConfig(level=getattr(logging, level, logging.INFO), handlers=[handler], force=True)
     logging.getLogger("telethon").setLevel(logging.WARNING)
     # Telethon logs its automatic flood sleeps here at INFO; without this they are invisible.
     logging.getLogger("telethon.client.users").setLevel(logging.INFO)
@@ -320,7 +343,7 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:  # this command reports problems, it never raises
         print(f"Configuration error: {exc}", file=sys.stderr)
         return EXIT_ERROR
-    configure_logging(settings.log_level)
+    configure_logging(settings.log_level, settings.log_format)
 
     if args.command == "health":
         return cmd_health(settings)
