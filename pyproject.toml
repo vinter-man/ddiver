@@ -28,6 +28,8 @@ dev = [
   "mypy>=1.14",
   "types-regex",
   "pytest-timeout>=2.4.0",
+  "pyyaml>=6.0",          # the deployment files are checked in tests/test_packaging.py
+  "types-pyyaml",
 ]
 
 [build-system]

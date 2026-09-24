@@ -2,7 +2,12 @@ name: ddiver
 
 services:
   ddiver:
-    build: .
+    build:
+      context: .
+      args:
+        # Set by deploy.sh so the image can say which commit it is; `unknown` when built by
+        # hand, which is honest.
+        GIT_SHA: ${GIT_SHA:-unknown}
     image: ddiver:latest
     container_name: ddiver
     env_file: .env

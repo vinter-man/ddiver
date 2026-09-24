@@ -15,6 +15,7 @@ import contextlib
 import datetime as dt
 import io
 import logging
+import os
 from typing import Any
 
 from telethon import Button, TelegramClient, errors, events, utils
@@ -332,6 +333,7 @@ class Application:
         if not await self.user_client.is_user_authorized():
             log.error("the user session is not authorized; run `ddiver login`")
             return 3
+        log.info("ddiver starting, build %s", os.environ.get("DDIVER_COMMIT", "unknown")[:12])
         await self._publish_commands()
         boots = await self.storage.record_boot()
         assert self.delivery is not None  # noqa: S101
