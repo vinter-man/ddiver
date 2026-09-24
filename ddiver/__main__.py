@@ -335,13 +335,34 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def describe_config_error(exc: Exception) -> str:
+    """Say which setting is wrong without quoting what was in it.
+
+    pydantic's ValidationError renders ``input_value=...`` with the raw value, so printing the
+    exception puts a malformed BOT_TOKEN or API_HASH straight into stderr — and from there into
+    the container log and Loki. The field name and the reason are what a person needs anyway.
+    """
+    errors = getattr(exc, "errors", None)
+    if not callable(errors):
+        return str(exc)
+    try:
+        problems = errors()
+    except Exception:  # a broken error object must not replace the error we are reporting
+        return type(exc).__name__
+    lines = []
+    for problem in problems:
+        field = ".".join(str(part) for part in problem.get("loc", ())) or "settings"
+        lines.append(f"{field.upper()}: {problem.get('msg', 'is invalid')}")
+    return "; ".join(lines) or str(exc)
+
+
 def main(argv: list[str] | None = None) -> int:
     os.umask(0o077)  # before anything creates a session, a database or a heartbeat
     args = build_parser().parse_args(argv)
     try:
         settings = Settings.load(args.env_file)
     except Exception as exc:  # this command reports problems, it never raises
-        print(f"Configuration error: {exc}", file=sys.stderr)
+        print(f"Configuration error: {describe_config_error(exc)}", file=sys.stderr)
         return EXIT_ERROR
     configure_logging(settings.log_level, settings.log_format)
 

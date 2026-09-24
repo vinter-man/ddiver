@@ -42,6 +42,12 @@ wait_for_health() {
 cd "$APP_DIR" || die "no $APP_DIR"
 [[ -f .env ]] || die ".env is missing — run the bootstrap and `ddiver login` first"
 
+# Two deploys at once would interleave a git reset with somebody else's build. CI serialises
+# its own runs, but a hand-run deploy does not know about them, and neither does a re-run of
+# a cancelled job. Wait rather than fail: the second one is usually the newer commit.
+exec {lock}> "$APP_DIR/.deploy.lock"
+flock --wait 600 "$lock" || die "another deploy has held the lock for ten minutes"
+
 # Whether it was working *before* matters: if the session has expired, the container is
 # unhealthy whatever the code does, and rolling back would only thrash.
 was_healthy=false
@@ -66,13 +72,18 @@ if ! GIT_SHA="$target" docker compose "${COMPOSE_FILES[@]}" build; then
 	die "build failed; the running version was left alone"
 fi
 
-docker compose "${COMPOSE_FILES[@]}" up -d --remove-orphans
+# Not under `set -e`: a compose failure here has to reach the rollback below, not end the
+# script with the old container already stopped.
+started=true
+docker compose "${COMPOSE_FILES[@]}" up -d --remove-orphans || started=false
 
-if wait_for_health; then
+if $started && wait_for_health; then
 	docker image prune --force --filter "dangling=true" >/dev/null 2>&1 || true
 	log "deployed ${target:0:8}, container is healthy"
 	exit 0
 fi
+
+$started || log "compose could not start the new version"
 
 if ! $was_healthy; then
 	# It was already broken when we arrived. Rolling back would restore a version that was

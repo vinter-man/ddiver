@@ -62,13 +62,20 @@ ufw --force enable >/dev/null
 systemctl enable --now fail2ban
 
 log "ssh hardening"
-install -d -m 755 /etc/ssh/sshd_config.d
-cat > /etc/ssh/sshd_config.d/10-ddiver.conf <<'EOF'
+# Refuse to disable passwords while nobody can get in without one. Locking the operator out
+# of a box they are holding in one hand is not a security improvement.
+if [[ ! -s /root/.ssh/authorized_keys ]]; then
+	echo "root has no authorized_keys; leaving password login enabled."
+	echo "Install your key first (ssh-copy-id), then run this again."
+else
+	install -d -m 755 /etc/ssh/sshd_config.d
+	cat > /etc/ssh/sshd_config.d/10-ddiver.conf <<'EOF'
 PasswordAuthentication no
 PermitRootLogin prohibit-password
 KbdInteractiveAuthentication no
 EOF
-sshd -t && systemctl reload ssh 2>/dev/null || systemctl reload sshd
+	sshd -t && { systemctl reload ssh 2>/dev/null || systemctl reload sshd; }
+fi
 
 log "user ${APP_USER}"
 id -u "$APP_USER" >/dev/null 2>&1 || useradd --create-home --shell /bin/bash "$APP_USER"
@@ -109,12 +116,16 @@ else
 	sudo -u "$APP_USER" git clone --quiet "$REPO" "$APP_DIR" 2>/dev/null \
 		|| { echo "clone failed — the deploy key above is not on the repo yet"; exit 1; }
 fi
-chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 # data/ is written by the container, which runs as the image's own unprivileged user rather
 # than as $APP_USER. On a Linux bind mount the numeric owner is what counts, so the directory
-# has to belong to that uid or the session file cannot be created at all.
+# and everything in it has to belong to that uid or the session file cannot be opened.
 CONTAINER_UID=10001
+# -path ... -prune: the checkout is the deploy user's, data/ is the container's, and a
+# recursive chown over the lot would hand the live session to the wrong uid — which is what
+# this script did until a re-run took a working box down.
+find "$APP_DIR" -path "$APP_DIR/data" -prune -o -exec chown "$APP_USER:$APP_USER" {} +
 install -d -m 700 -o "$CONTAINER_UID" -g "$CONTAINER_UID" "$APP_DIR/data"
+chown -R "$CONTAINER_UID:$CONTAINER_UID" "$APP_DIR/data"
 
 log "ci key"
 # A separate key, used by GitHub Actions to reach *this box*, restricted to one command.
@@ -125,8 +136,10 @@ if [[ ! -f "$CI_KEY" ]]; then
 fi
 AUTH="/home/$APP_USER/.ssh/authorized_keys"
 FORCED='command="'"$APP_DIR"'/deploy/deploy.sh",no-agent-forwarding,no-port-forwarding,no-pty,no-user-rc,no-X11-forwarding'
-touch "$AUTH"
-grep -q "github-actions" "$AUTH" || echo "$FORCED $(cat "$CI_KEY.pub")" >> "$AUTH"
+# Rewritten from the key on disk rather than appended to. Matching on the "github-actions"
+# comment meant a rotated key was never installed and the revoked one never removed — the
+# file kept saying yes to a key the operator believed they had replaced.
+printf '%s %s\n' "$FORCED" "$(cut -d" " -f1,2 "$CI_KEY.pub")" > "$AUTH"
 chown "$APP_USER:$APP_USER" "$AUTH"
 chmod 600 "$AUTH"
 

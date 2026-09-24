@@ -91,6 +91,9 @@ STRINGS.update(
         "bot.import.need_file": "Waiting for the file or the configuration text. /cancel to stop.",
         "bot.import.bad_file": "Could not read it: {reason}",
         "bot.import.done": "✅ Imported: {chats} chats, {rules} rules, {ignored} ignored.",
+        "bot.import.over_limit": (
+            "⚠️ {n} rules did not fit. The caps are {chat} per chat and {total} in total."
+        ),
         "bot.import.duplicates": "↩️ Skipped {n} duplicate rules.",
         "bot.import.missing_chats": "⚠️ These chats were not found: {chats}",
         "bot.import.bad_rules": "⚠️ These rules were rejected: {rules}",

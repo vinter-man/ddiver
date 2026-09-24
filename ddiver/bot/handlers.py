@@ -19,6 +19,8 @@ from ddiver.bot.router import Action, Context, Edit, Reply, Router, Send, SendDo
 from ddiver.i18n import LANG_NAMES, LANGS, t
 from ddiver.matcher import Matcher
 from ddiver.rules import (
+    MAX_RULES_PER_CHAT,
+    MAX_RULES_PER_USER,
     MatchMode,
     PreparedText,
     RuleError,
@@ -43,8 +45,6 @@ from ddiver.timeutil import Clock, format_clock, relative, resolve_tz, utcnow
 log = logging.getLogger(__name__)
 
 MAX_LINES_PER_MESSAGE = 50
-MAX_RULES_PER_CHAT = 200
-MAX_RULES_PER_USER = 500
 DIGEST_MIN = 2
 DIGEST_MAX = 500
 # a rule pattern quoted back inside a confirmation line; long regexes must not push the
@@ -765,6 +765,15 @@ def build_router(
         ]
         if report.rules_duplicate:
             lines.append(ctx.t("bot.import.duplicates", n=report.rules_duplicate))
+        if report.rules_over_limit:
+            lines.append(
+                ctx.t(
+                    "bot.import.over_limit",
+                    n=report.rules_over_limit,
+                    chat=MAX_RULES_PER_CHAT,
+                    total=MAX_RULES_PER_USER,
+                )
+            )
         if report.chats_missing:
             lines.append(ctx.t("bot.import.missing_chats", chats=", ".join(report.chats_missing)))
         if report.rules_invalid:

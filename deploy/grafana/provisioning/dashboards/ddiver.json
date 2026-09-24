@@ -558,9 +558,18 @@
           }
         },
         {
-          "expr": "rate(ddiver_delivery_dropped_total[5m])",
+          "expr": "rate(ddiver_delivery_dropped_overflow_total[5m])",
           "legendFormat": "dropped (queue full)",
           "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "rate(ddiver_delivery_dropped_inactive_total[5m])",
+          "legendFormat": "dropped (paused or revoked)",
+          "refId": "E",
           "datasource": {
             "type": "prometheus",
             "uid": "ddiver-prometheus"

@@ -5,12 +5,11 @@ from __future__ import annotations
 import asyncio
 import http.server
 import threading
-import urllib.error
 from typing import ClassVar
 
 import pytest
 
-from ddiver.watchdog import Watchdog
+from ddiver.watchdog import Watchdog, _is_success
 
 
 class Recorder(http.server.BaseHTTPRequestHandler):
@@ -88,17 +87,17 @@ class TestPing:
         assert len([r for r in caplog.records if "watchdog" in r.message]) == 2
 
     async def test_an_exploding_transport_is_swallowed(self, monkeypatch):
-        """Even a bug inside urllib must not take the process down."""
+        """Even a bug in the connection layer must not take the process down."""
 
-        def boom(*_args, **_kwargs):
-            raise RuntimeError("urllib is having a day")
+        async def boom(*_args, **_kwargs):
+            raise RuntimeError("the network stack is having a day")
 
-        monkeypatch.setattr(urllib.request, "urlopen", boom)
+        monkeypatch.setattr(asyncio, "open_connection", boom)
         dog = Watchdog("http://example.invalid/ping")
         assert await dog.ping() is False
 
     async def test_the_request_does_not_block_the_event_loop(self, server):
-        """It runs in a thread: a slow ping must not stall the listener."""
+        """The connection is asyncio-native, so the loop keeps running during the request."""
         ticks = 0
 
         async def ticker():
@@ -113,3 +112,52 @@ class TestPing:
         await Watchdog(f"http://127.0.0.1:{server.server_address[1]}/ping").ping()
         assert ticks > before
         task.cancel()
+
+
+class TestSlowPeer:
+    async def test_a_trickling_peer_cannot_park_the_heartbeat(self):
+        """The socket timeout bounds each recv, not the request; only the outer one is total."""
+
+        async def trickle(reader, writer):
+            try:
+                await reader.readline()
+                while True:  # a byte at a time, forever, faster than any socket timeout
+                    writer.write(b"H")
+                    await writer.drain()
+                    await asyncio.sleep(0.05)
+            except (ConnectionError, asyncio.CancelledError):
+                pass
+
+        server = await asyncio.start_server(trickle, "127.0.0.1", 0)
+        port = server.sockets[0].getsockname()[1]
+        try:
+            dog = Watchdog(f"http://127.0.0.1:{port}/ping", timeout=0.3)
+            loop = asyncio.get_running_loop()
+            began = loop.time()
+            assert await asyncio.wait_for(dog.ping(), timeout=10) is False
+            assert loop.time() - began < 6, "the ping was not bounded"
+            assert dog.failed == 1
+        finally:
+            server.close()
+            await server.wait_closed()
+
+
+class TestStatusParsing:
+    @pytest.mark.parametrize(
+        ("line", "expected"),
+        [
+            (b"HTTP/1.1 200 OK\r\n", True),
+            (b"HTTP/1.1 204 No Content\r\n", True),
+            (b"HTTP/1.0 299 Odd\r\n", True),
+            (b"HTTP/1.1 301 Moved\r\n", False),
+            (b"HTTP/1.1 500 Server Error\r\n", False),
+            (b"HTTP/1.1 nonsense\r\n", False),
+            (b"garbage\r\n", False),
+            (b"", False),
+        ],
+    )
+    def test_only_a_2xx_counts(self, line, expected):
+        assert _is_success(line) is expected
+
+    def test_an_endless_status_line_is_not_read_forever(self):
+        assert _is_success(b"HTTP/1.1 " + b"2" * 10_000) is False

@@ -189,3 +189,35 @@ class TestBuildInfo:
         rendered = source().render().splitlines()
         line = next(x for x in rendered if x.startswith("ddiver_build_info{"))
         assert line == 'ddiver_build_info{commit="a\\"b\\\\c"} 1'
+
+
+class TestShutdownIsBounded:
+    """stop() waits for handlers, so a handler that never finishes makes shutdown impossible."""
+
+    async def test_an_idle_connection_does_not_park_stop_forever(self, monkeypatch):
+        monkeypatch.setattr("ddiver.metrics.REQUEST_TIMEOUT", 0.3)
+        server = MetricsServer(source(), "127.0.0.1", 0)
+        await server.start()
+        _, writer = await asyncio.open_connection("127.0.0.1", server.port)
+        try:
+            # connected, and deliberately says nothing at all
+            await asyncio.wait_for(server.stop(), timeout=5)
+        finally:
+            writer.close()
+
+    async def test_a_request_line_with_no_newline_is_dropped(self, monkeypatch):
+        """Without a limit this reads until memory runs out."""
+        monkeypatch.setattr("ddiver.metrics.REQUEST_TIMEOUT", 1.0)
+        server = MetricsServer(source(), "127.0.0.1", 0)
+        await server.start()
+        try:
+            _, writer = await asyncio.open_connection("127.0.0.1", server.port)
+            writer.write(b"GET /" + b"x" * (5000))
+            await writer.drain()
+            await asyncio.sleep(0.2)
+            writer.close()
+            # the server is still answering
+            _, status, _ = await asyncio.to_thread(_get, f"http://127.0.0.1:{server.port}/metrics")
+            assert status == 200
+        finally:
+            await asyncio.wait_for(server.stop(), timeout=5)

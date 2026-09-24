@@ -87,6 +87,9 @@ STRINGS.update(
         "bot.import.need_file": "Жду файл или текст конфигурации. Отменить — /cancel.",
         "bot.import.bad_file": "Не получилось прочитать: {reason}",
         "bot.import.done": "✅ Загружено: чатов {chats}, правил {rules}, в игноре {ignored}.",
+        "bot.import.over_limit": (
+            "⚠️ Не поместилось правил: {n}. Лимиты — {chat} на чат и {total} всего."
+        ),
         "bot.import.duplicates": "↩️ Пропущено дубликатов правил: {n}.",
         "bot.import.missing_chats": "⚠️ Не нашёл эти чаты: {chats}",
         "bot.import.bad_rules": "⚠️ Не приняты правила: {rules}",

@@ -87,6 +87,9 @@ STRINGS.update(
         "bot.import.need_file": "Чекаю на файл або текст конфігурації. Скасувати — /cancel.",
         "bot.import.bad_file": "Не вдалося прочитати: {reason}",
         "bot.import.done": "✅ Завантажено: чатів {chats}, правил {rules}, в ігнорі {ignored}.",
+        "bot.import.over_limit": (
+            "⚠️ Не вмістилося правил: {n}. Ліміти — {chat} на чат і {total} загалом."
+        ),
         "bot.import.duplicates": "↩️ Пропущено дублікатів правил: {n}.",
         "bot.import.missing_chats": "⚠️ Не знайшов ці чати: {chats}",
         "bot.import.bad_rules": "⚠️ Не прийнято правила: {rules}",

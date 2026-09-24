@@ -24,7 +24,10 @@ log = logging.getLogger(__name__)
 
 BIND_BACKLOG = 16
 READ_LIMIT = 4096
-"""A request line plus headers; anything longer is a client we do not serve."""
+"""Longest request line we will read. Anything longer is not a scraper."""
+
+REQUEST_TIMEOUT = 10.0
+"""How long one request may take. Bounds `stop()`, which waits for handlers to finish."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,7 +96,7 @@ class MetricsSource:
         yield Metric(
             "ddiver_listener_connected",
             "gauge",
-            "1 when the user session's transport is up, 0 when it is down, absent when unknown",
+            "1 when the user session's transport is up, 0 when it is down or not yet known",
             1 if transport else 0,
         )
         if self._supervisor is not None:
@@ -206,7 +209,7 @@ class MetricsServer:
 
     async def start(self) -> None:
         self._server = await asyncio.start_server(
-            self._handle, self._host, self._port, backlog=BIND_BACKLOG
+            self._handle, self._host, self._port, backlog=BIND_BACKLOG, limit=READ_LIMIT
         )
         log.info("metrics on http://%s:%d/metrics", self._host, self.port)
 
@@ -219,7 +222,12 @@ class MetricsServer:
 
     async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         try:
-            request = await reader.readline()
+            # Bounded on both axes. Without the timeout a socket that connects and says
+            # nothing keeps this coroutine alive, and `stop()` waits on it forever — which
+            # made a clean shutdown impossible and every deploy a SIGKILL. Without the limit
+            # a request line with no newline reads until memory runs out.
+            async with asyncio.timeout(REQUEST_TIMEOUT):
+                request = await reader.readuntil(b"\n")
             path = request.decode("latin-1", "replace").split(" ")[1:2]
             if path and path[0].split("?")[0] == "/metrics":
                 body = self._source.render().encode()
@@ -239,8 +247,15 @@ class MetricsServer:
                 ).encode()
             writer.write(head + body)
             await writer.drain()
-        except (ConnectionError, TimeoutError, IndexError, UnicodeError):
-            pass  # a scraper that hung up mid-request is not an event worth logging
+        except (
+            ConnectionError,
+            TimeoutError,
+            IndexError,
+            UnicodeError,
+            asyncio.IncompleteReadError,
+            asyncio.LimitOverrunError,
+        ):
+            pass  # a scraper that hung up, stalled or sent rubbish is not worth a log line
         except Exception:
             log.warning("metrics request failed", exc_info=True)
         finally:

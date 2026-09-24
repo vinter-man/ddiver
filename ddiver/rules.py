@@ -34,6 +34,17 @@ _PROBE_INPUTS = (
 )
 
 
+MAX_RULES_PER_CHAT = 200
+MAX_RULES_PER_USER = 500
+"""Caps on how many rules one person may hold.
+
+They live here rather than in the bot UI because there is more than one way in: the rules
+screen enforced them and /import did not, so a file could put a moderator far beyond what the
+screen would ever have allowed — and every one of those patterns is then compiled on the hot
+path for every message in the chat.
+"""
+
+
 class RuleKind(enum.StrEnum):
     INCLUDE = "include"
     EXCLUDE = "exclude"

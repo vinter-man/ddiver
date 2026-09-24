@@ -87,3 +87,67 @@ class TestBootstrap:
         """The forced command runs a script from the checkout; a stale one cannot fix itself."""
         text = BOOTSTRAP.read_text(encoding="utf-8")
         assert "reset --hard --quiet origin/main" in text
+
+
+class TestObservabilityConfig:
+    """The dashboard and the alert rules name metrics; the code has to emit them."""
+
+    @staticmethod
+    def emitted_names() -> set[str]:
+        from tests.test_metrics import source
+
+        return {
+            line.split()[0].split("{")[0]
+            for line in source(supervisor=_FakeSupervisor()).render().splitlines()
+            if line and not line.startswith("#")
+        }
+
+    def test_every_metric_the_dashboard_draws_is_emitted(self):
+        """A panel naming a metric nobody emits draws no line, which reads as "no problems"."""
+        import json
+
+        dashboard = json.loads(
+            (ROOT / "deploy/grafana/provisioning/dashboards/ddiver.json").read_text("utf-8")
+        )
+        used = set()
+        for panel in dashboard["panels"]:
+            for target in panel.get("targets", []):
+                used.update(re.findall(r"\bddiver_[a-z_]+\b", target.get("expr", "")))
+        assert used - self.emitted_names() == set()
+
+    def test_every_metric_the_alerts_use_is_emitted(self):
+        rules = yaml_load(ROOT / "deploy/grafana/alerting/rules.yml")
+        used = set()
+        for group in rules["groups"]:
+            for rule in group["rules"]:
+                for query in rule["data"]:
+                    used.update(re.findall(r"\bddiver_[a-z_]+\b", query["model"]["expr"]))
+        assert used - self.emitted_names() == set()
+
+    def test_no_rule_alerts_on_missing_data(self):
+        """The default is NoData, which fires. Every rule here is empty on a healthy system,
+        so the defaults page you five times a day to say the session is invalid when it is not.
+        """
+        rules = yaml_load(ROOT / "deploy/grafana/alerting/rules.yml")
+        for group in rules["groups"]:
+            for rule in group["rules"]:
+                assert rule.get("noDataState") == "OK", rule["uid"]
+                assert rule.get("execErrState") == "Error", rule["uid"]
+
+    def test_no_rule_compares_a_gauge_to_zero_with_equals(self):
+        """`x == 0` is a filter returning 0, and Grafana reads 0 as Normal: it never fires."""
+        rules = yaml_load(ROOT / "deploy/grafana/alerting/rules.yml")
+        for group in rules["groups"]:
+            for rule in group["rules"]:
+                for query in rule["data"]:
+                    assert "== 0" not in query["model"]["expr"], rule["uid"]
+
+
+class _SupervisorState:
+    degraded = False
+
+
+class _FakeSupervisor:
+    """Enough of a supervisor for MetricsSource to emit ddiver_degraded."""
+
+    state = _SupervisorState()

@@ -12,12 +12,19 @@ username is the only thing that survives a different listener.
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from ddiver.rules import RuleError, RuleKind, compile_rule
+from ddiver.rules import (
+    MAX_RULES_PER_CHAT,
+    MAX_RULES_PER_USER,
+    RuleError,
+    RuleKind,
+    compile_rule,
+)
 from ddiver.storage import ALL_CHATS, DuplicateRuleError, Storage
 
 FORMAT = "ddiver.config"
@@ -37,6 +44,7 @@ class ImportReport:
     rules_added: int = 0
     rules_duplicate: int = 0
     rules_invalid: list[str] = field(default_factory=list)
+    rules_over_limit: int = 0
     ignored_added: int = 0
 
     @property
@@ -105,7 +113,7 @@ def loads(raw: bytes | str) -> dict[str, Any]:
     if not isinstance(data, dict) or data.get("format") != FORMAT:
         msg = "not a ddiver export"
         raise BadExportError(msg)
-    if int(data.get("version", 0)) > VERSION:
+    if _int(data.get("version")) > VERSION:
         msg = "made by a newer ddiver; upgrade before importing"
         raise BadExportError(msg)
     return data
@@ -127,24 +135,33 @@ async def import_config(
     moderator cannot reach a chat the owner has not shared, whatever the file claims.
     """
     report = ImportReport()
-    resolved = await _import_chats(storage, user_id, data, report)
+    resolved = await _import_chats(storage, user_id, data, report, is_owner=is_owner)
     await _import_rules(
         storage, user_id, data, report, resolved, regex_timeout=regex_timeout, is_owner=is_owner
     )
-    await _import_ignored(storage, user_id, data, report, resolved)
+    await _import_ignored(storage, user_id, data, report, resolved, is_owner=is_owner)
     return report
 
 
 async def _import_chats(
-    storage: Storage, user_id: int, data: dict[str, Any], report: ImportReport
+    storage: Storage,
+    user_id: int,
+    data: dict[str, Any],
+    report: ImportReport,
+    *,
+    is_owner: bool,
 ) -> dict[int, int]:
     """Returns the exported chat id → local chat id map the other two passes need."""
     resolved: dict[int, int] = {}
-    for entry in data.get("chats", []) or []:
+    for entry in data.get("chats") or []:
+        if not isinstance(entry, dict):
+            continue
         wanted_id = _int(entry.get("id"))
-        username = (entry.get("username") or "").lstrip("@") or None
-        chat = await _find_chat(storage, wanted_id, username)
+        username = _text(entry.get("username")).lstrip("@") or None
+        chat = await _find_chat(storage, user_id, wanted_id, username, is_owner=is_owner)
         if chat is None:
+            # Echo back what they sent, never what we know: naming the chat we found instead
+            # would turn this list into the same oracle the single error message closed.
             report.chats_missing.append(str(entry.get("title") or username or wanted_id))
             continue
         resolved[wanted_id] = chat.id
@@ -163,8 +180,19 @@ async def _import_rules(
     regex_timeout: float,
     is_owner: bool,
 ) -> None:
-    for entry in data.get("rules", []) or []:
-        pattern = str(entry.get("pattern") or "")
+    """Add the rules a file asks for, under the same caps the rules screen applies.
+
+    Two reasons the caps matter more here than there. A file can carry thousands of patterns
+    in one message, and every accepted pattern is compiled again on the hot path for every
+    message in that chat — so an import is the cheapest way to make matching slow for
+    everybody in a shared chat, not just for the person who did it.
+    """
+    per_chat: dict[int, int] = {}
+    total = await storage.count_rules(user_id)
+    for entry in data.get("rules") or []:
+        if not isinstance(entry, dict):
+            continue
+        pattern = _text(entry.get("pattern"))
         chat_id = _int(entry.get("chat_id"))
         if chat_id != ALL_CHATS:
             chat_id = resolved.get(chat_id, chat_id)
@@ -172,8 +200,18 @@ async def _import_rules(
             if reason is not None:
                 report.rules_invalid.append(f"{pattern}: {reason}")
                 continue
+        if total >= MAX_RULES_PER_USER:
+            report.rules_over_limit += 1
+            continue
+        if chat_id not in per_chat:
+            per_chat[chat_id] = await storage.count_rules(user_id, chat_id)
+        if per_chat[chat_id] >= MAX_RULES_PER_CHAT:
+            report.rules_over_limit += 1
+            continue
         try:
-            compiled = compile_rule(pattern, timeout=regex_timeout)
+            # Compiling is the expensive half and it is pure: a file full of slow patterns
+            # must not hold the event loop while every other moderator waits.
+            compiled = await asyncio.to_thread(compile_rule, pattern, timeout=regex_timeout)
         except RuleError:
             report.rules_invalid.append(pattern)
             continue
@@ -184,6 +222,8 @@ async def _import_rules(
             report.rules_duplicate += 1
         else:
             report.rules_added += 1
+            per_chat[chat_id] += 1
+            total += 1
 
 
 async def _import_ignored(
@@ -192,39 +232,85 @@ async def _import_ignored(
     data: dict[str, Any],
     report: ImportReport,
     resolved: dict[int, int],
+    *,
+    is_owner: bool,
 ) -> None:
-    for entry in data.get("ignored", []) or []:
+    for entry in data.get("ignored") or []:
+        if not isinstance(entry, dict):
+            continue
         sender_id = _int(entry.get("sender_id"))
         if not sender_id:
             continue
         chat_id = _int(entry.get("chat_id"))
         if chat_id != ALL_CHATS:
             chat_id = resolved.get(chat_id, chat_id)
-            if await storage.get_chat(chat_id) is None:
+            if await _visible_chat(storage, user_id, chat_id, is_owner=is_owner) is None:
                 continue
-        await storage.add_ignored(user_id, chat_id, sender_id, entry.get("note"))
+        note = entry.get("note")
+        await storage.add_ignored(
+            user_id, chat_id, sender_id, str(note) if note is not None else None
+        )
         report.ignored_added += 1
 
 
 async def _chat_problem(
     storage: Storage, user_id: int, chat_id: int, *, is_owner: bool
 ) -> str | None:
-    """Why this user may not write a rule for this chat, or None when they may."""
-    if await storage.get_chat(chat_id) is None:
-        return "chat not found"
-    if not is_owner and not await storage.is_subscribed(user_id, chat_id):
-        return "chat not available to you"
+    """Why this user may not write a rule for this chat, or None when they may.
+
+    One answer for both "no such chat" and "not yours", deliberately. Two different answers
+    let a moderator upload a file full of guesses and read the owner's chat list back out of
+    the report, one guess at a time.
+    """
+    if await _visible_chat(storage, user_id, chat_id, is_owner=is_owner) is None:
+        return "chat not found or not available to you"
     return None
 
 
-async def _find_chat(storage: Storage, chat_id: int, username: str | None) -> Any:
-    """Username first: it is what survives the config moving to another account."""
+async def _visible_chat(storage: Storage, user_id: int, chat_id: int, *, is_owner: bool) -> Any:
+    """A chat this user is allowed to know exists: shared, subscribed, or theirs as owner.
+
+    The same test the bot UI applies, because an import must not be a way around the UI. The
+    owner sees everything the listener knows; a moderator sees a chat only once it has been
+    shared with them, or while they are still subscribed to one that has since been unshared.
+    """
+    if not chat_id:
+        return None
+    chat = await storage.get_chat(chat_id)
+    if chat is None:
+        return None
+    if is_owner:
+        return chat
+    if await storage.is_subscribed(user_id, chat_id):
+        return chat
+    return chat if chat.shared else None
+
+
+async def _find_chat(
+    storage: Storage, user_id: int, chat_id: int, username: str | None, *, is_owner: bool
+) -> Any:
+    """Username first: it is what survives the config moving to another account.
+
+    Both lookups are filtered to what this user may see. An unfiltered scan here would answer
+    "does the owner have a chat called @x" for any @x a moderator cared to try.
+    """
     if username:
         wanted = username.casefold()
-        for chat in await storage.list_chats():
+        for chat in await storage.list_chats(shared_only=not is_owner):
             if chat.ref.username and chat.ref.username.casefold() == wanted:
                 return chat
-    return await storage.get_chat(chat_id) if chat_id else None
+        # A moderator may still hold a subscription to a chat that has since been unshared.
+        if not is_owner:
+            for chat in await storage.list_subscriptions(user_id):
+                if chat.ref.username and chat.ref.username.casefold() == wanted:
+                    return chat
+        return None
+    return await _visible_chat(storage, user_id, chat_id, is_owner=is_owner)
+
+
+def _text(value: Any) -> str:
+    """Everything in the file is attacker-controlled JSON; a username may be a number."""
+    return value if isinstance(value, str) else ""
 
 
 def _int(value: Any) -> int:

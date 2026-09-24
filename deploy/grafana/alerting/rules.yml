@@ -1,5 +1,15 @@
 # What is worth waking up for.
 #
+# Two things about the shape of these rules, both learned by running them against a real
+# Grafana rather than by reading the docs:
+#
+#   noDataState: OK      — the default is NoData, which *alerts*. Every rule here is a filter
+#                          that returns an empty vector on a healthy system, so the defaults
+#                          send five alarms a day saying the session is invalid when it is not.
+#   ... < 1, not == 0    — PromQL `==` is a filter: when the listener is down the query returns
+#                          a sample whose value is 0, and Grafana reads 0 as Normal. `== 1`
+#                          is fine for the same reason `== 0` is not.
+#
 # Note what is NOT here: "the whole machine is down". Grafana lives on the same box as ddiver,
 # so it cannot report its own funeral. That is what PING_URL and an external dead-man's switch
 # are for — see the observability section of the README.
@@ -15,6 +25,8 @@ groups:
         title: ddiver is not reporting
         condition: absent
         for: 5m
+        noDataState: OK
+        execErrState: Error
         annotations:
           summary: No metrics scraped for five minutes. The process is gone, or Prometheus cannot reach it.
         labels: {severity: critical}
@@ -31,6 +43,8 @@ groups:
         title: The listener needs ddiver login
         condition: degraded
         for: 2m
+        noDataState: OK
+        execErrState: Error
         annotations:
           summary: The Telegram session is invalid. Restarting will not help — run `ddiver login`.
         labels: {severity: critical}
@@ -47,6 +61,8 @@ groups:
         title: The listener has been disconnected
         condition: down
         for: 10m
+        noDataState: OK
+        execErrState: Error
         annotations:
           summary: The user session's transport has been down for ten minutes. Messages are being missed.
         labels: {severity: warning}
@@ -55,7 +71,7 @@ groups:
             relativeTimeRange: {from: 900, to: 0}
             datasourceUid: ddiver-prometheus
             model:
-              expr: ddiver_listener_connected == 0
+              expr: ddiver_listener_connected < 1
               instant: true
               refId: down
 
@@ -63,6 +79,8 @@ groups:
         title: Notifications are piling up
         condition: queued
         for: 15m
+        noDataState: OK
+        execErrState: Error
         annotations:
           summary: More than 500 notifications have been queued for fifteen minutes. Check for flood waits or a blocked bot.
         labels: {severity: warning}
@@ -79,6 +97,8 @@ groups:
         title: A rule keeps timing out
         condition: timeouts
         for: 10m
+        noDataState: OK
+        execErrState: Error
         annotations:
           summary: Regex timeouts are happening continuously. A rule is about to be disabled automatically.
         labels: {severity: warning}
