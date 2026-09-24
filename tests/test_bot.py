@@ -10,7 +10,7 @@ from ddiver.bot.router import Edit, Incoming, Reply, Send, Toast
 from ddiver.i18n import t
 from ddiver.links import ChatRef
 from ddiver.matcher import Matcher
-from ddiver.rules import RuleKind
+from ddiver.rules import MAX_IGNORED_PER_USER, RuleKind
 from ddiver.storage import ALL_CHATS, ChatRow, IgnoredSender, Role, Rule, Storage
 
 OWNER = 1
@@ -838,3 +838,27 @@ class TestMalformedCallbacks:
     async def test_the_moderator_path_is_covered_too(self, router, store):
         for data in ("sub", "ig:1", "rules", "rdrop", "set"):
             assert await cb(router, MOD, data), data
+
+
+class TestIgnoreListLimit:
+    async def test_the_buttons_respect_the_same_cap_as_an_import(self, router, store):
+        """The import path capped this and the buttons did not, which is the wrong way round:
+        every entry is read back into the matcher for every watched chat."""
+        await store.set_chat_shared(CHAT_A.id, True)
+        await cb(router, OWNER, f"sub:{CHAT_A.id}:1")
+        for i in range(MAX_IGNORED_PER_USER):
+            await store.add_ignored(OWNER, ALL_CHATS, 10_000 + i, None)
+
+        actions = await cb(router, OWNER, f"ig:{CHAT_A.id}:777")
+        assert "2000" in actions[0].key_or_text
+        assert await store.count_ignored(OWNER) == MAX_IGNORED_PER_USER
+
+        actions = await cb(router, OWNER, "igall:778")
+        assert "2000" in actions[0].key_or_text
+        assert await store.count_ignored(OWNER) == MAX_IGNORED_PER_USER
+
+    async def test_below_the_cap_the_buttons_still_work(self, router, store):
+        await store.set_chat_shared(CHAT_A.id, True)
+        await cb(router, OWNER, f"sub:{CHAT_A.id}:1")
+        await cb(router, OWNER, f"ig:{CHAT_A.id}:777")
+        assert await store.count_ignored(OWNER) == 1

@@ -375,6 +375,38 @@ class TestImportLimits:
         assert report.rules_added == MAX_RULES_PER_CHAT
         assert report.rules_over_limit == 5
 
+    async def test_a_file_only_ever_compiles_a_bounded_number_of_patterns(self, store, monkeypatch):
+        """The stored caps do not stop the loop: a rejected pattern never reaches them.
+
+        Validating one catastrophic regex costs a whole ``regex_timeout``, and a megabyte of
+        JSON holds about 26,000 of them, so the work has to be bounded on its own.
+        """
+        compiled: list[str] = []
+        real = asyncio.to_thread
+
+        async def spy(func, *args, **kwargs):
+            compiled.append(args[0] if args else "")
+            return await real(func, *args, **kwargs)
+
+        monkeypatch.setattr(portable.asyncio, "to_thread", spy)
+        extra = 50
+        config = {
+            "format": portable.FORMAT,
+            "version": 1,
+            # Rejected, so none of them ever counts towards the stored caps.
+            "rules": [
+                {"chat_id": 0, "kind": "include", "pattern": f"re:[unclosed{i}"}
+                for i in range(portable.MAX_RULE_ENTRIES + extra)
+            ],
+        }
+        report = await portable.import_config(
+            store, OWNER, config, regex_timeout=0.2, is_owner=True
+        )
+        assert len(compiled) == portable.MAX_RULE_ENTRIES
+        assert len(report.rules_invalid) == portable.MAX_RULE_ENTRIES
+        assert report.rules_over_limit == extra
+        assert report.rules_added == 0
+
     async def test_compiling_does_not_run_on_the_event_loop(self, store, monkeypatch):
         """A file of slow patterns must not stall everybody else's matching."""
         offloaded = []

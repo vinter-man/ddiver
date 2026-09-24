@@ -82,10 +82,17 @@ class TestDeployScript:
         workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         assert "$GITHUB_SHA" in workflow
 
-    def test_it_carries_the_alerts_overlay_when_one_is_configured(self):
-        """Without it a push recreates Grafana from the base files and drops the alert env."""
+    def test_it_renders_the_alerting_files_before_starting(self):
+        """They go into the directory Grafana already mounts, so they must exist by then.
+
+        A second bind mount nested inside the first is what this replaced: Docker refuses to
+        create the child mountpoint because the parent is mounted read-only, so with alerts
+        configured the whole stack failed to start — and the rollback, reusing the same file
+        list, failed the same way.
+        """
         text = DEPLOY.read_text(encoding="utf-8")
-        assert "docker-compose.alerts.yml" in text
+        assert "render-alerts.sh" in text
+        assert "docker-compose.alerts.yml" not in text
         assert "source .env" not in text, "the forced command must not execute .env"
 
     def test_a_failed_start_still_reaches_the_rollback(self):
@@ -95,6 +102,39 @@ class TestDeployScript:
 
     def test_deploys_are_serialised(self):
         assert "flock" in DEPLOY.read_text(encoding="utf-8")
+
+
+class TestAlerting:
+    def test_nothing_mounts_inside_the_provisioning_mount(self):
+        """Docker cannot create a mountpoint inside a read-only bind, so the stack would not
+        start at all — the failure this restructuring removed."""
+        for path in (COMPOSE, OBSERVABILITY):
+            for service in yaml_load(path)["services"].values():
+                targets = [
+                    str(v).split(":")[1] for v in service.get("volumes", []) if ":" in str(v)
+                ]
+                nested = [
+                    t
+                    for t in targets
+                    if any(
+                        t != other and t.startswith(other.rstrip("/") + "/") for other in targets
+                    )
+                ]
+                assert nested == [], nested
+
+    def test_the_rendered_directory_is_tracked_but_its_contents_are_not(self):
+        """git does not track empty directories, and deploy.sh does `git reset --hard`."""
+        assert (ROOT / "deploy/grafana/provisioning/alerting/.gitkeep").exists()
+        ignored = (ROOT / ".gitignore").read_text(encoding="utf-8")
+        assert "deploy/grafana/provisioning/alerting/*.yml" in ignored
+
+    def test_the_template_carries_no_bare_variable_for_grafana_to_retype(self):
+        """Grafana expands $VARS and then re-types the result, so an all-digit chat id
+        arrives as a JSON number and the contact point is rejected at boot."""
+        tmpl = (ROOT / "deploy/grafana/alerting/contact-points.yml.tmpl").read_text("utf-8")
+        body = "\n".join(x for x in tmpl.splitlines() if not x.lstrip().startswith("#"))
+        assert "$ALERT" not in body and "${ALERT" not in body
+        assert '"@@ALERT_TELEGRAM_CHAT_ID@@"' in body, "the placeholder must stay quoted"
 
 
 class TestBootstrap:
@@ -174,9 +214,14 @@ class TestObservabilityConfig:
         for group in rules["groups"]:
             for rule in group["rules"]:
                 for query in rule["data"]:
-                    expr = query["model"]["expr"]
-                    if any(token in expr for token in suspicious):
-                        assert "bool" in expr, f"{rule['uid']}: {expr}"
+                    expr = " ".join(query["model"]["expr"].split())
+                    # `and` and `unless` return the left-hand side's samples, so only the
+                    # first operand decides the value the condition sees. A `== 0` used as a
+                    # filter on the right is fine, and is how "failing and nothing arriving"
+                    # is written.
+                    decides = re.split(r"\s+(?:and|unless|or)\s+", expr)[0]
+                    if any(token in decides for token in suspicious):
+                        assert "bool" in decides, f"{rule['uid']}: {decides}"
 
 
 class _SupervisorState:

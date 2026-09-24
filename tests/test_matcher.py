@@ -213,3 +213,57 @@ class TestOffloadAndBudget:
         await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "казино")
         await matcher.invalidate()
         assert len(await matcher.evaluate(CHAT_A.id, "казино", 1)) == 1
+
+
+class TestCacheGeneration:
+    """A rule edited while its chat is being compiled must not be lost."""
+
+    async def test_an_edit_during_a_load_is_not_overwritten(self, store, matcher):
+        """`_load` awaits twice — on storage and on the compile thread — and the bot runs on
+        the same loop, so a moderator's tap lands in the middle of it. Caching the older read
+        would hide that rule until the next invalidation, which for a quiet chat is days.
+        """
+        import ddiver.matcher as matcher_module
+
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "первое")
+        await matcher.invalidate()
+
+        landed = asyncio.Event()
+        real = asyncio.to_thread
+
+        async def interleave(func, *args, **kwargs):
+            result = await real(func, *args, **kwargs)
+            if func.__name__ == "_compile_all" and not landed.is_set():
+                landed.set()
+                # exactly what the bot does when somebody adds a rule
+                await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "второе")
+                await matcher.invalidate(CHAT_A.id)
+            return result
+
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(matcher_module.asyncio, "to_thread", interleave)
+        try:
+            await matcher.evaluate(CHAT_A.id, "первое", 5)
+        finally:
+            monkeypatch.undo()
+
+        assert landed.is_set(), "the interleaving never happened; the test proves nothing"
+        assert await matcher.evaluate(CHAT_A.id, "второе", 5), "the new rule was lost"
+
+    async def test_an_uninterrupted_load_is_still_cached(self, store, matcher):
+        """The guard must not turn every evaluation into a reload."""
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "такси")
+        await matcher.invalidate()
+        loads = 0
+        real_load = matcher._load
+
+        async def counting(chat_id):
+            nonlocal loads
+            loads += 1
+            return await real_load(chat_id)
+
+        matcher._load = counting
+        await matcher.evaluate(CHAT_A.id, "такси", 5)
+        await matcher.evaluate(CHAT_A.id, "такси", 5)
+        await matcher.evaluate(CHAT_A.id, "такси", 5)
+        assert loads == 1

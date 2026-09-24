@@ -49,13 +49,10 @@ cd "$APP_DIR" || die "no $APP_DIR"
 exec {lock}> "$APP_DIR/.deploy.lock"
 flock --wait 600 "$lock" || die "another deploy has held the lock for ten minutes"
 
-# Alerts are opt-in because their overlay refuses to start Grafana without a token. Add it
-# only on a box that has one, and add it here rather than in the file list above, because
-# .env has not been checked until now. A grep, not a source: this script is the forced
-# command of a key and must not execute what is in that file.
-if grep -Eq '^[[:space:]]*ALERT_TELEGRAM_TOKEN=.+' .env; then
-	COMPOSE_FILES+=(-f deploy/docker-compose.alerts.yml)
-fi
+# Alerting is provisioned by writing files into the directory Grafana already mounts, so it
+# has to be rendered before the containers come up — and removed again on a box that has no
+# alert bot, because a contact point without a token is fatal to Grafana at boot.
+"$APP_DIR/deploy/render-alerts.sh"
 
 # Whether it was working *before* matters: if the session has expired, the container is
 # unhealthy whatever the code does, and rolling back would only thrash.

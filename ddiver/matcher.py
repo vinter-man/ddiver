@@ -85,6 +85,10 @@ class Matcher:
         self._on_rule_disabled = on_rule_disabled
         self._monitored: set[int] = set()
         self._cache: dict[int, _ChatRuleSet] = {}
+        # Bumped by anything that makes the cache wrong. `_load` reads it before it awaits and
+        # checks it again before it stores, so a rule edited while a chat's rules are being
+        # compiled in a worker thread is not overwritten by the result of the older read.
+        self._generation = 0
         self._timeouts: dict[int, int] = {}
         self._hits: Counter[int] = Counter()
         self.stats_evaluated = 0
@@ -113,11 +117,13 @@ class Matcher:
 
     async def reload(self) -> None:
         """Reload the monitored set from storage and drop every cached rule set."""
+        self._generation += 1
         self._monitored = await self._storage.monitored_chat_ids()
         self._cache.clear()
 
     async def invalidate(self, chat_id: int | None = None) -> None:
         """Drop cached rules for one chat (or all) and refresh the monitored set."""
+        self._generation += 1
         if chat_id is None:
             self._cache.clear()
         else:
@@ -199,6 +205,7 @@ class Matcher:
     async def _disable(self, rule: Rule, reason: str) -> None:
         await self._storage.disable_rule(rule.id, reason)
         self._timeouts.pop(rule.id, None)
+        self._generation += 1
         self._cache.clear()  # the rule may be global, so every chat could be affected
         log.warning("rule %s (%r) disabled: %s", rule.id, rule.pattern, reason)
         if self._on_rule_disabled is not None:
@@ -210,8 +217,14 @@ class Matcher:
         cached = self._cache.get(chat_id)
         if cached is not None:
             return cached
+        # Loading awaits — on storage, and on the thread that compiles the patterns — so a
+        # moderator can add or delete a rule while it is in flight. Caching the result of the
+        # older read would then hide that edit until the next invalidation for this chat,
+        # which for a quiet chat can be days. Use the ruleset, do not cache it.
+        generation = self._generation
         ruleset = await self._load(chat_id)
-        self._cache[chat_id] = ruleset
+        if generation == self._generation:
+            self._cache[chat_id] = ruleset
         return ruleset
 
     def _compile_all(self, rules: list[Rule]) -> list[tuple[Rule, CompiledRule | RuleError]]:

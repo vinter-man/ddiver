@@ -79,6 +79,35 @@ groups:
               instant: true
               refId: down
 
+      - uid: ddiver-delivery-stuck
+        title: Nothing is getting delivered
+        condition: stuck
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: Notifications are failing and none are arriving. Check BOT_TOKEN and `docker logs ddiver`.
+        labels: {severity: critical}
+        data:
+          - refId: stuck
+            relativeTimeRange: {from: 1800, to: 0}
+            datasourceUid: ddiver-prometheus
+            model:
+              # The listener half has a supervisor, a degraded gauge and an owner
+              # notification; the half that actually delivers has none of that. A revoked
+              # BOT_TOKEN raises an error no branch in _send handles, so every notification
+              # is marked failed and never retried — silently, because the only thing that
+              # would have told you is the bot that just died. `increase` rather than `rate`:
+              # a quiet chat produces one failure every twenty minutes, and a rate over five
+              # falls back to zero between them and never completes a `for`.
+              expr: >-
+                increase(ddiver_delivery_failed_total[15m]) > 0
+                and
+                increase(ddiver_delivery_delivered_total[15m])
+                  + increase(ddiver_delivery_digested_total[15m]) == 0
+              instant: true
+              refId: stuck
+
       - uid: ddiver-queue-backed-up
         title: Notifications are piling up
         condition: queued

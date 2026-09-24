@@ -1,0 +1,36 @@
+# Where an alert goes. A template: deploy/render-alerts.sh substitutes the two values from
+# .env and writes the result into deploy/grafana/provisioning/alerting/, which Grafana already
+# mounts.
+#
+# Rendered rather than interpolated by Grafana, for a reason worth recording. Grafana expands
+# $VARS in a provisioning file and then re-types the result, so an all-digit chat id arrives as
+# a JSON number and the contact point is rejected — "cannot unmarshal number into Go struct
+# field Config.chatid of type string" — and the container exits. Quoting in the YAML does not
+# help; the value is substituted after the parse. A rendered literal has no $ left to re-type.
+#
+# Use a SECOND BotFather bot, not the delivery bot. Sharing one token means an alert about
+# delivery being stuck travels over the thing that is stuck.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: telegram
+    receivers:
+      - uid: ddiver-telegram
+        type: telegram
+        settings:
+          bottoken: "@@ALERT_TELEGRAM_TOKEN@@"
+          chatid: "@@ALERT_TELEGRAM_CHAT_ID@@"
+          message: |
+            {{ range .Alerts }}{{ .Status | toUpper }} — {{ .Labels.alertname }}
+            {{ .Annotations.summary }}
+            {{ end }}
+        disableResolveMessage: false
+
+policies:
+  - orgId: 1
+    receiver: telegram
+    group_by: [alertname]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 6h

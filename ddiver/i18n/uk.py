@@ -154,6 +154,7 @@ STRINGS.update(
         "bot.ignored.empty": "Список порожній.",
         "bot.ignored.added": "🚫 Ігнорую {sender} у {chat}.",
         "bot.ignored.added_global": "🚫 Ігнорую {sender} всюди.",
+        "bot.ignored.limit": "Список ігнору вже на межі: {limit}.",
         "bot.ignored.removed": "Відправник більше не ігнорується.",
         "bot.ignored.anonymous": "анонімних адмінів",
         "bot.ignored.all_chats_btn": "🚫 І в усіх чатах",

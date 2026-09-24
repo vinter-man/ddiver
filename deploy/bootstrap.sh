@@ -129,6 +129,11 @@ find "$APP_DIR" -path "$APP_DIR/data" -prune -o -exec chown "$APP_USER:$APP_USER
 install -d -m 700 -o "$CONTAINER_UID" -g "$CONTAINER_UID" "$APP_DIR/data"
 chown -R "$CONTAINER_UID:$CONTAINER_UID" "$APP_DIR/data"
 
+log "alerting"
+if [[ -x "$APP_DIR/deploy/render-alerts.sh" ]]; then
+	sudo -u "$APP_USER" "$APP_DIR/deploy/render-alerts.sh" || true
+fi
+
 log "ci key"
 # A separate key, used by GitHub Actions to reach *this box*, restricted to one command.
 # A leaked deploy secret can then deploy and nothing else: no shell, no port forwarding.

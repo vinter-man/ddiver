@@ -155,9 +155,10 @@ own `/` and Docker Desktop refuses that mount. On a Linux box turn the profile o
 panel fills in; until then that one panel stays empty and Prometheus shows the `node` target
 down.
 
-Telegram alerts need a third file and two variables — see
-`deploy/docker-compose.alerts.yml`. They are separate because Grafana refuses to start when a
-contact point has no token, and a missing variable should not take the dashboards down.
+Telegram alerts need two variables in `.env`. `deploy/render-alerts.sh` writes the
+provisioning files from them on every deploy, and removes them again on a box that has none —
+Grafana refuses to start when a contact point has no token, so they have to be absent rather
+than empty.
 
 Without Docker, `METRICS_PORT=9109` exposes `/metrics` on its own and `LOG_FORMAT=json` makes
 the logs machine-readable.
@@ -172,10 +173,11 @@ ALERT_TELEGRAM_TOKEN=123456:AA...
 ALERT_TELEGRAM_CHAT_ID=your-numeric-id
 ```
 
+No extra compose file: set the two variables and the next deploy picks them up. By hand:
+
 ```bash
-docker compose -f docker-compose.yml \
-               -f deploy/docker-compose.observability.yml \
-               -f deploy/docker-compose.alerts.yml up -d
+./deploy/render-alerts.sh && docker compose -f docker-compose.yml \
+    -f deploy/docker-compose.observability.yml up -d grafana
 ```
 
 ### Asking an agent about the logs

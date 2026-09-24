@@ -24,6 +24,9 @@ htmlcov/
 .vscode/
 .DS_Store
 
+# rendered from deploy/grafana/alerting/ at deploy time; holds the alert bot's token
+deploy/grafana/provisioning/alerting/*.yml
+
 # tooling caches
 .serena/
 notes/

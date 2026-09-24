@@ -491,6 +491,14 @@ class Application:
         document = getattr(getattr(event, "message", None), "document", None)
         if document is None or int(getattr(document, "size", 0) or 0) > portable.MAX_BYTES:
             return None, None
+        # Bounded by who, not only by how big. The allow-list gate lives in the router, which
+        # runs after this — so without the check here a stranger, or somebody the owner
+        # explicitly denied, could make the bot pull a megabyte and only then be answered with
+        # silence, once per message and with no limit on how many at a time. Only /import ever
+        # reads the result, and the gate already keeps everyone else away from that.
+        user = await self.storage.get_user(int(event.sender_id))
+        if user is None or not user.active:
+            return None, None
         name = None
         for attribute in getattr(document, "attributes", None) or []:
             name = getattr(attribute, "file_name", None) or name

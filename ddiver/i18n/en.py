@@ -158,6 +158,7 @@ STRINGS.update(
         "bot.ignored.empty": "Nobody is ignored yet.",
         "bot.ignored.added": "🚫 Ignoring {sender} in {chat}.",
         "bot.ignored.added_global": "🚫 Ignoring {sender} everywhere.",
+        "bot.ignored.limit": "Your ignore list is already at its limit of {limit}.",
         "bot.ignored.removed": "Sender is no longer ignored.",
         "bot.ignored.anonymous": "anonymous admins",
         "bot.ignored.all_chats_btn": "🚫 In all chats too",

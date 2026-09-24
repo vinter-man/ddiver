@@ -39,6 +39,17 @@ VERSION = 1
 MAX_BYTES = 1_000_000
 """An export of 500 rules is about 40 KB; a megabyte is a file that is not one of ours."""
 
+MAX_RULE_ENTRIES = MAX_RULES_PER_USER + MAX_RULES_PER_CHAT
+"""How many rule entries an import will even look at.
+
+The caps in :mod:`ddiver.rules` bound what gets *stored*; this bounds the *work*. A rejected
+pattern never counts towards the stored caps, so those caps alone never end the loop, and a
+megabyte of JSON holds around 26,000 patterns. Validating one costs well under a millisecond
+in the cases measured — but the ceiling is ``regex_timeout`` per pattern, and choosing a
+pattern that reaches it is the attacker's side of the bargain. An export of a completely full
+account is 500 entries, so this bound is never met by a real file.
+"""
+
 
 class BadExportError(Exception):
     """The document is not a ddiver export, or is one we cannot read."""
@@ -206,7 +217,14 @@ async def _import_rules(
     """
     per_chat: dict[int, int] = {}
     total = await storage.count_rules(user_id)
+    examined = 0
     for entry in data.get("rules") or []:
+        examined += 1
+        if examined > MAX_RULE_ENTRIES:
+            # Counted, not compiled: past here the file cannot be one of ours, and every
+            # further pattern would be paid for at validation time whether or not it is kept.
+            report.rules_over_limit += 1
+            continue
         if not isinstance(entry, dict):
             continue
         pattern = _text(entry.get("pattern"))

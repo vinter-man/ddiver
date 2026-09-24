@@ -9,6 +9,7 @@ import pytest
 from telethon import errors, events
 from telethon.tl import types as tl
 
+from ddiver import portable
 from ddiver.bot import menus
 from ddiver.bot.router import Edit, Reply, Send, Toast
 from ddiver.links import ChatRef
@@ -693,3 +694,70 @@ class TestRequestStop:
         app.user_client.disconnect = disconnect
         app.request_stop()
         await app._stop_task  # must not raise: shutdown cannot be blocked by this
+
+
+class TestAttachedDocuments:
+    """Only somebody the owner allowed can make the bot spend bandwidth."""
+
+    @staticmethod
+    def _event(sender_id: int, size: int = 900_000):
+        document = tl.Document(
+            id=1,
+            access_hash=1,
+            file_reference=b"",
+            date=T0,
+            mime_type="application/json",
+            size=size,
+            dc_id=2,
+            attributes=[tl.DocumentAttributeFilename("ddiver.json")],
+        )
+        message = tl.Message(id=7, peer_id=tl.PeerUser(sender_id), date=T0, message="")
+        message.media = tl.MessageMediaDocument(document=document)
+        return type("Event", (), {"message": message, "sender_id": sender_id})()
+
+    async def test_a_stranger_cannot_make_the_bot_download(self, app):
+        downloaded = []
+
+        async def download_media(_message, file=None):
+            downloaded.append(True)
+            return b"{}"
+
+        app.bot_client.download_media = download_media
+        content, _ = await app._attached_document(self._event(sender_id=424242))
+        assert content is None
+        assert downloaded == [], "a megabyte was pulled for somebody with no access"
+
+    async def test_a_denied_user_cannot_either(self, app):
+        from ddiver.storage import Role
+
+        downloaded = []
+
+        async def download_media(_message, file=None):
+            downloaded.append(True)
+            return b"{}"
+
+        app.bot_client.download_media = download_media
+        await app.storage.ensure_user(5150)
+        await app.storage.update_user(5150, role=Role.DENIED)
+        content, _ = await app._attached_document(self._event(sender_id=5150))
+        assert content is None and downloaded == []
+
+    async def test_the_owner_still_gets_their_file(self, app):
+        async def download_media(_message, file=None):
+            return b'{"format": "ddiver.config"}'
+
+        app.bot_client.download_media = download_media
+        await app.storage.ensure_user(1)
+        content, name = await app._attached_document(self._event(sender_id=1))
+        assert content == b'{"format": "ddiver.config"}'
+        assert name == "ddiver.json"
+
+    async def test_an_oversized_file_is_refused_before_the_lookup(self, app):
+        async def download_media(_message, file=None):
+            raise AssertionError("should never be reached")
+
+        app.bot_client.download_media = download_media
+        content, _ = await app._attached_document(
+            self._event(sender_id=1, size=portable.MAX_BYTES + 1)
+        )
+        assert content is None

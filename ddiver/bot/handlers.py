@@ -19,6 +19,7 @@ from ddiver.bot.router import Action, Context, Edit, Reply, Router, Send, SendDo
 from ddiver.i18n import LANG_NAMES, LANGS, t
 from ddiver.matcher import Matcher
 from ddiver.rules import (
+    MAX_IGNORED_PER_USER,
     MAX_RULES_PER_CHAT,
     MAX_RULES_PER_USER,
     MatchMode,
@@ -543,6 +544,14 @@ def build_router(
         chat = await accessible_chat(ctx, chat_id)
         if chat is None:
             return [Toast("bot.err.not_found")]
+        if await _ignore_list_is_full(ctx):
+            return [
+                Toast(
+                    t(ctx.lang, "bot.ignored.limit", limit=MAX_IGNORED_PER_USER),
+                    alert=True,
+                    literal=True,
+                )
+            ]
         anonymous = sender_id == chat_id
         note = ctx.t("bot.ignored.anonymous") if anonymous else str(sender_id)
         await storage.add_ignored(ctx.user_id, chat_id, sender_id, note)
@@ -563,9 +572,26 @@ def build_router(
             ),
         ]
 
+    async def _ignore_list_is_full(ctx: Context) -> bool:
+        """The import path capped this and the buttons did not, which is the wrong way round.
+
+        Every entry is loaded into the matcher for every watched chat, so the list is read far
+        more often than it is written — and a button is the easy way to grow it without
+        noticing.
+        """
+        return await storage.count_ignored(ctx.user_id) >= MAX_IGNORED_PER_USER
+
     @router.callback("igall")
     async def ignore_sender_globally(ctx: Context) -> list[Action]:
         sender_id = _int(_parts(ctx.incoming.data, 2)[1])
+        if await _ignore_list_is_full(ctx):
+            return [
+                Toast(
+                    t(ctx.lang, "bot.ignored.limit", limit=MAX_IGNORED_PER_USER),
+                    alert=True,
+                    literal=True,
+                )
+            ]
         await storage.add_ignored(ctx.user_id, ALL_CHATS, sender_id, str(sender_id))
         await invalidate(None)
         return [

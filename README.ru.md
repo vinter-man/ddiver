@@ -155,9 +155,9 @@ Grafana окажется на <http://127.0.0.1:3000> (admin/admin, если н�
 хоста, а Docker Desktop такое монтирование запрещает. На Linux-машине включите профиль, и
 панель «Host» заполнится; до тех пор она пустая, а цель `node` в Prometheus висит down.
 
-Алертам в Telegram нужен третий файл и две переменные — см.
-`deploy/docker-compose.alerts.yml`. Они вынесены отдельно, потому что Grafana не стартует,
-если у контакта нет токена, и забытая переменная не должна утаскивать за собой дашборды.
+Алертам в Telegram нужны две переменные в `.env`. `deploy/render-alerts.sh` пишет из них
+файлы провижининга при каждом деплое и убирает их на машине, где алертов нет: Grafana не
+стартует, если у контакта нет токена, так что их надо именно отсутствие, а не пустота.
 
 Без Docker: `METRICS_PORT=9109` поднимает `/metrics` сам по себе, а `LOG_FORMAT=json` делает
 логи машиночитаемыми.
@@ -172,10 +172,12 @@ ALERT_TELEGRAM_TOKEN=123456:AA...
 ALERT_TELEGRAM_CHAT_ID=ваш-числовой-id
 ```
 
+Отдельный compose-файл не нужен: задаёте две переменные, и следующий деплой их подхватит.
+Вручную:
+
 ```bash
-docker compose -f docker-compose.yml \
-               -f deploy/docker-compose.observability.yml \
-               -f deploy/docker-compose.alerts.yml up -d
+./deploy/render-alerts.sh && docker compose -f docker-compose.yml \
+    -f deploy/docker-compose.observability.yml up -d grafana
 ```
 
 ### Как спросить агента про логи
