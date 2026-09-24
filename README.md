@@ -142,8 +142,10 @@ ssh -L 3000:127.0.0.1:3000 you@your-box   # Grafana is bound to localhost
 Grafana is then on <http://127.0.0.1:3000> (admin/admin unless you set `GRAFANA_USER` and
 `GRAFANA_PASSWORD`), with a dashboard already provisioned: is it alive, messages and matches
 per second, delivery and flood waits, rule timeouts, host CPU and memory, and a searchable log
-panel. Budget about 450 MB of RAM for the stack — more than ddiver itself, which is why it
-lives in a separate compose file.
+panel. Measured on a fresh stack: Prometheus 57 MB, Loki 72 MB, Grafana 99 MB, Alloy 48 MB
+— about 280 MB against ddiver's own 56 MB, growing with retention. Budget half a gigabyte and
+it will not surprise you; that it needs several times what ddiver needs is why it lives in a
+separate compose file.
 
 Host metrics are opt-in with `--profile host-metrics`, because node-exporter needs the host's
 own `/` and Docker Desktop refuses that mount. On a Linux box turn the profile on and the Host
