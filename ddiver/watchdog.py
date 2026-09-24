@@ -20,9 +20,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import datetime as dt
 import logging
 import ssl
 from urllib.parse import urlsplit
+
+from ddiver.timeutil import Clock, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -40,10 +43,21 @@ class Watchdog:
     switch is for.
     """
 
-    def __init__(self, url: str, *, timeout: float = 5.0) -> None:
+    def __init__(
+        self,
+        url: str,
+        *,
+        timeout: float = 5.0,
+        min_interval: float = 60.0,
+        clock: Clock = utcnow,
+    ) -> None:
         self._url = url
         self._timeout = timeout
+        self._min_interval = min_interval
+        self._clock = clock
+        self._last_sent: dt.datetime | None = None
         self.sent = 0
+        self.skipped = 0
         self.failed = 0
         self._warned = False
 
@@ -52,8 +66,25 @@ class Watchdog:
         return bool(self._url)
 
     async def ping(self) -> bool:
+        """Ping, unless one went out recently.
+
+        The heartbeat runs every thirty seconds, which is far more often than any monitor
+        needs and 86 000 requests a month at somebody else's expense. What decides how fast
+        an outage is noticed is the *period* configured on the monitor, not how often we
+        stack pings inside it — so one a minute is plenty, and it keeps the ping log on the
+        other end readable instead of a wall of identical entries.
+        """
         if not self._url:
             return False
+        now = self._clock()
+        recent = (
+            self._last_sent is not None
+            and (now - self._last_sent).total_seconds() < self._min_interval
+        )
+        if recent:
+            self.skipped += 1
+            return True  # one went out recently; as far as liveness goes, we are fine
+        self._last_sent = now
         try:
             async with asyncio.timeout(self._timeout):
                 ok = await self._get()

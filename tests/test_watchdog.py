@@ -10,6 +10,7 @@ from typing import ClassVar
 import pytest
 
 from ddiver.watchdog import Watchdog, _is_success
+from tests.fakes import FakeClock
 
 
 class Recorder(http.server.BaseHTTPRequestHandler):
@@ -68,7 +69,7 @@ class TestPing:
         assert (dog.sent, dog.failed) == (0, 0)
 
     async def test_an_outage_is_logged_once_not_every_minute(self, caplog):
-        dog = Watchdog("http://127.0.0.1:1/ping", timeout=0.2)
+        dog = Watchdog("http://127.0.0.1:1/ping", timeout=0.2, min_interval=0)
         with caplog.at_level("WARNING"):
             for _ in range(3):
                 await dog.ping()
@@ -76,7 +77,7 @@ class TestPing:
 
     async def test_a_recovery_re_arms_the_warning(self, server, caplog):
         port = server.server_address[1]
-        dog = Watchdog(f"http://127.0.0.1:{port}/ping", timeout=1.0)
+        dog = Watchdog(f"http://127.0.0.1:{port}/ping", timeout=1.0, min_interval=0)
         with caplog.at_level("WARNING"):
             Recorder.status = 500
             await dog.ping()
@@ -161,3 +162,46 @@ class TestStatusParsing:
 
     def test_an_endless_status_line_is_not_read_forever(self):
         assert _is_success(b"HTTP/1.1 " + b"2" * 10_000) is False
+
+
+class TestThrottle:
+    """The heartbeat runs every 30s; a monitor does not need 86 000 pings a month."""
+
+    async def test_a_second_ping_inside_the_interval_is_skipped(self, server):
+        clock = FakeClock()
+        dog = Watchdog(
+            f"http://127.0.0.1:{server.server_address[1]}/ping",
+            min_interval=60.0,
+            clock=clock,
+        )
+        assert await dog.ping() is True
+        assert await dog.ping() is True  # still healthy, just not sent again
+        assert len(Recorder.paths) == 1
+        assert (dog.sent, dog.skipped) == (1, 1)
+
+    async def test_it_sends_again_once_the_interval_has_passed(self, server):
+        clock = FakeClock()
+        dog = Watchdog(
+            f"http://127.0.0.1:{server.server_address[1]}/ping",
+            min_interval=60.0,
+            clock=clock,
+        )
+        await dog.ping()
+        clock.tick(61)
+        await dog.ping()
+        assert len(Recorder.paths) == 2
+        assert (dog.sent, dog.skipped) == (2, 0)
+
+    async def test_a_failure_does_not_block_the_next_attempt_forever(self, server):
+        """A skipped ping reports healthy, so a failed one must still re-arm on schedule."""
+        clock = FakeClock()
+        Recorder.status = 500
+        dog = Watchdog(
+            f"http://127.0.0.1:{server.server_address[1]}/ping",
+            min_interval=60.0,
+            clock=clock,
+        )
+        assert await dog.ping() is False
+        clock.tick(61)
+        Recorder.status = 200
+        assert await dog.ping() is True

@@ -30,6 +30,12 @@ class Settings(BaseSettings):
         description="dead-man's switch: pinged on every heartbeat, alerts you when it stops",
     )
     ping_timeout: float = Field(default=5.0, gt=0, le=60)
+    ping_interval: float = Field(
+        default=60.0,
+        ge=10,
+        le=3600,
+        description="smallest gap between pings; the heartbeat itself runs every 30s",
+    )
 
     catchup_hours: int = Field(default=24, ge=0, le=24 * 14)
     catchup_max_per_chat: int = Field(default=500, ge=0, le=5000)

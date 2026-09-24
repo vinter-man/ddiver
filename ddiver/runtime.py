@@ -212,7 +212,12 @@ class Application:
         self.catchup: Catchup | None = None
         self.router: Router | None = None
         self.supervisor: Supervisor | None = None
-        self.watchdog = Watchdog(settings.ping_url, timeout=settings.ping_timeout)
+        self.watchdog = Watchdog(
+            settings.ping_url,
+            timeout=settings.ping_timeout,
+            min_interval=settings.ping_interval,
+            clock=clock,
+        )
         self.metrics_server: MetricsServer | None = None
         # No resolver: the listener must never make an RPC from a message handler. Entities
         # attached to updates carry everything a notification needs most of the time.
