@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Any
@@ -32,13 +33,21 @@ class Metric:
     kind: str  # "counter" or "gauge"
     help: str
     value: float
+    labels: tuple[tuple[str, str], ...] = ()
+    """Only ``build_info`` uses these. Everything else stays unlabelled on purpose."""
 
     def render(self) -> str:
+        pairs = ",".join(f'{k}="{_escape(v)}"' for k, v in self.labels)
+        series = f"{self.name}{{{pairs}}}" if pairs else self.name
         return (
             f"# HELP {self.name} {self.help}\n"
             f"# TYPE {self.name} {self.kind}\n"
-            f"{self.name} {_number(self.value)}\n"
+            f"{series} {_number(self.value)}\n"
         )
+
+
+def _escape(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
 def _number(value: float) -> str:
@@ -68,6 +77,15 @@ class MetricsSource:
 
     def collect(self) -> Iterator[Metric]:
         yield Metric("ddiver_up", "gauge", "1 while the process is serving metrics", 1)
+        # The standard build_info shape: always 1, and the answer is in the label. One series,
+        # and it changes only on a deploy — which is exactly what makes a deploy visible.
+        yield Metric(
+            "ddiver_build_info",
+            "gauge",
+            "Always 1; the commit the running image was built from is in the label",
+            1,
+            labels=(("commit", os.environ.get("DDIVER_COMMIT", "unknown")[:12]),),
+        )
         yield Metric(
             "ddiver_uptime_seconds", "gauge", "Seconds since the supervisor started", self._uptime()
         )

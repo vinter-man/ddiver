@@ -61,7 +61,12 @@ def source(**kwargs) -> MetricsSource:
 class TestRendering:
     def test_every_metric_carries_help_and_type(self):
         text = source().render()
-        names = [line.split()[0] for line in text.splitlines() if not line.startswith("#")]
+        names = [
+            line.split()[0].split("{")[0]
+            for line in text.splitlines()
+            if line and not line.startswith("#")
+        ]
+        assert names
         for name in names:
             assert f"# HELP {name} " in text, name
             assert f"# TYPE {name} " in text, name
@@ -90,9 +95,24 @@ class TestRendering:
         assert "ddiver_up 1" in text
         assert "ddiver_messages_seen_total" not in text
 
-    def test_no_per_chat_labels(self):
-        """Cardinality is the one thing that turns a tiny Prometheus into a big one."""
-        assert "{" not in source().render()
+    def test_build_info_is_the_only_labelled_metric(self):
+        """Cardinality is the one thing that turns a tiny Prometheus into a big one.
+
+        build_info is the exception every exporter makes: constant 1, one series, and the
+        label changes only when a deploy changes it. Nothing else may grow a label — a
+        per-chat or per-rule one would mint thousands of series on a box with one process.
+        """
+        labelled = [
+            line.split("{")[0]
+            for line in source().render().splitlines()
+            if line and not line.startswith("#") and "{" in line
+        ]
+        assert labelled == ["ddiver_build_info"]
+
+    def test_one_series_per_metric(self):
+        lines = [x for x in source().render().splitlines() if x and not x.startswith("#")]
+        names = [x.split()[0].split("{")[0] for x in lines]
+        assert len(names) == len(set(names))
 
 
 class TestServer:
@@ -150,3 +170,22 @@ def _get(url: str) -> tuple[str, int, str]:
             return response.read().decode(), response.status, response.headers.get_content_type()
     except urllib.error.HTTPError as exc:
         return exc.read().decode(), exc.code, ""
+
+
+class TestBuildInfo:
+    def test_the_commit_is_a_label_on_a_constant_gauge(self, monkeypatch):
+        """The standard build_info shape: one series whose label answers "which version?"."""
+        monkeypatch.setenv("DDIVER_COMMIT", "0dbdf026abcdef1234567890")
+        text = source().render()
+        assert 'ddiver_build_info{commit="0dbdf026abcd"} 1' in text  # truncated, not the full sha
+
+    def test_an_unbuilt_image_says_so_rather_than_lying(self, monkeypatch):
+        monkeypatch.delenv("DDIVER_COMMIT", raising=False)
+        assert 'ddiver_build_info{commit="unknown"} 1' in source().render()
+
+    def test_a_label_value_cannot_break_the_exposition(self, monkeypatch):
+        """Prometheus parses this by line; an unescaped quote would corrupt the scrape."""
+        monkeypatch.setenv("DDIVER_COMMIT", 'a"b\\c')
+        rendered = source().render().splitlines()
+        line = next(x for x in rendered if x.startswith("ddiver_build_info{"))
+        assert line == 'ddiver_build_info{commit="a\\"b\\\\c"} 1'

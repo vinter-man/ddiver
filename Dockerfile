@@ -15,10 +15,15 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.12-slim
 
+# Passed by deploy.sh so the running container can say which commit it is. Last, so a new
+# value does not invalidate the layers above it.
+ARG GIT_SHA=unknown
+
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/app/.venv/bin:$PATH" \
-    DATA_DIR=/data
+    DATA_DIR=/data \
+    DDIVER_COMMIT=$GIT_SHA
 
 RUN useradd --create-home --uid 10001 ddiver \
     && mkdir -p /data \

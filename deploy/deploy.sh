@@ -61,7 +61,7 @@ fi
 git reset --hard --quiet "$target"
 
 # Build before touching the running container: a broken build must change nothing.
-if ! docker compose "${COMPOSE_FILES[@]}" build; then
+if ! GIT_SHA="$target" docker compose "${COMPOSE_FILES[@]}" build; then
 	git reset --hard --quiet "$previous"
 	die "build failed; the running version was left alone"
 fi
@@ -84,7 +84,7 @@ fi
 
 log "unhealthy after the deploy; rolling back to ${previous:0:8}"
 git reset --hard --quiet "$previous"
-docker compose "${COMPOSE_FILES[@]}" up -d --build --remove-orphans
+GIT_SHA="$previous" docker compose "${COMPOSE_FILES[@]}" up -d --build --remove-orphans
 if wait_for_health; then
 	die "rolled back to ${previous:0:8}, which is healthy again"
 fi
