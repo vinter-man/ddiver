@@ -114,14 +114,22 @@ class TestNotification:
 
     def test_forwarded_and_catchup_markers(self):
         r = render_notification(
-            payload(is_forwarded=True, catchup=True, catchup_skipped=120),
+            payload(is_forwarded=True, catchup=True, catchup_capped=True),
             lang="uk",
             tz="Europe/Kyiv",
             now=NOW,
         )
         assert "переслано" in r.text
         assert "офлайн" in r.text
-        assert "120" in r.text
+        assert "Старіші повідомлення" in r.text
+
+    def test_an_outbox_row_written_before_the_rename_still_renders_the_warning(self):
+        """Rows survive restarts, so the old key has to keep working through the upgrade."""
+        data = payload(catchup=True).to_json()
+        data.pop("catchup_capped")
+        data["catchup_skipped"] = 120
+        r = render_notification(Payload.from_json(data), lang="uk", tz="UTC", now=NOW)
+        assert "Старіші повідомлення" in r.text
 
     def test_global_rule_scope(self):
         r = render_notification(payload(rule_is_global=True), lang="en", tz="UTC", now=NOW)

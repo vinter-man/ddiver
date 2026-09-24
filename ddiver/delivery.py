@@ -80,6 +80,7 @@ class _UserQueue:
     worker: asyncio.Task[None] | None = None
     stopping: bool = False
     overflow: int = 0
+    overflow_noted: bool = False
     enqueued_at: dict[tuple[int, int, int], dt.datetime] = field(default_factory=dict)
 
 
@@ -120,7 +121,6 @@ class Delivery:
         monotonic: Callable[[], float] | None = None,
         sleep: Sleeper = asyncio.sleep,
         buttons: ButtonFactory | None = None,
-        default_threshold: int = 20,
         senders: SenderCache | None = None,
         on_user_state_changed: Callable[[], Awaitable[Any]] | None = None,
     ) -> None:
@@ -130,7 +130,6 @@ class Delivery:
         self._monotonic = monotonic or (lambda: asyncio.get_running_loop().time())
         self._sleep = sleep
         self._buttons = buttons
-        self._default_threshold = default_threshold
         self._senders = senders
         self._on_user_state_changed = on_user_state_changed
         self._queues: dict[int, _UserQueue] = {}
@@ -147,12 +146,20 @@ class Delivery:
 
         Runs at startup (after a crash or a shutdown) and periodically, so a row that could not
         be queued earlier — the queue was full, the user was paused — is not stranded until the
-        next restart. Rows already in memory are skipped, so a rescan cannot duplicate them.
+        next restart. Rows already queued are skipped; a row the listener is claiming at this
+        very moment is not in memory yet, so at-least-once is what this promises, which is what
+        the module docstring says the sender is built for.
         """
         queued = {key for state in self._queues.values() for key in state.enqueued_at}
         items = [i for i in await self._storage.pending_deliveries() if i.key not in queued]
         requeued = 0
         for item in items:
+            # A full queue means this user is already holding more than they can be sent; the
+            # rows stay pending and the next rescan comes back for them. Asking anyway would
+            # cost a `get_user` per row to learn what the queue already knows.
+            state = self._queues.get(item.user_id)
+            if state is not None and state.queue.full():
+                continue
             if await self.enqueue(item):
                 requeued += 1
         if requeued and not quiet:
@@ -174,16 +181,17 @@ class Delivery:
         except asyncio.QueueFull:
             state.overflow += 1
             self.metrics.dropped_overflow += 1
-            log.warning(
-                "delivery queue full for user %s (%d dropped)", item.user_id, state.overflow
-            )
-            # Record it, otherwise the row stays pending with nothing holding it and is only
-            # noticed at the next restart.
-            await self._storage.set_delivery_status(
-                *item.key, DeliveryStatus.FAILED, error="queue_full"
-            )
+            if not state.overflow_noted:
+                # Once per episode: a backlog larger than the queue would otherwise write one
+                # line per row, every rescan, for as long as it takes to drain.
+                log.warning("delivery queue full for user %s; rows stay pending", item.user_id)
+                state.overflow_noted = True
+            # The row is left pending on purpose. Marking it failed used to be the answer,
+            # from before there was a rescan — but nothing re-reads a failed row, so a backlog
+            # larger than the queue was destroyed by the restart the outbox exists to survive.
             return False
         state.enqueued_at[item.key] = self._clock()
+        state.overflow_noted = False
         return True
 
     def queue_length(self, user_id: int) -> int:
@@ -317,8 +325,9 @@ class Delivery:
         lang = user.lang or DEFAULT_LANG
         tz = user.tz or "UTC"
 
-        # 0 means "never digest"; the column default already carries the configured default,
-        # so `or self._default_threshold` would silently override the user's explicit choice.
+        # 0 means "never digest", so this is read as-is rather than `or` something: the
+        # configured default is applied once, when the row is created, and after that the
+        # column is the person's own answer.
         batch = self._collect_digest(state, item, user.digest_threshold)
         if batch is not None:
             entries = [DigestEntry(Payload.from_json(i.payload), i.key) for i in batch]

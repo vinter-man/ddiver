@@ -124,7 +124,7 @@ Nothing here is required; ddiver runs without any of it.
 
 ### A dead-man's switch
 
-Set `PING_URL` and ddiver pings it every thirty seconds. Point it at a push monitor — a free
+Set `PING_URL` and ddiver pings it once a minute (`PING_INTERVAL`). Point it at a push monitor — a free
 healthchecks.io check, an Uptime Kuma push URL, anything that shouts when the pings stop:
 
 ```dotenv
@@ -165,8 +165,10 @@ the logs machine-readable.
 
 Grafana can message you on Telegram when something is wrong but the machine is still up — the
 session needs a re-login, the listener has been disconnected for ten minutes, notifications are
-piling up. Use a **second** BotFather bot for this: an alert about delivery being stuck should
-not travel over the bot that is stuck.
+piling up. The same BotFather bot works — that is one token to manage and what most people
+will do. A **second** bot is the better answer if you want it: an alert about delivery being
+stuck then does not travel over the bot that is stuck, and revoking one token does not silence
+both.
 
 ```dotenv
 ALERT_TELEGRAM_TOKEN=123456:AA...

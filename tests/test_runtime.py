@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 from typing import Any
 
 import pytest
@@ -343,6 +344,40 @@ async def app(tmp_path, monkeypatch):
     await built.setup()
     yield built
     await built.storage.close()
+
+
+class TestShutdownIsolation:
+    """One failing step during `close()` must not take the rest of the shutdown with it."""
+
+    async def test_a_failed_hit_flush_still_drains_and_closes(self, app, caplog):
+        """Counting rule hits is the least important thing in `close()`.
+
+        It used to be the one unguarded step: a full disk there unwound `close()`, skipping
+        the delivery drain, the bot disconnect and `storage.close()`. `__main__` suppresses
+        the exception, so the process did not crash — it hung, because aiosqlite's worker
+        thread is not a daemon, with the container still reporting healthy.
+        """
+        drained = []
+
+        async def boom() -> None:
+            raise sqlite3.OperationalError("disk I/O error")
+
+        async def note_drain() -> int:
+            drained.append(True)
+            return 0
+
+        assert app.matcher is not None
+        assert app.delivery is not None
+        app.matcher.flush_hits = boom
+        app.delivery.drain = note_drain
+
+        await app.close()
+
+        assert drained, "the drain never ran"
+        assert "rule-hit counters were not written" in caplog.text
+        # `storage.close()` is the last line of `close()`; the fixture calls it again, which
+        # is only harmless if it actually ran here.
+        assert app.storage._db is None
 
 
 class TestMigration:

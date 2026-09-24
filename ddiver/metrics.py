@@ -68,6 +68,7 @@ class MetricsSource:
         delivery: Any = None,
         matcher: Any = None,
         supervisor: Any = None,
+        watchdog: Any = None,
         transport: Callable[[], bool | None] = lambda: None,
         uptime: Callable[[], float] = lambda: 0.0,
     ) -> None:
@@ -75,6 +76,7 @@ class MetricsSource:
         self._delivery = delivery
         self._matcher = matcher
         self._supervisor = supervisor
+        self._watchdog = watchdog
         self._transport = transport
         self._uptime = uptime
 
@@ -157,6 +159,23 @@ class MetricsSource:
                 "gauge",
                 "Notifications waiting in the per-user queues right now",
                 delivery.total_queued(),
+            )
+
+        watchdog = self._watchdog
+        if watchdog is not None and watchdog.enabled:
+            # The dead-man's switch is the one thing here that reports on something outside
+            # this box, and it only ever writes a log line when it fails — so without this
+            # there is no way to see from the dashboard whether it is still going out.
+            yield from _counters(
+                "ddiver_watchdog",
+                {
+                    "pings_total": (watchdog.sent, "Pings the monitor accepted"),
+                    "failures_total": (watchdog.failed, "Pings that did not get a 2xx"),
+                    "throttled_total": (
+                        watchdog.skipped,
+                        "Heartbeats that did not ping because one went out recently",
+                    ),
+                },
             )
 
         matcher = self._matcher

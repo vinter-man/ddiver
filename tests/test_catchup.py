@@ -150,8 +150,26 @@ class TestCatchup:
         result = await catchup.run({CHAT_ID})
         assert result.capped_chats == [CHAT_ID]
         assert [i.msg_id for i in listener.delivered] == [16, 17, 18, 19, 20]
-        assert listener.delivered[0].payload["catchup_skipped"] == 5
-        assert listener.delivered[1].payload["catchup_skipped"] == 0
+        assert listener.delivered[0].payload["catchup_capped"] is True
+        assert listener.delivered[1].payload["catchup_capped"] is False
+
+    async def test_the_cap_is_reported_even_when_the_oldest_message_does_not_match(
+        self, store, listener, clock, sleeps
+    ):
+        """The warning used to ride on the oldest *buffered* message, match or no match.
+
+        That message is a notification only if it happens to contain a keyword, so in the
+        ordinary case the one thing the user had to be told — that there is a hole below this
+        point — was told to nobody.
+        """
+        await store.upsert_cursors([Cursor(CHAT_ID, 0, T0)])
+        texts = [(i, "казино" if i > 18 else "ничего интересного") for i in range(20, 0, -1)]
+        history = FakeHistory({CHAT_ID: history_of(CHAT, texts, step=1)})
+        catchup = Catchup(store, listener, history, clock=clock, sleep=sleeps, per_chat=5)
+        result = await catchup.run({CHAT_ID})
+        assert result.capped_chats == [CHAT_ID]
+        assert [i.msg_id for i in listener.delivered] == [19, 20]
+        assert listener.delivered[0].payload["catchup_capped"] is True
 
     async def test_chats_without_a_cursor_are_skipped(self, store, listener, clock, sleeps):
         history = FakeHistory({CHAT_ID: history_of(CHAT, [(1, "казино")])})

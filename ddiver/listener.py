@@ -203,7 +203,7 @@ class Listener:
         *,
         chat: Any = None,
         catchup: bool = False,
-        catchup_skipped: int = 0,
+        catchup_capped: bool = False,
     ) -> list[OutboxItem]:
         self.metrics.seen += 1
         self.last_update_at = self._clock()
@@ -270,7 +270,7 @@ class Listener:
                 prepared,
                 sender,
                 catchup=catchup,
-                catchup_skipped=catchup_skipped,
+                catchup_capped=catchup_capped,
             )
             if item is not None:
                 claimed.append(item)
@@ -292,7 +292,7 @@ class Listener:
         sender: SenderInfo | None,
         *,
         catchup: bool,
-        catchup_skipped: int,
+        catchup_capped: bool,
     ) -> OutboxItem | None:
         chat = self._chat_cache.get(chat_id) or ChatRef(chat_id, str(chat_id), None, "supergroup")
         spans = [prepared.to_original(s) for s in match.spans]
@@ -316,7 +316,7 @@ class Listener:
             sender_is_deleted=bool(sender and sender.is_deleted),
             is_forwarded=message.fwd_from is not None,
             catchup=catchup,
-            catchup_skipped=catchup_skipped,
+            catchup_capped=catchup_capped,
         )
         try:
             item = await self._storage.claim_delivery(

@@ -1,14 +1,19 @@
+import tracemalloc
+
 import pytest
 import regex
 
 from ddiver.rules import (
     MAX_HIGHLIGHTS,
     MAX_PATTERN_LEN,
+    MAX_REPEAT,
+    MAX_UNROLL,
     CompiledRule,
     MatchMode,
     RuleError,
     RuleTimeout,
     Span,
+    _unroll_cost,
     clean_text,
     compile_rule,
     normalize_pattern,
@@ -135,6 +140,82 @@ class TestValidation:
 
     def test_pattern_is_stored_normalized(self):
         assert compile_rule("  =Word  ", timeout=T).pattern == "=Word"
+
+
+class TestRepeatGuard:
+    """What compiling a pattern costs, as opposed to how long the pattern is.
+
+    `re:a{2000000}` is thirteen characters and allocates about half a gigabyte before anything
+    can be timed. The first guard against it multiplied every bounded repeat by every other,
+    which also refused patterns moderators actually write — and auto-disabled such rules
+    already stored, telling their owner they would "use too much memory" when the largest
+    repetition in them was fifty. So both halves are asserted here: what must be refused, and
+    what must not.
+    """
+
+    @pytest.mark.parametrize(
+        "pattern",
+        [
+            r"\w{2,32}@\w{2,32}\.\w{2,8}",  # somebody sharing an e-mail address
+            r".{50}такси.{50}",  # a word with a gap either side
+            r"куплю.{0,40}аккаунт.{0,40}telegram",  # a resale ad
+            r"[a-z]{100}[0-9]{100}",  # two classes in a row
+            r".{999}",  # flat, and right at the single-repeat limit
+        ],
+    )
+    def test_ordinary_patterns_are_accepted(self, pattern):
+        """Measured: each of these compiles in under 2 ms and under 240 KiB."""
+        assert compile_rule(f"re:{pattern}", timeout=T).mode is MatchMode.REGEX
+
+    @pytest.mark.parametrize(
+        ("pattern", "key"),
+        [
+            (r"a{2000000}", "rule.err.repeat_too_big"),  # one count, no nesting
+            (r"(a{1000}){1000}", "rule.err.unrolls_too_big"),  # a million atoms
+            (r"(a{500}){500}", "rule.err.unrolls_too_big"),  # neither count is over the limit
+            (r"(.{100}){999}", "rule.err.unrolls_too_big"),
+            (r"(\w{32}){300}", "rule.err.unrolls_too_big"),  # 9600 atoms, 2.7 MB, 29 ms
+        ],
+    )
+    def test_expensive_patterns_are_refused(self, pattern, key):
+        with pytest.raises(RuleError) as ei:
+            compile_rule(f"re:{pattern}", timeout=T)
+        assert ei.value.key == key
+
+    def test_the_bomb_is_refused_before_it_is_compiled(self):
+        """The point of the guard: the memory is allocated by `regex.compile` itself."""
+        tracemalloc.start()
+        try:
+            with pytest.raises(RuleError):
+                compile_rule("re:a{2000000}", timeout=T)
+            peak = tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+        assert peak < 5 * 1024 * 1024, f"{peak / 1e6:.1f} MB — it compiled it"
+
+    def test_a_group_carries_its_cost_into_the_repeat_that_follows(self):
+        """`(ab){10}` is twenty atoms, not two and not ten."""
+        assert _unroll_cost("(ab){10}") == 20
+        assert _unroll_cost("ab{10}") == 11  # only `b` repeats
+        assert _unroll_cost("a{10}b{10}") == 20  # siblings add, they do not multiply
+
+    def test_a_zero_repeat_costs_nothing(self):
+        assert _unroll_cost("a{0}") == 0
+
+    def test_a_brace_that_is_not_a_repeat_is_just_a_character(self):
+        assert _unroll_cost("{foo}") == 5
+
+    def test_a_class_is_one_atom_however_it_is_written(self):
+        assert _unroll_cost("[]}{a-z]") == 1  # a leading ] is a literal
+        assert _unroll_cost(r"[\]]") == 1
+
+    def test_the_limits_are_the_ones_the_message_quotes(self):
+        with pytest.raises(RuleError) as ei:
+            compile_rule("re:a{2000000}", timeout=T)
+        assert ei.value.params["limit"] == MAX_REPEAT
+        with pytest.raises(RuleError) as ei:
+            compile_rule("re:(a{1000}){1000}", timeout=T)
+        assert ei.value.params["limit"] == MAX_UNROLL
 
 
 def test_parse_rule_lines_keeps_every_non_blank_line():

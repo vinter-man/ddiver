@@ -10,7 +10,6 @@ carries no entity at all we fall back to a rate-limited, cached resolve.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import datetime as dt
 import logging
 from collections import OrderedDict
@@ -193,7 +192,3 @@ async def sender_of(message: Any, cache: SenderCache) -> SenderInfo | None:
     if cached is not None:
         return cached
     return SenderInfo(id=int(sender_id))
-
-
-def suppress_rpc() -> contextlib.AbstractContextManager[None]:
-    return contextlib.suppress(RPCError, ValueError)

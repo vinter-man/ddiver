@@ -55,7 +55,7 @@ class Payload:
     sender_is_deleted: bool = False
     is_forwarded: bool = False
     catchup: bool = False
-    catchup_skipped: int = 0
+    catchup_capped: bool = False
 
     @property
     def chat_ref(self) -> ChatRef:
@@ -87,7 +87,7 @@ class Payload:
             "sender_is_deleted": self.sender_is_deleted,
             "is_forwarded": self.is_forwarded,
             "catchup": self.catchup,
-            "catchup_skipped": self.catchup_skipped,
+            "catchup_capped": self.catchup_capped,
         }
 
     @classmethod
@@ -115,7 +115,9 @@ class Payload:
             sender_is_deleted=bool(data.get("sender_is_deleted", False)),
             is_forwarded=bool(data.get("is_forwarded", False)),
             catchup=bool(data.get("catchup", False)),
-            catchup_skipped=int(data.get("catchup_skipped", 0)),
+            # `catchup_skipped` is the old name, still on outbox rows written before
+            # the upgrade that replaced a fabricated count with the fact.
+            catchup_capped=bool(data.get("catchup_capped") or data.get("catchup_skipped")),
         )
 
 
@@ -174,8 +176,8 @@ def render_notification(payload: Payload, *, lang: str, tz: str, now: dt.datetim
     scope = "notif.rule_scope.global" if payload.rule_is_global else "notif.rule_scope.chat"
     rt.add(t(lang, "notif.rule")).add(" ")
     rt.add(payload.rule_pattern, code=True).add(" (").add(t(lang, scope)).add(")")
-    if payload.catchup_skipped:
-        rt.newline().add(t(lang, "notif.catchup_capped", n=payload.catchup_skipped))
+    if payload.catchup_capped:
+        rt.newline().add(t(lang, "notif.catchup_capped"))
     rt.newline(2)
 
     spans = [Span(a, b) for a, b in payload.spans]

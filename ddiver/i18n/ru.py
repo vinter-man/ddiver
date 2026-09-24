@@ -3,6 +3,10 @@
 STRINGS: dict[str, str] = {
     "rule.err.empty": "Пустой шаблон.",
     "rule.err.repeat_too_big": "Повтор больше {limit} — такой шаблон съест память при компиляции.",
+    "rule.err.unrolls_too_big": (
+        "Такой шаблон при компиляции развернётся больше чем в {limit} кусков. "
+        "Уменьши повторы — вложенные перемножаются."
+    ),
     "rule.err.too_long": "Шаблон длиннее {limit} символов.",
     "rule.err.invalid_regex": "Некорректное регулярное выражение: {detail}",
     "rule.err.matches_empty": "Это регулярное выражение совпадает с пустым текстом, т.е. сработает на каждое сообщение.",
@@ -22,7 +26,6 @@ STRINGS: dict[str, str] = {
     "notif.truncated": "… [+{n} символов]",
     "notif.btn.ignore": "🚫 Игнорировать отправителя",
     "notif.btn.drop_rule": "🗑 Убрать это правило",
-    "notif.btn.profile": "👤 Профиль",
     "notif.forwarded": "↪️ переслано",
 }
 
@@ -33,7 +36,7 @@ STRINGS.update(
         "digest.more_chats": "… и ещё {n} чатов ({m} совпадений)",
         "digest.more_items": "… и ещё {n}",
         "digest.overflow": "⚠️ {n} совпадений отброшено: очередь была переполнена",
-        "notif.catchup_capped": "⚠️ {n} более старых сообщений не проверено",
+        "notif.catchup_capped": "⚠️ Более старые сообщения в этом чате не проверены — сработал лимит догона",
     }
 )
 
@@ -48,7 +51,6 @@ STRINGS.update(
         "bot.err.owner_only": "Это может только владелец.",
         "bot.err.unknown_command": "Неизвестная команда. Используйте /menu.",
         "bot.err.not_waiting": "Я не жду ввода — используйте /menu.",
-        "bot.err.expired": "Действие устарело. Используйте меню.",
         "bot.err.not_found": "Не найдено.",
         "bot.btn.allow": "✅ Разрешить",
         "bot.btn.deny": "⛔ Отказать",
@@ -57,7 +59,6 @@ STRINGS.update(
         "bot.btn.prev": "◀️",
         "bot.btn.next": "▶️",
         "bot.btn.add": "➕ Добавить",
-        "bot.btn.done": "✅ Готово",
         "bot.btn.drop_yes": "🗑 Да, убрать",
         "bot.btn.cancel": "✖️ Отмена",
         "bot.btn.all_chats": "🌐 Все чаты",
@@ -93,6 +94,9 @@ STRINGS.update(
         ),
         "bot.import.duplicates": "↩️ Пропущено дубликатов правил: {n}.",
         "bot.import.chats_over_limit": "⚠️ Прочитал только первые {n} чатов из файла.",
+        "bot.import.ignored_over_limit": (
+            "⚠️ Не поместилось игнорируемых отправителей: {n}. Лимит — {limit}."
+        ),
         "bot.import.missing_chats": "⚠️ Не нашёл эти чаты: {chats}",
         "bot.import.bad_rules": "⚠️ Не приняты правила: {rules}",
         "bot.menu.title": "Что делаем?",
@@ -110,7 +114,6 @@ STRINGS.update(
         "bot.start.tz_unknown": "Не знаю такой часовой пояс. Попробуйте название города, например Киев.",
         "bot.start.tz_candidates": "Возможно, вы имели в виду:",
         "bot.start.tz_fixed_offset": "⚠️ У фиксированного смещения нет перехода на летнее время.",
-        "bot.start.done": "Готово. Теперь можно добавить чаты.",
         "bot.chats.title": (
             "Чаты под наблюдением ({n}). Нажатие переключает: ✅ — слежу, ☐ — нет."
         ),
@@ -118,7 +121,6 @@ STRINGS.update(
         "bot.chats.none_shared": "Владелец пока не поделился ни одним чатом.",
         "bot.chats.subscribed": "✅ Слежу за {chat}.",
         "bot.chats.unsubscribed": "☐ Больше не слежу за {chat}.",
-        "bot.chats.unavailable": "⚠️ {chat} — нет доступа",
         "bot.chats.search_prompt": "Пришлите часть названия чата или @username.",
         "bot.chats.search_empty": "Ничего не найдено.",
         "bot.chats.lost_access": "⚠️ Слушатель потерял доступ к {chat}; наблюдение приостановлено.",

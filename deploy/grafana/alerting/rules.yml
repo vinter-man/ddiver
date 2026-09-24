@@ -143,3 +143,21 @@ groups:
               expr: rate(ddiver_matcher_timeouts_total[10m]) > 0
               instant: true
               refId: timeouts
+
+      - uid: ddiver-queue-overflowing
+        title: A delivery queue is overflowing
+        condition: overflow
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: The per-user queue is full, so notifications are waiting in the outbox instead of being sent. A catch-up after an outage, or a long flood wait, looks like this.
+        labels: {severity: warning}
+        data:
+          - refId: overflow
+            relativeTimeRange: {from: 900, to: 0}
+            datasourceUid: ddiver-prometheus
+            model:
+              expr: rate(ddiver_delivery_dropped_overflow_total[10m]) > 0
+              instant: true
+              refId: overflow

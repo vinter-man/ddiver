@@ -768,10 +768,124 @@
     },
     {
       "type": "row",
-      "title": "Logs",
+      "title": "Watchdog and backlog",
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Dead-man's switch",
+      "description": "Pings to PING_URL, the one thing here that is watched from outside this box. The switch only logs when it fails, so this is where you see it still going out. Throttled is normal: the heartbeat runs every 30s and the ping at most once a minute.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
       "gridPos": {
         "x": 0,
         "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(ddiver_watchdog_pings_total[15m]) * 60",
+          "legendFormat": "pings/min",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "rate(ddiver_watchdog_failures_total[15m]) * 60",
+          "legendFormat": "failures/min",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Outbox pressure",
+      "description": "Rows that could not be queued because the user's queue was full. They stay pending and the rescan comes back for them every five minutes; a line that does not return to zero means notifications are arriving faster than Telegram will accept them.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddiver-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(ddiver_delivery_dropped_overflow_total[5m])",
+          "legendFormat": "deferred/s",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
+        {
+          "expr": "ddiver_delivery_queued",
+          "legendFormat": "queued now",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Logs",
+      "gridPos": {
+        "x": 0,
+        "y": 41,
         "w": 24,
         "h": 1
       },
@@ -786,7 +900,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 33,
+        "y": 42,
         "w": 24,
         "h": 12
       },

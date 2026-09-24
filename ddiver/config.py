@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     ping_url: str = Field(
         default="",
-        description="dead-man's switch: pinged on every heartbeat, alerts you when it stops",
+        description="dead-man's switch: pinged once per PING_INTERVAL, alerts you when it stops",
     )
     ping_timeout: float = Field(default=5.0, gt=0, le=60)
     ping_interval: float = Field(

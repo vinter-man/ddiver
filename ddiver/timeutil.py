@@ -107,9 +107,14 @@ def _parse_fixed_offset(text: str) -> str | None:
     if not body or body[0] not in "+-" or len(body) > 6:
         return None
     hours_part, _, minutes_part = body[1:].partition(":")
-    if not hours_part.isdigit() or (minutes_part and minutes_part != "00"):
+    if minutes_part and minutes_part != "00":
         return None
-    hours = int(hours_part)
+    try:
+        # `'²'.isdigit()` is True and `int('²')` raises, and this is reached from a callback
+        # button as well as from typed text — where the exception is a spinner that never ends.
+        hours = int(hours_part)
+    except ValueError:
+        return None
     if hours > 14:
         return None
     if hours == 0:

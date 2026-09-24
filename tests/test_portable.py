@@ -469,6 +469,15 @@ class TestImportLimits:
         assert offloaded == ["compile_rule"]
 
 
+class TestUnreadableJson:
+    async def test_a_number_too_long_for_int_is_a_message_not_a_traceback(self):
+        """CPython's scanner raises a bare ValueError past 4300 digits, not JSONDecodeError —
+        the same escape route the RecursionError branch was written for."""
+        raw = '{"format": "ddiver", "version": 1, "n": ' + "1" * 4400 + "}"
+        with pytest.raises(portable.BadExportError):
+            portable.loads(raw)
+
+
 class TestHostileTypes:
     """The file is attacker-controlled JSON; nothing in it may be trusted to be what it looks."""
 
@@ -503,6 +512,70 @@ class TestHostileTypes:
         await portable.import_config(store, OWNER, config, regex_timeout=0.2, is_owner=True)
         entry = (await store.list_ignored(OWNER))[0]
         assert isinstance(entry.note, str)
+
+
+class TestIgnoreListWork:
+    """The third import loop, and the one two rounds of bounding both missed."""
+
+    async def test_it_stops_reading_an_endless_ignore_list(self, store, monkeypatch):
+        """A row that inserts nothing never moves `held`, so the stored cap never ends it.
+
+        Every one of them is a write against the single connection every other task is
+        waiting on — measured at 2.7 s of exclusive database time per megabyte of JSON, with
+        nothing stored at the end of it and nothing to stop a resend.
+        """
+        writes = 0
+        real = store.add_ignored
+
+        async def counting(*args, **kwargs):
+            nonlocal writes
+            writes += 1
+            return await real(*args, **kwargs)
+
+        monkeypatch.setattr(store, "add_ignored", counting)
+        extra = 30
+        config = {
+            "format": portable.FORMAT,
+            "version": 1,
+            # The same sender over and over: every row after the first inserts nothing.
+            "ignored": [
+                {"chat_id": ALL_CHATS, "sender_id": 777}
+                for _ in range(portable.MAX_IGNORE_ENTRIES + extra)
+            ],
+        }
+        report = await portable.import_config(
+            store, OWNER, config, regex_timeout=0.2, is_owner=True
+        )
+        assert writes == portable.MAX_IGNORE_ENTRIES
+        assert report.ignored_over_limit == extra
+
+    async def test_a_row_that_inserts_nothing_does_not_spend_the_budget(self, store):
+        """Restoring a backup onto a configuration that already has it used to burn the cap
+        on duplicates and then refuse the entries that were actually new."""
+        await store.add_ignored(OWNER, ALL_CHATS, 1)
+        config = {
+            "format": portable.FORMAT,
+            "version": 1,
+            "ignored": [
+                {"chat_id": ALL_CHATS, "sender_id": 1},  # already there
+                {"chat_id": ALL_CHATS, "sender_id": 2},  # new
+            ],
+        }
+        report = await portable.import_config(
+            store, OWNER, config, regex_timeout=0.2, is_owner=True
+        )
+        assert report.ignored_over_limit == 0
+        assert await store.count_ignored(OWNER) == 2
+
+    async def test_an_imported_note_is_cut_to_what_a_button_can_hold(self, store):
+        config = {
+            "format": portable.FORMAT,
+            "version": 1,
+            "ignored": [{"chat_id": ALL_CHATS, "sender_id": 5, "note": "x" * 5000}],
+        }
+        await portable.import_config(store, OWNER, config, regex_timeout=0.2, is_owner=True)
+        stored = await store.list_ignored(OWNER)
+        assert len(stored[0].note) == portable.MAX_NOTE_LEN
 
 
 class TestIgnoreListLimit:

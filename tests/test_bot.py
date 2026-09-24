@@ -398,6 +398,15 @@ class TestSettings:
         await msg(router, OWNER, "0")
         assert (await store.get_user(OWNER)).digest_threshold == 0
 
+    @pytest.mark.parametrize("raw", ["²", "-5", "٣٢١٤٣"])
+    async def test_a_number_the_prompt_cannot_use_is_asked_again(self, router, store, raw):
+        """`'²'.isdigit()` is True and `int('²')` raises: the handler used to die there."""
+        await store.update_user(OWNER, digest_threshold=7)
+        await cb(router, OWNER, "set:digest")
+        actions = await msg(router, OWNER, raw)
+        assert texts(actions), "the user was told nothing"
+        assert (await store.get_user(OWNER)).digest_threshold == 7
+
     async def test_the_digest_prompt_states_the_current_value(self, router, store):
         """Asking for a number without showing the one in force leaves nothing to compare to."""
         actions = await cb(router, OWNER, "set:digest")

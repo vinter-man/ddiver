@@ -4,6 +4,10 @@ STRINGS: dict[str, str] = {
     # rule validation
     "rule.err.empty": "Empty pattern.",
     "rule.err.repeat_too_big": "A repetition larger than {limit} would use too much memory to compile.",
+    "rule.err.unrolls_too_big": (
+        "This pattern would expand into more than {limit} pieces while compiling. "
+        "Make the repetitions smaller — nested ones multiply."
+    ),
     "rule.err.too_long": "Pattern is longer than {limit} characters.",
     "rule.err.invalid_regex": "Invalid regular expression: {detail}",
     "rule.err.matches_empty": "This regular expression matches empty text, so it would match every message.",
@@ -24,7 +28,6 @@ STRINGS: dict[str, str] = {
     "notif.truncated": "… [+{n} more characters]",
     "notif.btn.ignore": "🚫 Ignore sender",
     "notif.btn.drop_rule": "🗑 Remove this rule",
-    "notif.btn.profile": "👤 Profile",
     "notif.forwarded": "↪️ forwarded",
 }
 
@@ -37,7 +40,7 @@ STRINGS.update(
         "digest.more_items": "… and {n} more",
         "digest.overflow": "⚠️ {n} matches were dropped because the queue was full",
         # catch-up
-        "notif.catchup_capped": "⚠️ {n} older messages were not checked",
+        "notif.catchup_capped": "⚠️ Older messages in this chat were not checked — the catch-up limit was reached",
     }
 )
 
@@ -52,7 +55,6 @@ STRINGS.update(
         "bot.err.owner_only": "Only the owner can do that.",
         "bot.err.unknown_command": "Unknown command. Use /menu.",
         "bot.err.not_waiting": "I am not waiting for input — use /menu.",
-        "bot.err.expired": "This action expired. Use the menu instead.",
         "bot.err.not_found": "Not found.",
         "bot.btn.allow": "✅ Allow",
         "bot.btn.deny": "⛔ Deny",
@@ -61,7 +63,6 @@ STRINGS.update(
         "bot.btn.prev": "◀️",
         "bot.btn.next": "▶️",
         "bot.btn.add": "➕ Add",
-        "bot.btn.done": "✅ Done",
         "bot.btn.drop_yes": "🗑 Yes, remove",
         "bot.btn.cancel": "✖️ Cancel",
         "bot.btn.all_chats": "🌐 All chats",
@@ -97,6 +98,7 @@ STRINGS.update(
         ),
         "bot.import.duplicates": "↩️ Skipped {n} duplicate rules.",
         "bot.import.chats_over_limit": "⚠️ Only the first {n} chats in the file were read.",
+        "bot.import.ignored_over_limit": ("⚠️ {n} ignored senders did not fit. The cap is {limit}."),
         "bot.import.missing_chats": "⚠️ These chats were not found: {chats}",
         "bot.import.bad_rules": "⚠️ These rules were rejected: {rules}",
         "bot.menu.title": "What would you like to do?",
@@ -114,13 +116,11 @@ STRINGS.update(
         "bot.start.tz_unknown": "I do not know that timezone. Try a city name, e.g. Kyiv.",
         "bot.start.tz_candidates": "Did you mean one of these?",
         "bot.start.tz_fixed_offset": "⚠️ A fixed offset has no daylight saving time.",
-        "bot.start.done": "All set. You can add chats now.",
         "bot.chats.title": ("Chats you are monitoring ({n}). Tapping toggles: ✅ on, ☐ off."),
         "bot.chats.empty": "No chats yet. Use search or pick one from the list.",
         "bot.chats.none_shared": "The owner has not shared any chats with you yet.",
         "bot.chats.subscribed": "✅ Now monitoring {chat}.",
         "bot.chats.unsubscribed": "☐ No longer monitoring {chat}.",
-        "bot.chats.unavailable": "⚠️ {chat} — the listener lost access",
         "bot.chats.search_prompt": "Send part of the chat title or its @username.",
         "bot.chats.search_empty": "Nothing matched.",
         "bot.chats.lost_access": "⚠️ The listener lost access to {chat}; monitoring is paused for it.",

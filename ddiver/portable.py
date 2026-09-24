@@ -39,6 +39,16 @@ VERSION = 1
 MAX_BYTES = 1_000_000
 """An export of 500 rules is about 40 KB; a megabyte is a file that is not one of ours."""
 
+MAX_IGNORE_ENTRIES = MAX_IGNORED_PER_USER + 1_000
+"""How many ignore entries an import will look at; see :func:`_import_ignored`."""
+
+MAX_NOTE_LEN = 200
+"""Longest note an import will store.
+
+The bot's own screen cannot produce a longer one, and the note is rendered into an inline
+button label, where Telegram counts the bytes.
+"""
+
 MAX_CHAT_ENTRIES = 2_000
 """How many chat entries an import will look at. An account with a thousand dialogs is large;
 our own export never carries more than the chats a rule mentions."""
@@ -80,7 +90,8 @@ async def export_config(storage: Storage, user_id: int, *, now: dt.datetime) -> 
     """Everything this user would have to retype after a reinstall, and nothing else."""
     chats = await storage.list_subscriptions(user_id)
     by_id = {chat.id: chat for chat in chats}
-    for rule in await storage.list_rules(user_id):
+    rules = await storage.list_rules(user_id)
+    for rule in rules:
         if rule.chat_id != ALL_CHATS and rule.chat_id not in by_id:
             found = await storage.get_chat(rule.chat_id)
             if found is not None:
@@ -105,7 +116,7 @@ async def export_config(storage: Storage, user_id: int, *, now: dt.datetime) -> 
                 "kind": rule.kind.value,
                 "pattern": rule.pattern,
             }
-            for rule in await storage.list_rules(user_id)
+            for rule in rules
         ],
         "ignored": [
             {"chat_id": entry.chat_id, "sender_id": entry.sender_id, "note": entry.note}
@@ -142,6 +153,12 @@ def loads(raw: bytes | str) -> dict[str, Any]:
         # the size limit. RecursionError is not a JSONDecodeError, so it escaped this
         # function entirely and reached the user as a traceback.
         msg = "nested too deeply to read"
+        raise BadExportError(msg) from exc
+    except ValueError as exc:
+        # The same escape, one door along: a JSON number with more than 4300 digits raises a
+        # bare ValueError out of int(), not a JSONDecodeError. JSONDecodeError is a subclass
+        # of ValueError, so this has to come second.
+        msg = "contains a number this cannot read"
         raise BadExportError(msg) from exc
     if not isinstance(data, dict) or data.get("format") != FORMAT:
         msg = "not a ddiver export"
@@ -284,7 +301,17 @@ async def _import_ignored(
     is_owner: bool,
 ) -> None:
     held = await storage.count_ignored(user_id)
+    examined = 0
     for entry in data.get("ignored") or []:
+        examined += 1
+        if examined > MAX_IGNORE_ENTRIES:
+            # The third of the three import loops, and the one the earlier bound missed. A
+            # row that inserts nothing never moves `held`, so the cap below could never end
+            # the loop on a file of duplicates — and each of them is a write against the one
+            # connection every other task is waiting on. Measured: 2.7 s of exclusive database
+            # time per megabyte of JSON, with nothing stored and nothing to stop a resend.
+            report.ignored_over_limit += 1
+            continue
         if not isinstance(entry, dict):
             continue
         if held >= MAX_IGNORED_PER_USER:
@@ -299,11 +326,14 @@ async def _import_ignored(
             if await _visible_chat(storage, user_id, chat_id, is_owner=is_owner) is None:
                 continue
         note = entry.get("note")
-        await storage.add_ignored(
-            user_id, chat_id, sender_id, str(note) if note is not None else None
-        )
+        if await storage.add_ignored(
+            user_id, chat_id, sender_id, _text(note)[:MAX_NOTE_LEN] if note is not None else None
+        ):
+            # Only a row that was actually written counts against the cap. Re-importing a
+            # backup onto a configuration that already has it used to spend the whole budget
+            # on rows that inserted nothing, and then refuse the ones that were new.
+            held += 1
         report.ignored_added += 1
-        held += 1
 
 
 async def _chat_problem(

@@ -8,6 +8,7 @@ from ddiver.links import ChatRef
 from ddiver.rules import RuleKind
 from ddiver.storage import (
     ALL_CHATS,
+    DEFAULT_DIGEST_THRESHOLD,
     Cursor,
     DatabaseCorruptError,
     DeliveryStatus,
@@ -46,6 +47,53 @@ async def seeded(store):
     await store.set_chat_shared(CHAT_A.id, True)
     await store.set_chat_shared(CHAT_B.id, True)
     return store
+
+
+class TestConfiguredDigestThreshold:
+    """DIGEST_THRESHOLD was wired from .env through three layers and read by nobody.
+
+    It reached `Delivery` as `default_threshold`, which was stored and never used, while new
+    users got the hardcoded column default — and the comment that justified the arrangement
+    said the column default "already carries the configured default", which it did not.
+    """
+
+    async def test_a_new_user_gets_the_configured_default(self, tmp_path, clock):
+        store = Storage(tmp_path / "db.sqlite3", owner_id=1, clock=clock, digest_threshold=7)
+        await store.open()
+        try:
+            user = await store.ensure_user(42)
+            assert user.digest_threshold == 7
+        finally:
+            await store.close()
+
+    async def test_an_existing_user_keeps_their_own_answer(self, tmp_path, clock):
+        path = tmp_path / "db.sqlite3"
+        store = Storage(path, owner_id=1, clock=clock, digest_threshold=7)
+        await store.open()
+        await store.ensure_user(42)
+        await store.update_user(42, digest_threshold=3)
+        await store.close()
+
+        store = Storage(path, owner_id=1, clock=clock, digest_threshold=99)
+        await store.open()
+        try:
+            assert (await store.ensure_user(42)).digest_threshold == 3
+        finally:
+            await store.close()
+
+    async def test_the_constant_and_the_column_default_agree(self, tmp_path, clock):
+        """An old row carries the column default; a new one carries the constant."""
+        store = Storage(tmp_path / "db.sqlite3", owner_id=1, clock=clock)
+        await store.open()
+        try:
+            cur = await store.db.execute(
+                "INSERT INTO users (id, created_at, updated_at) VALUES (77, ?, ?)",
+                (T0.isoformat(), T0.isoformat()),
+            )
+            await cur.close()
+            assert (await store.get_user(77)).digest_threshold == DEFAULT_DIGEST_THRESHOLD
+        finally:
+            await store.close()
 
 
 class TestLifecycle:

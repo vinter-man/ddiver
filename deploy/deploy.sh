@@ -11,6 +11,10 @@
 set -Eeuo pipefail
 
 APP_DIR="${APP_DIR:-/srv/ddiver}"
+# node-exporter is opt-in because on Docker Desktop it cannot mount `/` and would be measuring
+# a Linux VM rather than the Mac. This script only ever runs on the box itself, where both of
+# those stop being true — and without it prometheus.yml scrapes a target that never exists.
+export COMPOSE_PROFILES="${COMPOSE_PROFILES:-host-metrics}"
 COMPOSE_FILES=(-f docker-compose.yml -f deploy/docker-compose.observability.yml)
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-240}"
 CONTAINER="${CONTAINER:-ddiver}"
@@ -18,10 +22,18 @@ CONTAINER="${CONTAINER:-ddiver}"
 log() { printf '%s  %s\n' "$(date -u +%H:%M:%S)" "$*"; }
 die() { log "FAILED: $*"; exit 1; }
 
-_alerting_fingerprint() {
-	# What Grafana would load. `cat` of a missing directory is empty, which is exactly the
-	# "alerts are off" state and compares correctly against it.
-	cat "$APP_DIR"/deploy/grafana/provisioning/alerting/*.yml 2>/dev/null | shasum | cut -d" " -f1
+_alerting_config() {
+	# What Grafana would load, as text. With alerts off there are no files, the glob stays
+	# literal and `cat` exits 1 — which `pipefail` turns into the status of the assignment that
+	# calls this, and `set -e` turns that into a dead deploy: after the reset, after the build,
+	# with no output, no `up -d` and no rollback. Alerts off is the documented default, so that
+	# was every box nobody had configured alerting on.
+	#
+	# The failure is swallowed rather than avoided. `shopt -s nullglob` would be the other way
+	# and a worse one: with no arguments `cat` reads stdin, which under the deploy key's forced
+	# command is the SSH channel. Comparing the text rather than a digest keeps this to one
+	# command that exists everywhere — `sha1sum` is Linux-only and `shasum` needs perl.
+	cat "$APP_DIR"/deploy/grafana/provisioning/alerting/*.yml 2>/dev/null || true
 }
 
 health_of() {
@@ -110,9 +122,9 @@ started=true
 # than the one after. Grafana reads provisioning only at startup, so it is recreated when
 # the rendered files changed — and only then, because recreating it needlessly drops every
 # open dashboard session.
-alerts_before="$(_alerting_fingerprint)"
+alerts_before="$(_alerting_config)"
 "$APP_DIR/deploy/render-alerts.sh"
-if [[ "$(_alerting_fingerprint)" != "$alerts_before" ]]; then
+if [[ "$(_alerting_config)" != "$alerts_before" ]]; then
 	log "alerting changed; Grafana will be recreated to pick it up"
 	docker compose "${COMPOSE_FILES[@]}" up -d --force-recreate --no-deps grafana || true
 fi

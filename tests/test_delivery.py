@@ -365,19 +365,55 @@ class TestRecoveryFromStrandedRows:
     async def test_overflowed_rows_are_deferred_not_destroyed(
         self, delivery, bot, store, monkeypatch
     ):
+        """The name is the requirement; the body used to assert the opposite of it.
+
+        A queue-full row was written `failed`, and nothing anywhere re-reads a failed row —
+        so a backlog larger than the queue was destroyed by exactly the restart the outbox
+        exists to survive. A catch-up after an outage produces that backlog by design.
+        """
         monkeypatch.setattr("ddiver.delivery.QUEUE_MAXSIZE", 2)
         bot.hold()
         items = [await claim(store, MOD, i) for i in range(1, 8)]
         for item in items:
             await delivery.enqueue(item)
+        assert delivery.metrics.dropped_overflow > 0, "the queue never overflowed"
+
+        # Queued or refused, every row is still pending: the queue holds the item, the
+        # database holds the fact that it has not been sent.
+        statuses = [(await store.get_delivery(*i.key)).status for i in items]
+        assert statuses.count(DeliveryStatus.PENDING) == len(items)
+        assert DeliveryStatus.FAILED not in statuses
+
         bot.release()
         await settle(delivery)
-        statuses = {(await store.get_delivery(*i.key)).status for i in items}
-        assert DeliveryStatus.PENDING not in statuses  # nothing left for nobody to pick up
-        failed = [
-            i for i in items if (await store.get_delivery(*i.key)).status is DeliveryStatus.FAILED
-        ]
-        assert len(failed) == delivery.metrics.dropped_overflow
+        # What the rescan is for: the rows nobody was holding are picked up and sent.
+        assert await delivery.replay_pending() == delivery.metrics.dropped_overflow
+        await settle(delivery)
+        sent = {(await store.get_delivery(*i.key)).status for i in items}
+        assert sent == {DeliveryStatus.SENT}
+        assert len(bot.sent) == len(items)
+
+    async def test_a_full_queue_is_not_asked_again_on_every_rescan(
+        self, delivery, bot, store, monkeypatch
+    ):
+        """Otherwise a long backlog re-reads every row, every 300 seconds, for nothing."""
+        monkeypatch.setattr("ddiver.delivery.QUEUE_MAXSIZE", 2)
+        bot.hold()
+        for i in range(1, 8):
+            await delivery.enqueue(await claim(store, MOD, i))
+        looked_up = 0
+        real = store.get_user
+
+        async def counting(user_id):
+            nonlocal looked_up
+            looked_up += 1
+            return await real(user_id)
+
+        monkeypatch.setattr(store, "get_user", counting)
+        assert await delivery.replay_pending() == 0
+        assert looked_up == 0
+        bot.release()
+        await settle(delivery)
 
     async def test_failed_digest_marks_every_item(self, delivery, bot, store):
         await store.update_user(MOD, digest_threshold=3)

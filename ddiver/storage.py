@@ -25,6 +25,13 @@ from ddiver.timeutil import Clock, utcnow
 
 log = logging.getLogger(__name__)
 
+DEFAULT_DIGEST_THRESHOLD = 20
+"""What a new user's digest threshold is when DIGEST_THRESHOLD says nothing.
+
+The same number as the column default in the schema, and the two have to stay equal: the
+column is what an older row already has, this is what a new one gets.
+"""
+
 ALL_CHATS = 0
 """``chat_id`` value meaning "every chat this user is subscribed to" (rules, ignores)."""
 
@@ -248,10 +255,21 @@ class Storage:
     payload can only ever reach the sender's own rows.
     """
 
-    def __init__(self, path: Path | str, *, owner_id: int = 0, clock: Clock = utcnow) -> None:
+    def __init__(
+        self,
+        path: Path | str,
+        *,
+        owner_id: int = 0,
+        clock: Clock = utcnow,
+        digest_threshold: int = DEFAULT_DIGEST_THRESHOLD,
+    ) -> None:
         self._path = str(path)
         self._owner_id = owner_id
         self._clock = clock
+        # What a moderator starts with, from DIGEST_THRESHOLD. It has to be applied where the
+        # row is created: everything downstream reads the user's own column, and must, or
+        # changing the setting later would quietly override a choice somebody made.
+        self._digest_threshold = digest_threshold
         self._db: aiosqlite.Connection | None = None
 
     # -- lifecycle -------------------------------------------------------------------------
@@ -341,7 +359,7 @@ class Storage:
         return self._user(row) if row else None
 
     async def ensure_user(
-        self, user_id: int, *, lang: str | None = None, digest_threshold: int = 20
+        self, user_id: int, *, lang: str | None = None, digest_threshold: int | None = None
     ) -> User:
         """Create the user row if missing and return it. Existing rows are untouched."""
         now = self._now()
@@ -350,7 +368,14 @@ class Storage:
             """INSERT OR IGNORE INTO users
                  (id, lang, role, digest_threshold, created_at, updated_at)
                VALUES (?,?,?,?,?,?)""",
-            (user_id, lang, role.value, digest_threshold, now, now),
+            (
+                user_id,
+                lang,
+                role.value,
+                self._digest_threshold if digest_threshold is None else digest_threshold,
+                now,
+                now,
+            ),
         )
         user = await self.get_user(user_id)
         if user is None:  # pragma: no cover - impossible after the insert

@@ -116,3 +116,14 @@ def test_relative_rejects_naive_now():
     aware = dt.datetime(2026, 9, 22, 12, 0, 0, tzinfo=dt.UTC)
     with pytest.raises(TypeError):
         relative(aware, dt.datetime(2026, 9, 22, 12, 0, 0), "en")
+
+
+@pytest.mark.parametrize("raw", ["UTC+²", "+²", "-³:00", "+٣٢١٤٣"])
+def test_a_digit_that_int_cannot_read_is_not_a_timezone(raw):
+    """`'²'.isdigit()` is True and `int('²')` raises ValueError.
+
+    This is reached from the timezone *button* as well as from typed text, where an exception
+    is a spinner that never stops — the same failure `_parts` and `_int` were hardened against.
+    Arabic-Indic digits are not collateral: int() reads them, and the rest of the guard decides.
+    """
+    assert resolve_tz(raw).exact is None

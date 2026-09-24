@@ -202,7 +202,12 @@ class Application:
     def __init__(self, settings: Settings, *, clock: Clock = utcnow) -> None:
         self.settings = settings
         self.clock = clock
-        self.storage = Storage(settings.db_path, owner_id=settings.owner_id, clock=clock)
+        self.storage = Storage(
+            settings.db_path,
+            owner_id=settings.owner_id,
+            clock=clock,
+            digest_threshold=settings.digest_threshold,
+        )
         self.user_client = make_user_client(settings)
         self.bot_client = make_bot_client(settings)
         self.bot = BotAdapter(self.bot_client)
@@ -260,7 +265,6 @@ class Application:
             self.storage,
             clock=self.clock,
             buttons=notification_buttons_factory(),
-            default_threshold=self.settings.digest_threshold,
             senders=self.delivery_senders,
             on_user_state_changed=self._invalidate,
         )
@@ -314,10 +318,20 @@ class Application:
         # would be skipped on the next start rather than merely delayed.
         with contextlib.suppress(Exception):
             await self.user_client.disconnect()
+        # Everything from here on is best-effort, and each step is isolated from the next.
+        # `flush_hits` is a bare `executemany`: on a full disk it used to unwind `close()`
+        # itself, skipping the delivery drain, the bot disconnect and `storage.close()` — and
+        # since aiosqlite's worker thread is not a daemon, the process then hung at exit with
+        # the container still reported healthy. Counting rule hits is the least important
+        # thing here; it must not be the thing that decides whether the rest runs.
         if self.listener is not None:
-            await self.listener.cursors.flush()
+            with contextlib.suppress(Exception):
+                await self.listener.cursors.flush()
         if self.matcher is not None:
-            await self.matcher.flush_hits()
+            try:
+                await self.matcher.flush_hits()
+            except Exception:
+                log.exception("rule-hit counters were not written")
         if self.delivery is not None:
             try:
                 left = await self.delivery.drain()
@@ -384,6 +398,7 @@ class Application:
             delivery=self.delivery,
             matcher=self.matcher,
             supervisor=supervisor,
+            watchdog=self.watchdog,
             transport=self._transport_state,
             uptime=lambda: (
                 (self.clock() - supervisor.state.started_at).total_seconds()
@@ -697,6 +712,15 @@ class Application:
                 result.chats,
                 result.messages,
                 result.claimed,
+            )
+        if result.capped_chats:
+            # The one thing in a catch-up round that is silent data loss by design: these
+            # chats had more history than one round will read, and what is below the boundary
+            # is never looked at again. The notification says so too, but only to whoever the
+            # first match belonged to.
+            log.warning(
+                "catch-up hit the per-chat limit on %s; older messages there were not checked",
+                ", ".join(str(chat_id) for chat_id in result.capped_chats),
             )
 
     async def _log_summary(self) -> None:

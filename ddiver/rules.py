@@ -229,12 +229,12 @@ def compile_rule(raw: str, *, timeout: float) -> CompiledRule:
     if len(pattern) > MAX_PATTERN_LEN:
         raise RuleError("rule.err.too_long", limit=MAX_PATTERN_LEN)
 
-    if mode is MatchMode.REGEX:
-        # Before compiling, not after: the length cap bounds the pattern, not what compiling
-        # it costs. `re:a{2000000}` is thirteen characters and allocates about half a gigabyte
-        # while the module unrolls it — measured: a{200000} is 55 MB — which on a container
-        # with a memory limit is an OOM kill delivered by one message.
-        _reject_huge_repeats(payload)
+    # Before compiling, not after: the length cap bounds the pattern, not what compiling it
+    # costs. `re:a{2000000}` is thirteen characters and allocates about half a gigabyte while
+    # the module unrolls it — measured: a{200000} is 55 MB — which on a container with a memory
+    # limit is an OOM kill delivered by one message.
+    if mode is MatchMode.REGEX and _unroll_cost(payload) > MAX_UNROLL:
+        raise RuleError("rule.err.unrolls_too_big", limit=MAX_UNROLL)
 
     if mode is MatchMode.SUBSTRING:
         expr = regex.escape(payload)
@@ -254,32 +254,93 @@ def compile_rule(raw: str, *, timeout: float) -> CompiledRule:
 
 
 MAX_REPEAT = 1_000
-"""Largest bounded repetition allowed, and the largest product of nested ones.
+"""Largest single bounded repetition.
 
-A moderation pattern has no use for more: ``a{1000}`` costs a third of a megabyte to compile,
-``a{200000}`` costs 55. The limit is on the count rather than on the time because the memory
-is allocated before anything can be timed.
+``re:a{2000000}`` is thirteen characters and allocates about half a gigabyte while the module
+unrolls it — measured: ``a{200000}`` is 55 MB — which on a container with a memory limit is an
+OOM kill delivered by one message. The limit is on the count rather than on the time because
+the memory is allocated before anything can be timed.
+"""
+
+MAX_UNROLL = 5_000
+r"""Largest number of atoms a whole pattern may unroll into.
+
+Nesting is what costs. Measured on the same machine: ``(\w{32}){300}`` is 9600 atoms, 2.7 MB
+and 29 ms, while ``.{50}такси.{50}`` is 106 atoms, 30 KB and 0.4 ms — both are three bounded
+repeats in a row, and only one of them is a problem. The first version of this guard multiplied
+every repeat by every other, which rejected ordinary moderation patterns (an e-mail shape, a
+word with a gap either side) with a sentence about memory that was untrue of the pattern in
+front of the moderator — and, worse, auto-disabled such rules already stored, with that same
+reason, the next time their chat was loaded.
 """
 
 _REPEAT = regex.compile(r"\{(\d+)(?:,(\d*))?\}")
 
 
-def _reject_huge_repeats(payload: str) -> None:
-    """Refuse a pattern whose bounded repetitions would unroll into an enormous program.
+def _skip_class(payload: str, start: int) -> int:
+    """Index just past the ``[...]`` beginning at ``start``; the whole class is one atom."""
+    i = start + 1
+    if i < len(payload) and payload[i] == "^":
+        i += 1
+    if i < len(payload) and payload[i] == "]":  # a leading ] is a literal, not the end
+        i += 1
+    while i < len(payload):
+        if payload[i] == "\\":
+            i += 2
+            continue
+        if payload[i] == "]":
+            return i + 1
+        i += 1
+    return i
 
-    Counts are multiplied, because ``(a{1000}){1000}`` costs what ``a{1000000}`` costs. A
-    ``{n}`` inside a character class is a literal and this rejects it anyway; that is a
-    pattern nobody writes, and being slightly strict here is cheaper than being clever.
+
+def _unroll_cost(payload: str) -> int:
+    """How many atoms this pattern expands into, counted the way the compiler expands them.
+
+    Concatenation adds, a bounded repeat multiplies the one atom in front of it, and a group
+    carries its own total into the repeat that follows it — so ``(a{1000}){1000}`` costs what
+    ``a{1000000}`` costs and ``a{1000}b{1000}`` costs two thousand.
+
+    Raises :class:`RuleError` for a single count past :data:`MAX_REPEAT`, which is what stops
+    ``a{2000000}`` before this can finish adding anything up.
     """
-    product = 1
-    for match in _REPEAT.finditer(payload):
-        low, high = match.group(1), match.group(2)
-        count = int(high) if high else int(low)
-        if count > MAX_REPEAT:
-            raise RuleError("rule.err.repeat_too_big", limit=MAX_REPEAT)
-        product *= max(count, 1)
-        if product > MAX_REPEAT:
-            raise RuleError("rule.err.repeat_too_big", limit=MAX_REPEAT)
+    totals = [0]  # atoms accumulated at each open group level
+    lasts = [0]  # the most recent atom at that level, for the repeat that may follow it
+    i = 0
+    while i < len(payload):
+        ch = payload[i]
+        if ch == "\\":  # an escape is one atom, and its second character is never syntax
+            i += 2
+        elif ch == "[":
+            i = _skip_class(payload, i)
+        elif ch == "(":
+            totals.append(0)
+            lasts.append(0)
+            i += 1
+            continue
+        elif ch == ")" and len(totals) > 1:
+            group = totals.pop()
+            lasts.pop()
+            totals[-1] += group
+            lasts[-1] = group
+            i += 1
+            continue
+        elif ch == "{" and (match := _REPEAT.match(payload, i)) is not None:
+            low, high = match.group(1), match.group(2)
+            count = int(high) if high else int(low)
+            if count > MAX_REPEAT:
+                raise RuleError("rule.err.repeat_too_big", limit=MAX_REPEAT)
+            # The atom is already counted once, so this adds the copies it did not have.
+            totals[-1] += lasts[-1] * (count - 1)
+            lasts[-1] *= count
+            i = match.end()
+            continue
+        else:
+            i += 1
+        totals[-1] += 1
+        lasts[-1] = 1
+    # An unclosed group leaves its level on the stack; regex.compile rejects it a moment later.
+    return sum(totals)
 
 
 def _validate_regex(pattern: str, compiled: regex.Pattern[str], timeout: float) -> None:

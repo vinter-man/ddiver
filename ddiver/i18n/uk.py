@@ -3,6 +3,10 @@
 STRINGS: dict[str, str] = {
     "rule.err.empty": "Порожній шаблон.",
     "rule.err.repeat_too_big": "Повтор більший за {limit} — такий шаблон з'їсть пам'ять під час компіляції.",
+    "rule.err.unrolls_too_big": (
+        "Такий шаблон під час компіляції розгорнеться більше ніж у {limit} шматків. "
+        "Зменш повтори — вкладені перемножуються."
+    ),
     "rule.err.too_long": "Шаблон довший за {limit} символів.",
     "rule.err.invalid_regex": "Некоректний регулярний вираз: {detail}",
     "rule.err.matches_empty": "Цей регулярний вираз збігається з порожнім текстом, тобто спрацює на кожне повідомлення.",
@@ -22,7 +26,6 @@ STRINGS: dict[str, str] = {
     "notif.truncated": "… [+{n} символів]",
     "notif.btn.ignore": "🚫 Ігнорувати відправника",
     "notif.btn.drop_rule": "🗑 Прибрати це правило",
-    "notif.btn.profile": "👤 Профіль",
     "notif.forwarded": "↪️ переслано",
 }
 
@@ -33,7 +36,7 @@ STRINGS.update(
         "digest.more_chats": "… і ще {n} чатів ({m} збігів)",
         "digest.more_items": "… і ще {n}",
         "digest.overflow": "⚠️ {n} збігів відкинуто: черга була переповнена",
-        "notif.catchup_capped": "⚠️ {n} старіших повідомлень не перевірено",
+        "notif.catchup_capped": "⚠️ Старіші повідомлення в цьому чаті не перевірені — спрацював ліміт наздоганяння",
     }
 )
 
@@ -48,7 +51,6 @@ STRINGS.update(
         "bot.err.owner_only": "Це може лише власник.",
         "bot.err.unknown_command": "Невідома команда. Скористайтеся /menu.",
         "bot.err.not_waiting": "Я не чекаю на введення — скористайтеся /menu.",
-        "bot.err.expired": "Дія застаріла. Скористайтеся меню.",
         "bot.err.not_found": "Не знайдено.",
         "bot.btn.allow": "✅ Дозволити",
         "bot.btn.deny": "⛔ Відмовити",
@@ -57,7 +59,6 @@ STRINGS.update(
         "bot.btn.prev": "◀️",
         "bot.btn.next": "▶️",
         "bot.btn.add": "➕ Додати",
-        "bot.btn.done": "✅ Готово",
         "bot.btn.drop_yes": "🗑 Так, прибрати",
         "bot.btn.cancel": "✖️ Скасувати",
         "bot.btn.all_chats": "🌐 Усі чати",
@@ -93,6 +94,9 @@ STRINGS.update(
         ),
         "bot.import.duplicates": "↩️ Пропущено дублікатів правил: {n}.",
         "bot.import.chats_over_limit": "⚠️ Прочитав лише перші {n} чатів із файлу.",
+        "bot.import.ignored_over_limit": (
+            "⚠️ Не вмістилося ігнорованих відправників: {n}. Ліміт — {limit}."
+        ),
         "bot.import.missing_chats": "⚠️ Не знайшов ці чати: {chats}",
         "bot.import.bad_rules": "⚠️ Не прийнято правила: {rules}",
         "bot.menu.title": "Що робимо?",
@@ -110,13 +114,11 @@ STRINGS.update(
         "bot.start.tz_unknown": "Не знаю такого поясу. Спробуйте назву міста, напр. Київ.",
         "bot.start.tz_candidates": "Можливо, ви мали на увазі:",
         "bot.start.tz_fixed_offset": "⚠️ Фіксований зсув не має переходу на літній час.",
-        "bot.start.done": "Готово. Тепер можна додати чати.",
         "bot.chats.title": ("Чати під наглядом ({n}). Дотик перемикає: ✅ — стежу, ☐ — ні."),
         "bot.chats.empty": "Поки нічого. Оберіть чат зі списку або через пошук.",
         "bot.chats.none_shared": "Власник поки не поділився жодним чатом.",
         "bot.chats.subscribed": "✅ Стежу за {chat}.",
         "bot.chats.unsubscribed": "☐ Більше не стежу за {chat}.",
-        "bot.chats.unavailable": "⚠️ {chat} — немає доступу",
         "bot.chats.search_prompt": "Надішліть частину назви чату або @username.",
         "bot.chats.search_empty": "Нічого не знайдено.",
         "bot.chats.lost_access": "⚠️ Слухач втратив доступ до {chat}; нагляд призупинено.",

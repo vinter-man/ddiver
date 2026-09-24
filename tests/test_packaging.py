@@ -9,6 +9,7 @@ uid, a deploy script that referenced a path the checkout did not have.
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -104,6 +105,65 @@ class TestDeployScript:
         assert "flock" in DEPLOY.read_text(encoding="utf-8")
 
 
+def _bash_function(name: str, script: Path) -> str:
+    """Pull one shell function out of a script, so a test can run it on its own."""
+    text = script.read_text(encoding="utf-8")
+    start = text.index(f"{name}() {{")
+    end = text.index("\n}\n", start) + len("\n}\n")
+    return text[start:end]
+
+
+class TestDeployScriptActuallyRuns:
+    """The only tests here that execute part of the script instead of reading it.
+
+    `_alerting_config` used to be a pipeline ending in `shasum`, and with alerting off there
+    are no files to read: the glob stayed literal, `cat` exited 1, `pipefail` handed that to
+    the assignment and `set -e` ended the deploy — after the checkout had moved and the image
+    had been built, with no output, no `up -d` and no rollback. Alerting off is the documented
+    default, so that was every box nobody had configured it on. Twenty-three tests read this
+    file and none of them ran a line of it; grepping for a guard would not have caught it.
+    """
+
+    def _fingerprint(self, app_dir: Path) -> subprocess.CompletedProcess[str]:
+        body = _bash_function("_alerting_config", DEPLOY)
+        # The assignment, not just the call: `set -e` acts on the status of a command, and
+        # `printf "%s" "$(f)"` is printf's status, not f's. Writing it the other way is how
+        # the first version of this test passed against the very bug it was written for.
+        script = (
+            f'set -Eeuo pipefail\nAPP_DIR="$1"\n{body}\n'
+            'before="$(_alerting_config)"\nprintf "%s" "$before"\n'
+        )
+        return subprocess.run(  # noqa: S603 - the script is this repository's own file
+            ["bash", "-c", script, "bash", str(app_dir)],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    @staticmethod
+    def _tree(tmp_path: Path) -> Path:
+        (tmp_path / "deploy/grafana/provisioning/alerting").mkdir(parents=True)
+        return tmp_path
+
+    def test_it_survives_a_box_with_alerting_off(self, tmp_path):
+        app = self._tree(tmp_path)
+        result = self._fingerprint(app)
+        assert result.returncode == 0, f"the deploy would have died here: {result.stderr}"
+
+    def test_it_survives_a_provisioning_directory_that_does_not_exist_at_all(self, tmp_path):
+        result = self._fingerprint(tmp_path)
+        assert result.returncode == 0, result.stderr
+
+    def test_it_still_notices_a_change(self, tmp_path):
+        """Swallowing the failure must not swallow the comparison it exists for."""
+        app = self._tree(tmp_path)
+        off = self._fingerprint(app)
+        (app / "deploy/grafana/provisioning/alerting/rules.yml").write_text("groups: []\n")
+        on = self._fingerprint(app)
+        assert on.returncode == 0, on.stderr
+        assert on.stdout != off.stdout
+
+
 class TestAlerting:
     def test_nothing_mounts_inside_the_provisioning_mount(self):
         """Docker cannot create a mountpoint inside a read-only bind, so the stack would not
@@ -121,6 +181,30 @@ class TestAlerting:
                     )
                 ]
                 assert nested == [], nested
+
+    def test_every_scrape_target_is_something_the_deploy_starts(self):
+        """A target nobody starts is a red row in Prometheus forever, and an empty panel.
+
+        node-exporter is behind the `host-metrics` profile because on Docker Desktop it cannot
+        mount `/` and would be measuring a Linux VM rather than the Mac. Nothing turned that
+        profile on for the box where both of those stop being true, so the Host panel on the
+        real server was empty and the `node` job was permanently down.
+        """
+        prometheus = yaml_load(ROOT / "deploy/prometheus.yml")
+        compose = yaml_load(OBSERVABILITY)
+        deploy = DEPLOY.read_text(encoding="utf-8")
+        services = compose["services"]
+        for job in prometheus["scrape_configs"]:
+            for target in job["static_configs"][0]["targets"]:
+                host = target.split(":")[0]
+                if host in {"localhost", "ddiver"}:
+                    continue  # prometheus itself, and the app from the other compose file
+                assert host in services, f"{job['job_name']} scrapes {host}, which is not a service"
+                for profile in services[host].get("profiles", []):
+                    assert profile in deploy, (
+                        f"{host} is only started with the '{profile}' profile,"
+                        " which deploy.sh does not enable"
+                    )
 
     def test_the_rendered_directory_is_tracked_but_its_contents_are_not(self):
         """git does not track empty directories, and deploy.sh does `git reset --hard`."""
@@ -185,7 +269,9 @@ class TestObservabilityConfig:
 
         return {
             line.split()[0].split("{")[0]
-            for line in source(supervisor=_FakeSupervisor()).render().splitlines()
+            for line in source(supervisor=_FakeSupervisor(), watchdog=_FakeWatchdog())
+            .render()
+            .splitlines()
             if line and not line.startswith("#")
         }
 
@@ -252,3 +338,12 @@ class _FakeSupervisor:
     """Enough of a supervisor for MetricsSource to emit ddiver_degraded."""
 
     state = _SupervisorState()
+
+
+class _FakeWatchdog:
+    """Enough of a watchdog for MetricsSource to emit the dead-man's switch counters."""
+
+    enabled = True
+    sent = 0
+    failed = 0
+    skipped = 0

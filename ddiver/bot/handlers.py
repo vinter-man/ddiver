@@ -703,9 +703,14 @@ def build_router(
     async def digest_input(ctx: Context) -> list[Action]:
         raw = (ctx.incoming.text or "").strip()
         current = {"n": ctx.user.digest_threshold}
-        if not raw.isdigit():
+        try:
+            # Not `isdigit()`: it is True for '²' and int() then raises, and True for '٣' and
+            # '７', which int() reads correctly and people do type. The conversion is the test.
+            value = int(raw)
+        except ValueError:
             return [Reply("bot.settings.digest_prompt", current)]
-        value = int(raw)
+        if value < 0:
+            return [Reply("bot.settings.digest_prompt", current)]
         if value != 0 and not (DIGEST_MIN <= value <= DIGEST_MAX):
             return [Reply("bot.settings.digest_prompt", current)]
         router.clear_pending(ctx.user_id)
@@ -823,6 +828,14 @@ def build_router(
                     total=MAX_RULES_PER_USER,
                 )
             )
+        if report.ignored_over_limit:
+            lines.append(
+                ctx.t(
+                    "bot.import.ignored_over_limit",
+                    n=report.ignored_over_limit,
+                    limit=MAX_IGNORED_PER_USER,
+                )
+            )
         if report.chats_over_limit:
             lines.append(ctx.t("bot.import.chats_over_limit", n=portable.MAX_CHAT_ENTRIES))
         if report.chats_missing:
@@ -899,7 +912,6 @@ def _evaluate_preview(
     chat_title: str,
     *,
     timeout: float = 0.2,
-    budget: float | None = None,
 ) -> str:
     """Mirror the production order: exclusions first, then chat rules before global ones.
 
@@ -911,7 +923,9 @@ def _evaluate_preview(
     # The live matcher stops after half a second per subscriber. This had no limit at all, so
     # a full set of slow patterns kept a worker thread busy for as long as the whole set took,
     # for every chat, on every /test.
-    deadline = time.monotonic() + (PREVIEW_BUDGET if budget is None else budget)
+    # Read here rather than bound as a default: a default argument is evaluated once,
+    # at import, which is why the first version of this could not be monkeypatched.
+    deadline = time.monotonic() + PREVIEW_BUDGET
     for rule in excludes:
         if time.monotonic() > deadline:
             return t(lang, "bot.test.too_slow", chat=chat_title)

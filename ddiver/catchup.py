@@ -169,10 +169,9 @@ class Catchup:
                 await self._on_recovered(chat.id)
 
         result.chats += 1
-        skipped = self._per_chat if capped else 0
         if capped:
             result.capped_chats.append(chat.id)
-        failed_at = await self._replay(chat.id, buffered, skipped, result)
+        failed_at = await self._replay(chat.id, buffered, capped, result)
         if newest is not None:
             # Advance even when everything was filtered out, so the next round starts here —
             # but never past a message the replay could not handle, or that message would be
@@ -215,17 +214,25 @@ class Catchup:
             await self._storage.upsert_chat(chat.ref, access_hash=chat.access_hash)
 
     async def _replay(
-        self, chat_id: int, buffered: list[tl.Message], skipped: int, result: CatchupResult
+        self, chat_id: int, buffered: list[tl.Message], capped: bool, result: CatchupResult
     ) -> int | None:
-        """Replay in chronological order; returns the lowest id we could not handle."""
+        """Replay in chronological order; returns the lowest id we could not handle.
+
+        When the fetch hit the per-chat cap, the oldest message here is a boundary: nothing
+        below it was looked at. That has to be said to the person, and it used to be attached
+        to the oldest *buffered* message — which is not a notification unless it happens to
+        match, so in the ordinary case where it does not, nobody was told anything. The flag
+        rides along until a notification actually goes out.
+        """
         failed_at: int | None = None
+        carry = capped
         for index, message in enumerate(reversed(buffered)):
             try:
                 claimed = await self._listener.handle(
                     message,
                     chat=message.chat,
                     catchup=True,
-                    catchup_skipped=skipped if index == 0 else 0,
+                    catchup_capped=carry,
                 )
             except asyncio.CancelledError:
                 raise
@@ -234,6 +241,8 @@ class Catchup:
                 log.exception("catch-up could not replay %s/%s", chat_id, message.id)
                 failed_at = message.id if failed_at is None else min(failed_at, message.id)
                 continue
+            if claimed:
+                carry = False
             result.claimed += len(claimed)
             if index % YIELD_EVERY == 0:
                 await asyncio.sleep(0)
