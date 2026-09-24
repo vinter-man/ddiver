@@ -86,10 +86,13 @@ KEY="/home/$APP_USER/.ssh/id_ed25519"
 if [[ ! -f "$KEY" ]]; then
 	sudo -u "$APP_USER" ssh-keygen -t ed25519 -N '' -C "ddiver@$(hostname)" -f "$KEY" >/dev/null
 fi
-sudo -u "$APP_USER" ssh-keyscan -t ed25519 github.com 2>/dev/null \
-	>> "/home/$APP_USER/.ssh/known_hosts"
-sudo -u "$APP_USER" sort -u -o "/home/$APP_USER/.ssh/known_hosts" \
-	"/home/$APP_USER/.ssh/known_hosts"
+# The redirect belongs to root's shell, so write it as root and hand it over afterwards
+# rather than letting `sudo -u` meet a file it does not own.
+KNOWN="/home/$APP_USER/.ssh/known_hosts"
+ssh-keyscan -t ed25519,rsa github.com 2>/dev/null >> "$KNOWN"
+sort -u -o "$KNOWN" "$KNOWN"
+chown "$APP_USER:$APP_USER" "$KNOWN"
+chmod 644 "$KNOWN"
 
 log "clone"
 if [[ ! -d "$APP_DIR/.git" ]]; then
@@ -133,11 +136,13 @@ Next, in order:
 
 DEPLOY_HOST=$(hostname -I 2>/dev/null | awk '{print $1}')
 DEPLOY_USER=$APP_USER
-DEPLOY_HOST_KEY=$(ssh-keyscan -t ed25519 localhost 2>/dev/null | sed "s/^localhost/PLACEHOLDER/")
+DEPLOY_HOST_KEY=  # from your own machine: ssh-keyscan -t ed25519 THIS_HOST
 
-  and DEPLOY_SSH_KEY is the private half of the CI key:
+  DEPLOY_SSH_KEY is the private half of the CI key, at $CI_KEY. Move it without
+  putting it on a screen or in a shell history:
 
-$(cat "$CI_KEY")
+      ssh root@this-box 'cat $CI_KEY' | gh secret set DEPLOY_SSH_KEY --repo OWNER/REPO
 
-  Copy it now: it is the last time this script prints it.
+  Printing it here instead would write a key that can reach this machine into
+  whatever scrollback, log or transcript is watching.
 EOF
