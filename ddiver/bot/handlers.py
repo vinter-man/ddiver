@@ -137,7 +137,7 @@ def build_router(
 
     @router.callback("lang")
     async def set_language(ctx: Context) -> list[Action]:
-        lang = (ctx.incoming.data or "").split(":", 1)[1]
+        lang = _parts(ctx.incoming.data, 2)[1]
         if lang not in LANGS:
             return [Toast("bot.err.unknown_action")]
         user = await storage.update_user(ctx.user_id, lang=lang)
@@ -148,7 +148,7 @@ def build_router(
 
     @router.callback("tz")
     async def set_timezone(ctx: Context) -> list[Action]:
-        name = (ctx.incoming.data or "").split(":", 1)[1]
+        name = _parts(ctx.incoming.data, 2)[1]
         resolution = resolve_tz(name)
         if resolution.exact is None:
             return [Toast("bot.start.tz_unknown")]
@@ -208,7 +208,7 @@ def build_router(
 
     @router.callback("chats")
     async def chats(ctx: Context) -> list[Action]:
-        arg = (ctx.incoming.data or "chats:0").split(":", 1)[1]
+        arg = _parts(ctx.incoming.data or "chats:0", 2)[1]
         if arg == "search":
             router.set_pending(ctx.user_id, "chat_search")
             return [Reply("bot.chats.search_prompt")]
@@ -248,7 +248,7 @@ def build_router(
 
     @router.callback("sub")
     async def subscribe(ctx: Context) -> list[Action]:
-        parts = (ctx.incoming.data or "").split(":")
+        parts = _parts(ctx.incoming.data, 4)
         _, raw_chat, raw_state = parts[:3]
         # The page travels in the callback, so dropping a chat does not throw the moderator
         # back to the first page of a few hundred. Keyboards sent before this omit it.
@@ -279,7 +279,7 @@ def build_router(
 
     @router.callback("shared", owner_only=True)
     async def shared(ctx: Context) -> list[Action]:
-        page_index = _int((ctx.incoming.data or "shared:0").split(":", 1)[1])
+        page_index = _int(_parts(ctx.incoming.data or "shared:0", 2)[1])
         rows = await storage.list_chats()
         return [
             Edit("bot.shared.hint", buttons=menus.shared_menu(rows, page_index)),
@@ -287,7 +287,7 @@ def build_router(
 
     @router.callback("share", owner_only=True)
     async def share(ctx: Context) -> list[Action]:
-        _, raw_chat, raw_state = (ctx.incoming.data or "").split(":")
+        _, raw_chat, raw_state = _parts(ctx.incoming.data, 3)
         chat_id, wanted = _int(raw_chat), raw_state == "1"
         chat = await storage.get_chat(chat_id)
         if chat is None:
@@ -346,7 +346,7 @@ def build_router(
 
     @router.callback("allow", owner_only=True)
     async def allow(ctx: Context) -> list[Action]:
-        target = _int((ctx.incoming.data or "").split(":", 1)[1])
+        target = _int(_parts(ctx.incoming.data, 2)[1])
         if await storage.get_user(target) is None:
             return [Toast("bot.err.not_found")]
         user = await storage.update_user(target, role=Role.ALLOWED, notified_owner_at=None)
@@ -359,7 +359,7 @@ def build_router(
 
     @router.callback("deny", owner_only=True)
     async def deny(ctx: Context) -> list[Action]:
-        target = _int((ctx.incoming.data or "").split(":", 1)[1])
+        target = _int(_parts(ctx.incoming.data, 2)[1])
         if await storage.get_user(target) is None:
             return [Toast("bot.err.not_found")]
         user = await storage.update_user(target, role=Role.DENIED)
@@ -372,7 +372,7 @@ def build_router(
 
     @router.callback("revoke", owner_only=True)
     async def revoke(ctx: Context) -> list[Action]:
-        target = _int((ctx.incoming.data or "").split(":", 1)[1])
+        target = _int(_parts(ctx.incoming.data, 2)[1])
         if target == ctx.user_id:
             return [Toast("bot.err.owner_only", alert=True)]
         if await storage.get_user(target) is None:
@@ -411,24 +411,26 @@ def build_router(
 
     @router.callback("rules")
     async def rules(ctx: Context) -> list[Action]:
-        parts = (ctx.incoming.data or "rules:pick").split(":")
+        parts = _parts(ctx.incoming.data or "rules:pick", 4)
         if parts[1] == "pick":
             chats = await storage.list_subscriptions(ctx.user_id)
             return [Edit("bot.rules.pick_chat", buttons=menus.rules_chat_menu(chats, 0))]
         chat_id = _int(parts[1])
-        kind = RuleKind(parts[2]) if len(parts) > 2 else RuleKind.INCLUDE
-        page = _int(parts[3]) if len(parts) > 3 else 0
+        # RuleKind() raises on anything that is not "include" or "exclude", and the payload is
+        # whatever the client sent. Padding cannot help here: the field is present and wrong.
+        kind = RuleKind.EXCLUDE if parts[2] == RuleKind.EXCLUDE.value else RuleKind.INCLUDE
+        page = _int(parts[3])
         return await rules_view(ctx, chat_id, kind, page)
 
     @router.callback("rpick")
     async def rules_pick_page(ctx: Context) -> list[Action]:
-        page = _int((ctx.incoming.data or "rpick:0").split(":", 1)[1])
+        page = _int(_parts(ctx.incoming.data or "rpick:0", 2)[1])
         chats = await storage.list_subscriptions(ctx.user_id)
         return [Edit("bot.rules.pick_chat", buttons=menus.rules_chat_menu(chats, page))]
 
     @router.callback("radd")
     async def rules_add_prompt(ctx: Context) -> list[Action]:
-        _, raw_chat, raw_kind = (ctx.incoming.data or "").split(":")
+        _, raw_chat, raw_kind = _parts(ctx.incoming.data, 3)
         chat_id = _int(raw_chat)
         if chat_id != ALL_CHATS and await accessible_chat(ctx, chat_id) is None:
             return [Toast("bot.err.not_found")]
@@ -491,7 +493,7 @@ def build_router(
 
     @router.callback("rdel")
     async def rules_delete(ctx: Context) -> list[Action]:
-        rule_id = _int((ctx.incoming.data or "").split(":", 1)[1])
+        rule_id = _int(_parts(ctx.incoming.data, 2)[1])
         rule = await storage.get_rule(rule_id, ctx.user_id)
         if rule is None:
             return [Toast("bot.err.not_found")]
@@ -506,14 +508,14 @@ def build_router(
 
     @router.callback("ign")
     async def ignored(ctx: Context) -> list[Action]:
-        page = _int((ctx.incoming.data or "ign:0").split(":", 1)[1])
+        page = _int(_parts(ctx.incoming.data or "ign:0", 2)[1])
         entries = await storage.list_ignored(ctx.user_id)
         body = ctx.t("bot.ignored.title") if entries else ctx.t("bot.ignored.empty")
         return [Edit(body, literal=True, buttons=menus.ignored_menu(entries, page))]
 
     @router.callback("igdel")
     async def ignored_delete(ctx: Context) -> list[Action]:
-        _, raw_chat, raw_sender = (ctx.incoming.data or "").split(":")
+        _, raw_chat, raw_sender = _parts(ctx.incoming.data, 3)
         await storage.remove_ignored(ctx.user_id, _int(raw_chat), _int(raw_sender))
         await invalidate(None)
         entries = await storage.list_ignored(ctx.user_id)
@@ -525,7 +527,7 @@ def build_router(
 
     @router.callback("ig")
     async def ignore_sender(ctx: Context) -> list[Action]:
-        _, raw_chat, raw_sender = (ctx.incoming.data or "").split(":")
+        _, raw_chat, raw_sender = _parts(ctx.incoming.data, 3)
         chat_id, sender_id = _int(raw_chat), _int(raw_sender)
         chat = await accessible_chat(ctx, chat_id)
         if chat is None:
@@ -552,7 +554,7 @@ def build_router(
 
     @router.callback("igall")
     async def ignore_sender_globally(ctx: Context) -> list[Action]:
-        sender_id = _int((ctx.incoming.data or "").split(":", 1)[1])
+        sender_id = _int(_parts(ctx.incoming.data, 2)[1])
         await storage.add_ignored(ctx.user_id, ALL_CHATS, sender_id, str(sender_id))
         await invalidate(None)
         return [
@@ -564,7 +566,7 @@ def build_router(
     @router.callback("rdrop")
     async def drop_rule_prompt(ctx: Context) -> list[Action]:
         """Ask before removing: one tap must not silently kill a rule on every chat."""
-        rule_id = _int((ctx.incoming.data or "").split(":", 1)[1])
+        rule_id = _int(_parts(ctx.incoming.data, 2)[1])
         rule = await storage.get_rule(rule_id, ctx.user_id)
         if rule is None:
             return [Toast("bot.notif.drop_gone", alert=True)]
@@ -587,7 +589,7 @@ def build_router(
 
     @router.callback("rdropok")
     async def drop_rule(ctx: Context) -> list[Action]:
-        rule_id = _int((ctx.incoming.data or "").split(":", 1)[1])
+        rule_id = _int(_parts(ctx.incoming.data, 2)[1])
         rule = await storage.get_rule(rule_id, ctx.user_id)
         if rule is None or not await storage.delete_rule(rule_id, ctx.user_id):
             return [Toast("bot.notif.drop_gone", alert=True)]
@@ -614,7 +616,7 @@ def build_router(
 
     @router.callback("set")
     async def settings(ctx: Context) -> list[Action]:
-        what = (ctx.incoming.data or "set:main").split(":", 1)[1]
+        what = _parts(ctx.incoming.data or "set:main", 2)[1]
         if what == "lang":
             return [Edit("bot.start.language", buttons=menus.language_menu())]
         if what == "tz":
@@ -885,6 +887,20 @@ def _clamp(text: str, limit: int = MAX_REPLY_CHARS) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 1] + "…"
+
+
+def _parts(data: str | None, count: int) -> list[str]:
+    """Split a callback payload into exactly ``count`` fields, padding with empty strings.
+
+    Callback data is client-controlled: the button we drew is not necessarily the button that
+    comes back. Unpacking it directly turned any truncated payload into an IndexError or a
+    ValueError inside the handler, which logged a traceback and answered nothing — the button
+    just span. Padding sends every one of those down the same path an unknown id already
+    takes: ``_int("")`` is 0, which no chat or rule matches, and the handler replies "not
+    found" like it would for any other stale button.
+    """
+    fields = (data or "").split(":")
+    return (fields + [""] * count)[:count]
 
 
 def _int(raw: str) -> int:

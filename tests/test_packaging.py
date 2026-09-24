@@ -70,6 +70,33 @@ class TestIsolation:
                     assert str(published).startswith("127.0.0.1:"), f"{path.name}:{name}"
 
 
+class TestDeployScript:
+    def test_it_deploys_the_commit_it_was_given_not_whatever_main_is(self):
+        """Two quick pushes otherwise let the first deploy ship the second, untested, commit."""
+        text = DEPLOY.read_text(encoding="utf-8")
+        assert "SSH_ORIGINAL_COMMAND" in text
+        assert "merge-base --is-ancestor" in text, "an unvalidated target is a downgrade"
+        assert "^[0-9a-f]{40}$" in text
+
+    def test_the_workflow_names_that_commit(self):
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        assert "$GITHUB_SHA" in workflow
+
+    def test_it_carries_the_alerts_overlay_when_one_is_configured(self):
+        """Without it a push recreates Grafana from the base files and drops the alert env."""
+        text = DEPLOY.read_text(encoding="utf-8")
+        assert "docker-compose.alerts.yml" in text
+        assert "source .env" not in text, "the forced command must not execute .env"
+
+    def test_a_failed_start_still_reaches_the_rollback(self):
+        """Under `set -e` a failing `up -d` used to end the script with nothing running."""
+        text = DEPLOY.read_text(encoding="utf-8")
+        assert "|| started=false" in text
+
+    def test_deploys_are_serialised(self):
+        assert "flock" in DEPLOY.read_text(encoding="utf-8")
+
+
 class TestBootstrap:
     def test_data_is_owned_by_the_uid_the_container_runs_as(self):
         """A bind mount cares about the number, not the name: the two must be kept in step."""

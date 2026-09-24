@@ -48,6 +48,14 @@ cd "$APP_DIR" || die "no $APP_DIR"
 exec {lock}> "$APP_DIR/.deploy.lock"
 flock --wait 600 "$lock" || die "another deploy has held the lock for ten minutes"
 
+# Alerts are opt-in because their overlay refuses to start Grafana without a token. Add it
+# only on a box that has one, and add it here rather than in the file list above, because
+# .env has not been checked until now. A grep, not a source: this script is the forced
+# command of a key and must not execute what is in that file.
+if grep -Eq '^[[:space:]]*ALERT_TELEGRAM_TOKEN=.+' .env; then
+	COMPOSE_FILES+=(-f deploy/docker-compose.alerts.yml)
+fi
+
 # Whether it was working *before* matters: if the session has expired, the container is
 # unhealthy whatever the code does, and rolling back would only thrash.
 was_healthy=false
@@ -55,7 +63,23 @@ was_healthy=false
 
 previous="$(git rev-parse HEAD)"
 git fetch --prune --quiet origin
+
+# The caller may name the commit its tests passed on. It is attacker-controlled — this is the
+# forced command of a key, and the client chooses what to ask for — so it is accepted only as
+# a full sha that is already an ancestor of origin/main. That is enough to stop the two-quick-
+# pushes race (deploying a commit whose own tests are still running) without letting anybody
+# pick an arbitrary or older tree.
 target="$(git rev-parse origin/main)"
+asked="${SSH_ORIGINAL_COMMAND:-}"
+if [[ -n "$asked" ]]; then
+	if [[ ! "$asked" =~ ^[0-9a-f]{40}$ ]]; then
+		die "refusing a target that is not a full commit sha"
+	elif ! git merge-base --is-ancestor "$asked" "$target" 2>/dev/null; then
+		log "ignoring $asked: not an ancestor of origin/main, deploying ${target:0:8} instead"
+	else
+		target="$asked"
+	fi
+fi
 
 if [[ "$previous" == "$target" ]]; then
 	log "already at ${target:0:8}; restarting anyway to pick up any compose change"

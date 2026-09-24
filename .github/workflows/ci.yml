@@ -48,5 +48,11 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           # Pinned, not accept-new: the first connection is exactly the one worth protecting.
           printf '%s\n' "$HOST_KEY" > ~/.ssh/known_hosts
-          # No command: the server forces deploy.sh on this key, so there is nothing to pass.
-          ssh -o BatchMode=yes -o ConnectTimeout=15 -i ~/.ssh/id_ed25519 "$USER@$HOST"
+          # Name the commit CI actually tested. The forced command ignores what is asked for
+          # and runs deploy.sh regardless; deploy.sh reads it from SSH_ORIGINAL_COMMAND and
+          # accepts it only if it is a 40-hex sha that is an ancestor of origin/main. Without
+          # this the box deploys whatever main is when the connection lands, which on two
+          # quick pushes is the commit the second run has not finished testing.
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -i ~/.ssh/id_ed25519 \
+              "$USER@$HOST" "$GITHUB_SHA"
+

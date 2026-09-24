@@ -789,3 +789,52 @@ class TestExportImport:
             )
         )
         assert {r.pattern for r in await store.list_rules(OWNER)} == {"изфайла"}
+
+
+class TestMalformedCallbacks:
+    """Callback data is whatever the client sends, not what we drew on the button."""
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            "sub",
+            "sub:1",
+            "share",
+            "share:1",
+            "radd",
+            "radd:1",
+            "ig",
+            "ig:1",
+            "igdel",
+            "igdel:1",
+            "lang",
+            "tz",
+            "chats",
+            "shared",
+            "allow",
+            "deny",
+            "revoke",
+            "rules",
+            "rpick",
+            "rdel",
+            "ign",
+            "igall",
+            "rdrop",
+            "rdropok",
+            "set",
+            "rules:1:bogus",
+            "rules:notanumber:include:x",
+            "sub::",
+            "ig:::",
+        ],
+    )
+    async def test_a_truncated_or_bogus_payload_answers_instead_of_raising(
+        self, router, store, data
+    ):
+        """Every one of these used to reach the handler and raise, so the button just span."""
+        actions = await cb(router, OWNER, data)
+        assert actions, f"{data!r} produced no answer at all"
+
+    async def test_the_moderator_path_is_covered_too(self, router, store):
+        for data in ("sub", "ig:1", "rules", "rdrop", "set"):
+            assert await cb(router, MOD, data), data
