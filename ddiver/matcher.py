@@ -214,20 +214,37 @@ class Matcher:
         self._cache[chat_id] = ruleset
         return ruleset
 
+    def _compile_all(self, rules: list[Rule]) -> list[tuple[Rule, CompiledRule | RuleError]]:
+        """Pure, and safe to run in a worker thread: it touches nothing but its argument."""
+        out: list[tuple[Rule, CompiledRule | RuleError]] = []
+        for rule in rules:
+            try:
+                out.append((rule, compile_rule(rule.pattern, timeout=self._timeout)))
+            except RuleError as exc:
+                out.append((rule, exc))
+        return out
+
     async def _load(self, chat_id: int) -> _ChatRuleSet:
         rules = await self._storage.rules_for_chat(chat_id)
         ignored = await self._storage.ignored_for_chat(chat_id)
         bot_watchers = await self._storage.bot_watchers()
+
+        # Compiling is the expensive part and it is pure, so it goes where matching already
+        # goes. `compile_rule` does not merely compile a regex: it also validates it, which
+        # means several timed searches per pattern. Doing that on the event loop meant the
+        # first message into a chat with a few hundred rules stalled everything — deliveries,
+        # the heartbeat, the health check — for as long as the whole set took.
+        compiled = await asyncio.to_thread(self._compile_all, rules)
+
         by_user: dict[int, _UserRules] = {}
-        for rule in rules:  # ordered by user, chat-specific before global
+        for rule, result in compiled:
             bucket = by_user.setdefault(rule.user_id, _UserRules(rule.user_id))
-            try:
-                compiled = compile_rule(rule.pattern, timeout=self._timeout)
-            except RuleError as exc:
-                await self._disable(rule, f"{DISABLED_INVALID}:{exc.key}")
+            if isinstance(result, RuleError):
+                # Disabling touches the database, so it happens back on the loop.
+                await self._disable(rule, f"{DISABLED_INVALID}:{result.key}")
                 continue
             target = bucket.includes if rule.kind is RuleKind.INCLUDE else bucket.excludes
-            target.append((rule, compiled))
+            target.append((rule, result))
         for user_id, senders in ignored.items():
             if user_id in by_user:
                 by_user[user_id].ignored = set(senders)

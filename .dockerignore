@@ -1,0 +1,27 @@
+# The build context is the repository, and on the server that directory also holds the
+# Telegram session, the database and .env. None of it is COPYed, but it is all uploaded to
+# the daemon on every build — and anything in the context can end up in an image by accident.
+data/
+.env
+*.session
+*.session-journal
+*.sqlite3*
+
+.git/
+.github/
+.venv/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.serena/
+__pycache__/
+*.pyc
+.coverage
+htmlcov/
+
+tests/
+deploy/
+docs/
+scripts/
+*.md
+!README.md

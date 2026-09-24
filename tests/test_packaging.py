@@ -161,13 +161,22 @@ class TestObservabilityConfig:
                 assert rule.get("noDataState") == "OK", rule["uid"]
                 assert rule.get("execErrState") == "Error", rule["uid"]
 
-    def test_no_rule_compares_a_gauge_to_zero_with_equals(self):
-        """`x == 0` is a filter returning 0, and Grafana reads 0 as Normal: it never fires."""
+    def test_no_rule_can_evaluate_to_zero_when_the_fault_is_present(self):
+        """A PromQL comparison is a filter: it keeps the sample's own value.
+
+        `x == 0` and `x < 1` both return a sample whose value is 0 when the fault is present,
+        and Grafana reads 0 as Normal — so neither ever fires. Only `bool` turns a comparison
+        into the 1 a condition needs. Comparisons whose true case is already non-zero
+        (`== 1`, `> 500`, `> 0`) are fine.
+        """
+        suspicious = ("== 0", "< 1", "<= 0", "!= 1")
         rules = yaml_load(ROOT / "deploy/grafana/alerting/rules.yml")
         for group in rules["groups"]:
             for rule in group["rules"]:
                 for query in rule["data"]:
-                    assert "== 0" not in query["model"]["expr"], rule["uid"]
+                    expr = query["model"]["expr"]
+                    if any(token in expr for token in suspicious):
+                        assert "bool" in expr, f"{rule['uid']}: {expr}"
 
 
 class _SupervisorState:

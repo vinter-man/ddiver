@@ -34,6 +34,14 @@ _PROBE_INPUTS = (
 )
 
 
+MAX_IGNORED_PER_USER = 2000
+"""Cap on the ignore list.
+
+Higher than the rule caps because an ignore is a cheap integer comparison rather than a
+compiled pattern, and lower than nothing at all because an import is a way to write rows in
+bulk and every row is read back into memory for every chat the user watches.
+"""
+
 MAX_RULES_PER_CHAT = 200
 MAX_RULES_PER_USER = 500
 """Caps on how many rules one person may hold.

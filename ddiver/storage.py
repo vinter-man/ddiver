@@ -30,6 +30,16 @@ ALL_CHATS = 0
 
 PRUNE_BATCH = 5000
 
+SQLITE_INT_MIN = -(2**63)
+SQLITE_INT_MAX = 2**63 - 1
+"""What a SQLite INTEGER can hold.
+
+Python's integers are unbounded, so a value parsed from a callback payload or an imported
+file can be perfectly valid Python and still raise OverflowError inside the driver. Callers
+that accept outside input clamp to this range, where an out-of-range id becomes 0 and matches
+nothing — the same answer a stale button already gets.
+"""
+
 
 class Role(enum.StrEnum):
     ALLOWED = "allowed"
@@ -737,6 +747,13 @@ class Storage:
             (user_id, chat_id, sender_id),
         )
         return cur.rowcount == 1
+
+    async def count_ignored(self, user_id: int) -> int:
+        cur = await self.db.execute(
+            "SELECT COUNT(*) AS n FROM ignored_senders WHERE user_id=?", (user_id,)
+        )
+        row = await cur.fetchone()
+        return int(row["n"]) if row else 0
 
     async def list_ignored(self, user_id: int, chat_id: int | None = None) -> list[IgnoredSender]:
         sql = "SELECT * FROM ignored_senders WHERE user_id=?"

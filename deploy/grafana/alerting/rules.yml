@@ -6,9 +6,13 @@
 #   noDataState: OK      — the default is NoData, which *alerts*. Every rule here is a filter
 #                          that returns an empty vector on a healthy system, so the defaults
 #                          send five alarms a day saying the session is invalid when it is not.
-#   ... < 1, not == 0    — PromQL `==` is a filter: when the listener is down the query returns
-#                          a sample whose value is 0, and Grafana reads 0 as Normal. `== 1`
-#                          is fine for the same reason `== 0` is not.
+#   == bool 0            — a PromQL comparison is a *filter*: it keeps the sample and its
+#                          original value. `ddiver_listener_connected == 0` and `< 1` both
+#                          return a sample whose value is 0 when the listener is down, and
+#                          Grafana reads 0 as Normal — so neither can ever fire. `bool` turns
+#                          the comparison into 1 or 0, which is what a condition needs.
+#                          `== 1`, `> 500` and `> 0` are fine: their true case is non-zero
+#                          already.
 #
 # Note what is NOT here: "the whole machine is down". Grafana lives on the same box as ddiver,
 # so it cannot report its own funeral. That is what PING_URL and an external dead-man's switch
@@ -71,7 +75,7 @@ groups:
             relativeTimeRange: {from: 900, to: 0}
             datasourceUid: ddiver-prometheus
             model:
-              expr: ddiver_listener_connected < 1
+              expr: ddiver_listener_connected == bool 0
               instant: true
               refId: down
 

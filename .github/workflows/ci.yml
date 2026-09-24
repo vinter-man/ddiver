@@ -22,6 +22,10 @@ jobs:
         run: uv run mypy
       - name: Tests
         run: uv run pytest -q --cov --cov-report=term-missing
+      - name: Shell
+        # The deploy scripts run as root on a real box, and a backtick inside double quotes
+        # once turned an error message into a command substitution.
+        run: shellcheck deploy/*.sh
 
   deploy:
     # Only after the checks above are green, only from main, and never from a pull request —

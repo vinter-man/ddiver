@@ -54,7 +54,9 @@ systemctl enable --now docker
 log "firewall"
 # Everything this project serves is bound to 127.0.0.1 and reached over an SSH tunnel, so
 # nothing but SSH has any business being open.
-ufw --force reset >/dev/null
+# No `ufw --force reset`: it drops every rule and leaves the firewall *disabled* until the
+# enable below, which is a window on a live box — and this script claims to be idempotent.
+# The four statements below converge to the same state on their own.
 ufw default deny incoming >/dev/null
 ufw default allow outgoing >/dev/null
 ufw allow OpenSSH >/dev/null

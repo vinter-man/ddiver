@@ -9,7 +9,12 @@ import pytest
 
 from ddiver import portable
 from ddiver.links import ChatRef
-from ddiver.rules import MAX_RULES_PER_CHAT, MAX_RULES_PER_USER, RuleKind
+from ddiver.rules import (
+    MAX_IGNORED_PER_USER,
+    MAX_RULES_PER_CHAT,
+    MAX_RULES_PER_USER,
+    RuleKind,
+)
 from ddiver.storage import ALL_CHATS, Storage
 
 OWNER = 1
@@ -423,3 +428,36 @@ class TestHostileTypes:
         await portable.import_config(store, OWNER, config, regex_timeout=0.2, is_owner=True)
         entry = (await store.list_ignored(OWNER))[0]
         assert isinstance(entry.note, str)
+
+
+class TestIgnoreListLimit:
+    async def test_the_ignore_list_is_capped_too(self, store):
+        """Every row is read back into memory for every chat the user watches."""
+        config = {
+            "format": portable.FORMAT,
+            "version": 1,
+            "ignored": [
+                {"chat_id": 0, "sender_id": 1000 + i, "note": None}
+                for i in range(MAX_IGNORED_PER_USER + 40)
+            ],
+        }
+        report = await portable.import_config(
+            store, OWNER, config, regex_timeout=0.2, is_owner=True
+        )
+        assert report.ignored_added == MAX_IGNORED_PER_USER
+        assert report.ignored_over_limit == 40
+        assert await store.count_ignored(OWNER) == MAX_IGNORED_PER_USER
+
+    async def test_entries_already_held_count(self, store):
+        for i in range(MAX_IGNORED_PER_USER - 3):
+            await store.add_ignored(OWNER, ALL_CHATS, 9000 + i, None)
+        config = {
+            "format": portable.FORMAT,
+            "version": 1,
+            "ignored": [{"chat_id": 0, "sender_id": 1 + i} for i in range(10)],
+        }
+        report = await portable.import_config(
+            store, OWNER, config, regex_timeout=0.2, is_owner=True
+        )
+        assert report.ignored_added == 3
+        assert report.ignored_over_limit == 7

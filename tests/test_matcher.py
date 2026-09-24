@@ -159,7 +159,10 @@ class TestOffloadAndBudget:
         await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "needle")
         await matcher.invalidate()
         await matcher.evaluate(CHAT_A.id, "ничего похожего", 1)
-        assert offloaded == []  # one rule: a thread hop would cost more than it saves
+        # Compiling always goes to a thread — it validates each pattern, which is several
+        # timed searches — but matching one rule does not: the hop would cost more than it
+        # saves.
+        assert offloaded == ["_compile_all"]
 
         # A fixed count, not OFFLOAD_ABOVE_RULES + n: deriving it from the constant makes the
         # test follow the constant wherever it goes, so raising the threshold would not fail.
@@ -168,7 +171,29 @@ class TestOffloadAndBudget:
             await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, f"needle{i}")
         await matcher.invalidate()
         await matcher.evaluate(CHAT_A.id, "ничего похожего " * 200, 1)
-        assert offloaded == ["_evaluate_sync"]
+        assert offloaded[-1] == "_evaluate_sync"
+
+    async def test_compiling_a_rule_set_never_runs_on_the_event_loop(self, store, matcher):
+        """The first message into a chat used to stall everything while its rules compiled."""
+        import ddiver.matcher as matcher_module
+
+        seen = []
+        real = asyncio.to_thread
+
+        async def spy(func, *args, **kwargs):
+            seen.append(func.__name__)
+            return await real(func, *args, **kwargs)
+
+        for i in range(40):
+            await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, f"re:слово{i}\\d+")
+        await matcher.invalidate()
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(matcher_module.asyncio, "to_thread", spy)
+        try:
+            await matcher.evaluate(CHAT_A.id, "ничего", 1)
+        finally:
+            monkeypatch.undo()
+        assert "_compile_all" in seen
 
     async def test_budget_stops_a_pathological_rule_set(self, store, monkeypatch):
         m = Matcher(store, timeout=0.02)

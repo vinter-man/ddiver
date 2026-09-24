@@ -1,5 +1,6 @@
 import asyncio
 import datetime as dt
+import os
 import stat
 
 import pytest
@@ -9,6 +10,7 @@ from ddiver.__main__ import (
     build_parser,
     cmd_check_config,
     cmd_health,
+    describe_config_error,
     harden_data_dir,
     main,
     permission_hint,
@@ -74,6 +76,23 @@ class TestHealth:
         assert "Configuration error" in capsys.readouterr().err
 
 
+@pytest.fixture
+def loose_umask():
+    """Run with a permissive umask, so the assertions test the code and not the environment.
+
+    `main()` sets `os.umask(0o077)` and never restores it, so any test that has called main()
+    leaves the whole pytest process at 077 — under which every file is created 0600 anyway
+    and these assertions pass whatever `harden_data_dir` does. That is how they survived
+    being mutated out.
+    """
+    previous = os.umask(0o022)
+    try:
+        yield
+    finally:
+        os.umask(previous)
+
+
+@pytest.mark.usefixtures("loose_umask")
 class TestPermissions:
     def test_harden_sets_restrictive_modes(self, tmp_path):
         data = tmp_path / "data"
@@ -144,3 +163,44 @@ class TestCheckConfigPermissionHints:
         assert "chmod 700" in permission_hint(tmp_path)
         assert "chmod 600" in permission_hint(session)
         assert str(session) in permission_hint(session)
+
+
+class TestConfigErrorsAreRedacted:
+    """The one control keeping a token out of stderr, the container log and Loki."""
+
+    @pytest.mark.parametrize(
+        ("key", "value"),
+        [
+            ("BOT_TOKEN", "SENTINELTOKEN-not-a-valid-shape"),
+            ("API_ID", "SENTINELAPIID"),
+            ("OWNER_ID", "SENTINELOWNER"),
+            ("PING_URL", "SENTINELPING-not-a-url"),
+        ],
+    )
+    def test_the_bad_value_is_never_printed(self, tmp_path, capsys, monkeypatch, key, value):
+        env = {**ENV, key: value}
+        path = tmp_path / ".env"
+        path.write_text("\n".join(f"{k}={v}" for k, v in env.items()), encoding="utf-8")
+        for name in env:
+            monkeypatch.delenv(name, raising=False)
+
+        assert main(["--env-file", str(path), "health"]) == EXIT_ERROR
+        out = capsys.readouterr()
+        combined = out.out + out.err
+        assert "SENTINEL" not in combined, combined
+        assert key in combined  # it still says which setting is wrong
+        assert "Configuration error" in combined
+
+    def test_a_pydantic_error_really_would_have_leaked(self):
+        """Pin the reason this function exists, so nobody simplifies it back to str(exc)."""
+        from ddiver.config import Settings
+
+        with pytest.raises(Exception) as caught:
+            Settings(
+                api_id=1,
+                api_hash="0" * 32,
+                bot_token="SENTINELTOKEN-not-a-valid-shape",
+                owner_id=1,
+            )
+        assert "SENTINELTOKEN" in str(caught.value)
+        assert "SENTINELTOKEN" not in describe_config_error(caught.value)

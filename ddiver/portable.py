@@ -19,13 +19,20 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ddiver.rules import (
+    MAX_IGNORED_PER_USER,
     MAX_RULES_PER_CHAT,
     MAX_RULES_PER_USER,
     RuleError,
     RuleKind,
     compile_rule,
 )
-from ddiver.storage import ALL_CHATS, DuplicateRuleError, Storage
+from ddiver.storage import (
+    ALL_CHATS,
+    SQLITE_INT_MAX,
+    SQLITE_INT_MIN,
+    DuplicateRuleError,
+    Storage,
+)
 
 FORMAT = "ddiver.config"
 VERSION = 1
@@ -46,6 +53,7 @@ class ImportReport:
     rules_invalid: list[str] = field(default_factory=list)
     rules_over_limit: int = 0
     ignored_added: int = 0
+    ignored_over_limit: int = 0
 
     @property
     def anything_happened(self) -> bool:
@@ -105,10 +113,19 @@ def loads(raw: bytes | str) -> dict[str, Any]:
         except UnicodeDecodeError as exc:
             msg = "file is not UTF-8 text"
             raise BadExportError(msg) from exc
+    if len(raw) > MAX_BYTES:
+        msg = "file is too large to be a ddiver export"
+        raise BadExportError(msg)
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
         msg = f"not valid JSON: {exc.msg}"
+        raise BadExportError(msg) from exc
+    except RecursionError as exc:
+        # CPython's scanner recurses per nesting level, and a megabyte of "[" is well within
+        # the size limit. RecursionError is not a JSONDecodeError, so it escaped this
+        # function entirely and reached the user as a traceback.
+        msg = "nested too deeply to read"
         raise BadExportError(msg) from exc
     if not isinstance(data, dict) or data.get("format") != FORMAT:
         msg = "not a ddiver export"
@@ -235,8 +252,12 @@ async def _import_ignored(
     *,
     is_owner: bool,
 ) -> None:
+    held = await storage.count_ignored(user_id)
     for entry in data.get("ignored") or []:
         if not isinstance(entry, dict):
+            continue
+        if held >= MAX_IGNORED_PER_USER:
+            report.ignored_over_limit += 1
             continue
         sender_id = _int(entry.get("sender_id"))
         if not sender_id:
@@ -251,6 +272,7 @@ async def _import_ignored(
             user_id, chat_id, sender_id, str(note) if note is not None else None
         )
         report.ignored_added += 1
+        held += 1
 
 
 async def _chat_problem(
@@ -314,7 +336,13 @@ def _text(value: Any) -> str:
 
 
 def _int(value: Any) -> int:
+    """Whatever the file said, as an integer SQLite can hold, or 0.
+
+    ``int()`` raises OverflowError on a non-finite float, and json produces those from
+    ``1e999``, ``Infinity`` and ``NaN`` — all of which a hostile export can contain.
+    """
     try:
-        return int(value)
-    except (TypeError, ValueError):
+        parsed = int(value)
+    except (TypeError, ValueError, OverflowError):
         return 0
+    return parsed if SQLITE_INT_MIN <= parsed <= SQLITE_INT_MAX else 0

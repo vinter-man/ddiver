@@ -40,7 +40,8 @@ wait_for_health() {
 }
 
 cd "$APP_DIR" || die "no $APP_DIR"
-[[ -f .env ]] || die ".env is missing — run the bootstrap and `ddiver login` first"
+# shellcheck disable=SC2016  # the backticks are prose, not a substitution: that was the bug
+[[ -f .env ]] || die '.env is missing — run the bootstrap and `ddiver login` first'
 
 # Two deploys at once would interleave a git reset with somebody else's build. CI serialises
 # its own runs, but a hand-run deploy does not know about them, and neither does a re-run of
@@ -75,7 +76,12 @@ if [[ -n "$asked" ]]; then
 	if [[ ! "$asked" =~ ^[0-9a-f]{40}$ ]]; then
 		die "refusing a target that is not a full commit sha"
 	elif ! git merge-base --is-ancestor "$asked" "$target" 2>/dev/null; then
-		log "ignoring $asked: not an ancestor of origin/main, deploying ${target:0:8} instead"
+		log "ignoring $asked: not on origin/main, deploying ${target:0:8} instead"
+	elif ! git merge-base --is-ancestor "$previous" "$asked" 2>/dev/null; then
+		# Ancestry alone accepts every commit ever merged, so a leaked key could pin the box
+		# to an old tree and keep it there. The target must also be at or ahead of what is
+		# deployed now: forward only, and only onto main.
+		log "ignoring $asked: it is behind the deployed ${previous:0:8}"
 	else
 		target="$asked"
 	fi

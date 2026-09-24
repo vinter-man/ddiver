@@ -33,6 +33,8 @@ from ddiver.rules import (
 )
 from ddiver.storage import (
     ALL_CHATS,
+    SQLITE_INT_MAX,
+    SQLITE_INT_MIN,
     ChatRow,
     DuplicateRuleError,
     Role,
@@ -431,6 +433,13 @@ def build_router(
     @router.callback("radd")
     async def rules_add_prompt(ctx: Context) -> list[Action]:
         _, raw_chat, raw_kind = _parts(ctx.incoming.data, 3)
+        # Narrow it here, at the edge: this value is stored in pending state and read back by
+        # another handler, and RuleKind() raises on anything that is not one of the two.
+        raw_kind = (
+            RuleKind.EXCLUDE.value
+            if raw_kind == RuleKind.EXCLUDE.value
+            else (RuleKind.INCLUDE.value)
+        )
         chat_id = _int(raw_chat)
         if chat_id != ALL_CHATS and await accessible_chat(ctx, chat_id) is None:
             return [Toast("bot.err.not_found")]
@@ -441,7 +450,9 @@ def build_router(
     async def rules_add(ctx: Context) -> list[Action]:
         payload = router.pending_payload(ctx.user_id)
         chat_id = int(payload.get("chat_id", ALL_CHATS))
-        kind = RuleKind(payload.get("kind", RuleKind.INCLUDE.value))
+        kind = (
+            RuleKind.EXCLUDE if payload.get("kind") == RuleKind.EXCLUDE.value else RuleKind.INCLUDE
+        )
         router.clear_pending(ctx.user_id)
         lines = parse_rule_lines(ctx.incoming.text or "")
         if len(lines) > MAX_LINES_PER_MESSAGE:
@@ -904,7 +915,14 @@ def _parts(data: str | None, count: int) -> list[str]:
 
 
 def _int(raw: str) -> int:
+    """Parse a callback field, or 0 — which matches no chat and no rule.
+
+    Clamped to what SQLite can hold. Python integers are unbounded, so a thirty-digit field
+    parses happily and then raises OverflowError inside the driver, where it is a traceback
+    rather than an answer. 0 sends it down the path a stale button already takes.
+    """
     try:
-        return int(raw)
-    except ValueError:
+        value = int(raw)
+    except (TypeError, ValueError):
         return 0
+    return value if SQLITE_INT_MIN <= value <= SQLITE_INT_MAX else 0
