@@ -14,6 +14,8 @@ catastrophic pattern freezing the event loop.
 from __future__ import annotations
 
 import enum
+import threading
+import tracemalloc
 import unicodedata
 from dataclasses import dataclass
 from typing import Any
@@ -90,6 +92,8 @@ class CompiledRule:
     pattern: str
     mode: MatchMode
     compiled: regex.Pattern[str]
+    cost_bytes: int = 0
+    """What compiling this pattern allocated. See :data:`MAX_COMPILED_BYTES`."""
 
     def search(self, text: str, timeout: float) -> Span | None:
         """First non-empty match span, or ``None``; raises :class:`RuleTimeout` on timeout.
@@ -244,13 +248,20 @@ def compile_rule(raw: str, *, timeout: float) -> CompiledRule:
         expr = payload
 
     try:
-        compiled = regex.compile(expr, regex.IGNORECASE)
+        compiled, cost = _compile_measured(expr)
     except regex.error as exc:  # invalid user regex
         raise RuleError("rule.err.invalid_regex", detail=str(exc)) from exc
 
+    if cost > MAX_COMPILED_BYTES:
+        # The module keeps its own cache of compiled patterns, so dropping our reference to a
+        # rejected monster does not give the memory back — and rejecting a hundred of them in
+        # one import was itself a way to exhaust the container.
+        regex.purge()
+        raise RuleError("rule.err.unrolls_too_big", limit=MAX_UNROLL)
+
     if mode is MatchMode.REGEX:
         _validate_regex(pattern, compiled, timeout)
-    return CompiledRule(pattern=pattern, mode=mode, compiled=compiled)
+    return CompiledRule(pattern=pattern, mode=mode, compiled=compiled, cost_bytes=cost)
 
 
 MAX_REPEAT = 1_000
@@ -273,6 +284,46 @@ word with a gap either side) with a sentence about memory that was untrue of the
 front of the moderator — and, worse, auto-disabled such rules already stored, with that same
 reason, the next time their chat was loaded.
 """
+
+MAX_COMPILED_BYTES = 512 * 1024
+r"""Largest compiled program one rule may hold.
+
+:data:`MAX_UNROLL` counts atoms, and an atom is not a fixed size — which is the hole this
+closes. Measured on the same machine: ``.{999}`` is 999 atoms and 119 KB, while
+``[\p{L}\p{N}\p{P}\p{S}\p{M}\p{Z}\p{C}]{1000}`` repeated five times is 4993 atoms — under
+the cap — and **4.6 MB**. A hundred of those is a 512 MB container, and since rules live in
+SQLite the next start compiles them again before it can disable anything, so it was a crash
+loop a moderator could install with one /import and nobody could clear without opening the
+database by hand.
+
+The counting guard stays because it runs before the allocation; this one runs after, and is
+the one that cannot be walked past with a construct nobody thought of.
+"""
+
+_MEASURE = threading.Lock()
+
+
+def _compile_measured(expr: str) -> tuple[regex.Pattern[str], int]:
+    """Compile, and report what the compiled program allocated.
+
+    tracemalloc is global state, so this is serialised — compiling happens when a rule is
+    added and when a chat is first matched against, never per message, and the measurement
+    costs about 0.1 ms. A second compile of the same expression is answered from the module's
+    own cache and measures ~0, which is correct: the memory is already counted.
+    """
+    with _MEASURE:
+        tracing = tracemalloc.is_tracing()
+        if not tracing:
+            tracemalloc.start()
+        try:
+            before = tracemalloc.get_traced_memory()[0]
+            compiled = regex.compile(expr, regex.IGNORECASE)
+            after = tracemalloc.get_traced_memory()[0]
+        finally:
+            if not tracing:
+                tracemalloc.stop()
+    return compiled, max(0, after - before)
+
 
 _REPEAT = regex.compile(r"\{(\d+)(?:,(\d*))?\}")
 

@@ -14,6 +14,9 @@ from ddiver.storage import Rule, Storage
 
 log = logging.getLogger(__name__)
 
+MAX_RULESET_BYTES = 24 * 1024 * 1024
+"""How much compiled regex one chat's rule set may hold. See :meth:`Matcher._compile_all`."""
+
 TIMEOUTS_BEFORE_DISABLE = 3
 OFFLOAD_ABOVE_RULES = 20
 """Above this many rules for one chat, matching moves off the event loop.
@@ -95,6 +98,7 @@ class Matcher:
         self.stats_matched = 0
         self.stats_timeouts = 0
         self.stats_budget_exceeded = 0
+        self.stats_rules_skipped = 0
 
     def note_hit(self, rule_id: int) -> None:
         """Count a delivered match; flushed to storage together with the cursors."""
@@ -227,15 +231,35 @@ class Matcher:
             self._cache[chat_id] = ruleset
         return ruleset
 
-    def _compile_all(self, rules: list[Rule]) -> list[tuple[Rule, CompiledRule | RuleError]]:
-        """Pure, and safe to run in a worker thread: it touches nothing but its argument."""
+    def _compile_all(
+        self, rules: list[Rule]
+    ) -> tuple[list[tuple[Rule, CompiledRule | RuleError]], int]:
+        """Compile a chat's rules within a memory budget; returns the pairs and what was left out.
+
+        Safe to run in a worker thread: it touches nothing but its argument and a counter.
+
+        The budget exists because the per-rule cap is not enough on its own. Two hundred rules
+        are allowed per chat and five hundred per person, so even rules that each sit under
+        :data:`MAX_COMPILED_BYTES` add up to more than this container has — and every cached
+        chat holds its own set. Rules past the budget are skipped rather than disabled: a rule
+        the owner cannot see and did not ask to remove must not be silently deleted because
+        somebody else's rule set was expensive that minute.
+        """
         out: list[tuple[Rule, CompiledRule | RuleError]] = []
+        budget = MAX_RULESET_BYTES
+        skipped = 0
         for rule in rules:
+            if budget <= 0:
+                skipped += 1
+                continue
             try:
-                out.append((rule, compile_rule(rule.pattern, timeout=self._timeout)))
+                compiled = compile_rule(rule.pattern, timeout=self._timeout)
             except RuleError as exc:
                 out.append((rule, exc))
-        return out
+                continue
+            budget -= compiled.cost_bytes
+            out.append((rule, compiled))
+        return out, skipped
 
     async def _load(self, chat_id: int) -> _ChatRuleSet:
         rules = await self._storage.rules_for_chat(chat_id)
@@ -247,7 +271,16 @@ class Matcher:
         # means several timed searches per pattern. Doing that on the event loop meant the
         # first message into a chat with a few hundred rules stalled everything — deliveries,
         # the heartbeat, the health check — for as long as the whole set took.
-        compiled = await asyncio.to_thread(self._compile_all, rules)
+        compiled, skipped = await asyncio.to_thread(self._compile_all, rules)
+        if skipped:
+            self.stats_rules_skipped += skipped
+            log.error(
+                "chat %s: %d rules were not compiled, the set is over %d MB — matching there "
+                "is incomplete until somebody removes a pattern",
+                chat_id,
+                skipped,
+                MAX_RULESET_BYTES // (1024 * 1024),
+            )
 
         by_user: dict[int, _UserRules] = {}
         for rule, result in compiled:

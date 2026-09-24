@@ -238,6 +238,40 @@ class TestCatchup:
         assert seen_blocked[0] == {CHAT_ID}  # blocked while replaying
         assert listener.cursors.blocked == set()  # released afterwards
 
+    @pytest.mark.parametrize(
+        "failure",
+        [
+            errors.FloodWaitError(request=None, capture=90),
+            ValueError("Could not find the input entity"),
+            RuntimeError("something nobody predicted"),
+        ],
+        ids=["flood-wait", "unresolvable-peer", "anything-else"],
+    )
+    async def test_a_chat_that_could_not_be_read_keeps_its_stored_cursor(
+        self, store, listener, clock, failure
+    ):
+        """The gap this round failed to read must not end up below the cursor.
+
+        Every fetch error is turned into "skip this chat this round" one level down, so the
+        round used to strike the chat off its unfinished list anyway — and the live message
+        that arrived while the chat was blocked was then written as the new cursor. Since
+        `upsert_cursors` only ever moves forward, the unexamined history was gone for good.
+        A boot round right after downtime is both when that gap is largest and when a flood
+        wait is likeliest, so the error and the loss arrive together rather than by coincidence.
+        """
+        await store.upsert_cursors([Cursor(CHAT_ID, 100, T0)])
+        history = FakeHistory({CHAT_ID: history_of(CHAT, [(i, "казино") for i in (200, 150)])})
+        history.errors[CHAT_ID] = failure
+
+        async def live_message_arrives(_seconds):
+            assert CHAT_ID in listener.cursors.blocked
+            listener.cursors.note(CHAT_ID, 5000, T0)
+
+        catchup = Catchup(store, listener, history, clock=clock, sleep=live_message_arrives)
+        await catchup.run({CHAT_ID})
+
+        assert (await store.get_cursors())[CHAT_ID].last_msg_id == 100
+
     async def test_total_budget_stops_the_round(self, store, listener, clock, sleeps):
         await store.upsert_cursors([Cursor(CHAT_ID, 0, T0), Cursor(OTHER_ID, 0, T0)])
         history = FakeHistory(

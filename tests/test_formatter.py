@@ -205,6 +205,47 @@ class TestDigest:
         assert utf16_len(r.text) <= MAX_MESSAGE_UTF16
         assert all(e.offset + e.length <= utf16_len(r.text) for e in r.entities)
 
+    @pytest.mark.parametrize("lang", ["ru", "en", "uk"])
+    def test_it_always_fits_in_one_telegram_message(self, lang):
+        """Everything interpolated into a digest line is somebody else's text.
+
+        The rule is the moderator's own and the UI allows 300 characters; the sender name is
+        whatever a stranger called themselves; the chat title is whatever an admin set. The
+        budget used to be checked once per chat, *before* that chat's whole block went in, and
+        the two trailing lines were never checked at all. Measured on the code this replaced:
+        4784 UTF-16 units at twelve chats, against a limit of 4096. Telegram answers
+        MESSAGE_TOO_LONG, which is not a rendering error, so there is no plain-text retry —
+        `_send` failed the batch and every row in it was written `failed`, which nothing reads
+        again.
+
+        The chat count is swept rather than sampled: the overflow lived at one specific
+        shape, and the first version of this test missed it by choosing thirteen.
+        """
+        worst = 0
+        for chats in range(1, 17):
+            entries = []
+            for i in range(200):
+                chat_id = -100 - (i % chats)
+                entries.append(
+                    DigestEntry(
+                        payload(
+                            chat_id=chat_id,
+                            chat_title="Ч" * 128,
+                            msg_id=100 + i,
+                            rule_pattern="re:(" + "|".join(f"слово{j}" for j in range(30)) + ")",
+                            sender_name="И" * 129,
+                            sender_username="u" * 32,
+                            text="казино " * 40,
+                            spans=[(0, 6)],
+                        ),
+                        (1, chat_id, 100 + i),
+                    )
+                )
+            r = render_digest(entries, lang=lang, tz="UTC", now=NOW, overflow=999_999)
+            worst = max(worst, utf16_len(r.text))
+            assert all(e.offset + e.length <= utf16_len(r.text) for e in r.entities)
+        assert worst <= MAX_MESSAGE_UTF16, f"{worst} units at some chat count"
+
     def test_overflow_is_reported(self):
         r = render_digest(self.entries(3), lang="en", tz="UTC", now=NOW, overflow=17)
         assert "17 matches were dropped" in r.text

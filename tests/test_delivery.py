@@ -194,7 +194,43 @@ class TestErrors:
         assert user.paused and user.pause_reason == "UserIsBlockedError"
         assert user.active  # no re-approval needed after they unblock
         assert delivery.queue_length(MOD) == 0
-        assert (await store.get_delivery(*item.key)).status is DeliveryStatus.FAILED
+        # Pending, not failed: blocking the bot is a pause, and the row has to survive it.
+        # `pending_deliveries` skips a paused user, so nothing retries against them until
+        # `resume_delivery`, and nothing loops.
+        assert (await store.get_delivery(*item.key)).status is DeliveryStatus.PENDING
+
+    async def test_a_block_mid_digest_does_not_destroy_the_batch(self, delivery, bot, store):
+        """The digest path used to write every other row in the batch `failed`.
+
+        Nothing anywhere re-reads a failed row, so one block at the wrong moment cost a
+        moderator up to DIGEST_MAX_ITEMS notifications — where without digests it would have
+        cost exactly one. The single-item path always honoured the contract; this one did not.
+        """
+        await store.update_user(MOD, digest_threshold=3)
+        bot.hold()
+        items = [await claim(store, MOD, i) for i in range(1, 8)]
+        for item in items:
+            await delivery.enqueue(item)
+        # The first send goes through, so the worker comes back to a backlog and folds the
+        # rest into one digest — which is the send that then hits the block.
+        bot.fail_next(None, errors.UserIsBlockedError(request=None))
+        bot.release()
+        await settle(delivery)
+
+        assert (await store.get_delivery(*items[0].key)).status is DeliveryStatus.SENT
+        rest = items[1:]
+        statuses = [(await store.get_delivery(*i.key)).status for i in rest]
+        assert DeliveryStatus.FAILED not in statuses, "the batch was destroyed"
+        assert statuses.count(DeliveryStatus.PENDING) == len(rest)
+
+        # and the whole backlog comes back once they unblock the bot
+        await store.resume_delivery(MOD)
+        assert await delivery.replay_pending() == len(rest)
+        await settle(delivery)
+        assert {(await store.get_delivery(*i.key)).status for i in rest} <= {
+            DeliveryStatus.SENT,
+            DeliveryStatus.DIGESTED,
+        }
 
     async def test_entity_error_falls_back_to_plain_text(self, delivery, bot, store):
         bot.fail_next(errors.EntitiesTooLongError(request=None))
@@ -442,11 +478,13 @@ class TestRecoveryFromStrandedRows:
         workers = [t for t in asyncio.all_tasks() if t.get_name() == f"delivery-{MOD}"]
         assert all(t.done() for t in workers)  # no orphan worker spinning on a dead queue
         assert (await store.get_delivery(*second.key)).status is DeliveryStatus.PENDING
-        # once the user unblocks the bot, a rescan picks the row up again
+        assert (await store.get_delivery(*first.key)).status is DeliveryStatus.PENDING
+        # once the user unblocks the bot, a rescan picks both rows up again
         await store.resume_delivery(MOD)
-        assert await delivery.replay_pending() == 1
+        assert await delivery.replay_pending() == 2
         await settle(delivery)
         assert (await store.get_delivery(*second.key)).status is DeliveryStatus.SENT
+        assert (await store.get_delivery(*first.key)).status is DeliveryStatus.SENT
 
     async def test_rescan_does_not_duplicate_queued_rows(self, delivery, bot, store):
         bot.hold()

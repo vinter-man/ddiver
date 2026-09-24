@@ -3,6 +3,7 @@ import asyncio
 import pytest
 import regex
 
+import ddiver.matcher as matcher_module
 from ddiver.links import ChatRef
 from ddiver.matcher import TIMEOUTS_BEFORE_DISABLE, Matcher
 from ddiver.rules import CompiledRule, MatchMode, RuleKind
@@ -194,6 +195,28 @@ class TestOffloadAndBudget:
         finally:
             monkeypatch.undo()
         assert "_compile_all" in seen
+
+    async def test_an_expensive_rule_set_is_bounded_rather_than_fatal(
+        self, store, matcher, monkeypatch, caplog
+    ):
+        """Two hundred rules are allowed per chat, and each may be under the per-rule cap.
+
+        They still add up to more memory than the container has, and every cached chat holds
+        its own set — so the set itself needs a ceiling. Past it the rules are skipped, never
+        disabled: a rule its owner did not ask to remove must not disappear because somebody
+        else's patterns were expensive that minute.
+        """
+        monkeypatch.setattr(matcher_module, "MAX_RULESET_BYTES", 8 * 1024)
+        for i in range(12):
+            await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, f"такси{i}")
+        await matcher.invalidate()
+        await matcher.evaluate(CHAT_A.id, "ничего", 1)
+
+        assert matcher.stats_rules_skipped > 0
+        assert "rules were not compiled" in caplog.text
+        # skipped, not disabled: every rule is still there for the next load
+        rules = await store.rules_for_chat(CHAT_A.id)
+        assert all(r.disabled_reason is None for r in rules)
 
     async def test_budget_stops_a_pathological_rule_set(self, store, monkeypatch):
         m = Matcher(store, timeout=0.02)

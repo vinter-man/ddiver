@@ -190,6 +190,10 @@ class MetricsSource:
                         matcher.stats_budget_exceeded,
                         "Evaluations cut short by the per-subscriber budget",
                     ),
+                    "rules_skipped_total": (
+                        matcher.stats_rules_skipped,
+                        "Rules not compiled because the chat's rule set is over its memory budget",
+                    ),
                 },
             )
             yield Metric(

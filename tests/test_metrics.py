@@ -44,6 +44,7 @@ class FakeMatcher:
     stats_matched = 2
     stats_timeouts = 0
     stats_budget_exceeded = 0
+    stats_rules_skipped = 0
     monitored = frozenset({-1001, -1002})
 
 

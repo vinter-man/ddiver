@@ -133,7 +133,16 @@ started=true
 # the rendered files changed — and only then, because recreating it needlessly drops every
 # open dashboard session.
 alerts_before="$(_alerting_config)"
-"$APP_DIR/deploy/render-alerts.sh"
+# Not under `set -e` either. render-alerts.sh exits 1 on a malformed ALERT_TELEGRAM_* value —
+# a token with a stray quote, a chat id somebody typed a letter into — and by this point the
+# checkout has moved and the image is built. Killing the deploy there leaves the box running
+# the old container on a new tree, with no `up -d` and no rollback, over a *notification*
+# setting. The old rendered files stay exactly as they were, so Grafana keeps whatever alerting
+# it already had.
+if ! "$APP_DIR/deploy/render-alerts.sh"; then
+	log "WARNING: the alerting config could not be rendered; deploying anyway"
+	log "         Grafana keeps the alerting it already has — check ALERT_TELEGRAM_* in .env"
+fi
 if [[ "$(_alerting_config)" != "$alerts_before" ]]; then
 	log "alerting changed; Grafana will be recreated to pick it up"
 	docker compose "${COMPOSE_FILES[@]}" up -d --force-recreate --no-deps grafana || true

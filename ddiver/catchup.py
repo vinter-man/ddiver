@@ -111,14 +111,22 @@ class Catchup:
                         len(monitored) - result.chats,
                     )
                     break
-                await self._catch_up_chat(chat, cursor.last_msg_id, cutoff, result)
-                unfinished.discard(chat_id)
+                if await self._catch_up_chat(chat, cursor.last_msg_id, cutoff, result):
+                    unfinished.discard(chat_id)
                 await self._sleep(INTER_CHAT_PAUSE)
         finally:
-            # A chat the round never reached (budget, cancellation, an error) may have gathered
-            # a live cursor while it was blocked. Writing that would jump the stored cursor over
-            # the very gap this round was supposed to examine, so drop it: the live messages are
-            # already durable in the outbox, and re-fetching them is deduplicated.
+            # A chat this round did not actually read (budget, cancellation, or a fetch that
+            # failed) may have gathered a live cursor while it was blocked. Writing that would
+            # jump the stored cursor over the very gap the round was supposed to examine, so
+            # drop it: the live messages are already durable in the outbox, and re-fetching
+            # them is deduplicated.
+            #
+            # "Did not read" has to include the failures, which is what this used to get wrong.
+            # `_fetch_guarded` turns every fetch error into "skip this chat", so a flood wait
+            # or an unresolvable peer returned normally, the chat was struck off here anyway,
+            # and the live cursor went out over the unexamined history — permanently, because
+            # `upsert_cursors` only ever moves forward. A boot round right after downtime is
+            # both when the gap is largest and when a flood wait is likeliest.
             for chat_id in unfinished:
                 self._listener.cursors.drop(chat_id)
             for chat_id in todo:
@@ -151,10 +159,11 @@ class Catchup:
         result: CatchupResult,
         *,
         probing: bool = False,
-    ) -> None:
+    ) -> bool:
+        """True when this chat was actually read, which is what lets its cursor move."""
         fetched = await self._fetch_guarded(chat, min_id, cutoff, result)
         if fetched is None:
-            return
+            return False
         buffered, capped, newest = fetched
 
         if probing:
@@ -180,6 +189,7 @@ class Catchup:
             self._listener.cursors.note(chat.id, highest, newest[1])
             if failed_at is not None:
                 self._listener.cursors.cap(chat.id, failed_at - 1)
+        return True
 
     async def _fetch_guarded(
         self, chat: ChatRow, min_id: int, cutoff: dt.datetime, result: CatchupResult

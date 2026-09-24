@@ -4,6 +4,7 @@ import pytest
 import regex
 
 from ddiver.rules import (
+    MAX_COMPILED_BYTES,
     MAX_HIGHLIGHTS,
     MAX_PATTERN_LEN,
     MAX_REPEAT,
@@ -216,6 +217,61 @@ class TestRepeatGuard:
         with pytest.raises(RuleError) as ei:
             compile_rule("re:(a{1000}){1000}", timeout=T)
         assert ei.value.params["limit"] == MAX_UNROLL
+
+
+class TestCompiledSizeGuard:
+    """What a pattern *costs*, as opposed to how many pieces it has.
+
+    MAX_UNROLL counts atoms, and an atom is not a fixed size. A wide Unicode class is about
+    eight times a plain one, so a pattern could sit inside every stated limit — 217 of 300
+    characters, 4993 of 5000 atoms — and still allocate 4.6 MB. A hundred of them is a dead
+    container, and since rules live in SQLite the next start compiles them again before it can
+    disable anything: a crash loop installable with one /import.
+    """
+
+    HEAVY = (
+        r"q9q"
+        + r"[\p{L}\p{N}\p{P}\p{S}\p{M}\p{Z}\p{C}]{1000}" * 4
+        + r"[\p{L}\p{N}\p{P}\p{S}\p{M}\p{Z}\p{C}]{990}"
+    )
+
+    def test_the_heavy_pattern_passes_every_other_check(self):
+        """Which is the point: nothing before this guard had any reason to refuse it."""
+        assert len(self.HEAVY) <= MAX_PATTERN_LEN
+        assert _unroll_cost(self.HEAVY) <= MAX_UNROLL
+
+    def test_and_is_refused_anyway(self):
+        with pytest.raises(RuleError) as ei:
+            compile_rule(f"re:{self.HEAVY}", timeout=T)
+        assert ei.value.key == "rule.err.unrolls_too_big"
+
+    def test_refusing_it_does_not_leave_the_memory_behind(self):
+        """The module caches compiled patterns, so dropping our reference frees nothing.
+
+        Rejecting a hundred of these in one import was itself a way to exhaust the container.
+        """
+        regex.purge()
+        tracemalloc.start()
+        try:
+            for i in range(6):
+                with pytest.raises(RuleError):
+                    compile_rule(f"re:q{i}q{self.HEAVY[3:]}", timeout=T)
+            held = tracemalloc.get_traced_memory()[0]
+        finally:
+            tracemalloc.stop()
+        assert held < 6 * MAX_COMPILED_BYTES, f"{held / 1e6:.1f} MB still held"
+
+    @pytest.mark.parametrize(
+        "pattern",
+        [r".{999}", r".{50}такси.{50}", r"\w{2,32}@\w{2,32}\.\w{2,8}", r"[а-яё]{40}"],
+    )
+    def test_ordinary_patterns_are_far_below_the_cap(self, pattern):
+        """Measured: the largest of these is 119 KB against a 512 KB cap."""
+        rule = compile_rule(f"re:{pattern}", timeout=T)
+        assert 0 < rule.cost_bytes < MAX_COMPILED_BYTES
+
+    def test_a_plain_keyword_costs_almost_nothing(self):
+        assert compile_rule("такси", timeout=T).cost_bytes < 32 * 1024
 
 
 def test_parse_rule_lines_keeps_every_non_blank_line():

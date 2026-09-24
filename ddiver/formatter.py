@@ -23,10 +23,22 @@ from ddiver.timeutil import format_local, relative
 TEXT_BUDGET = 3200
 """UTF-16 units left for the message body after the header lines."""
 
+SNIPPET_CHARS = 60
+
 DIGEST_BUDGET = 3500
 DIGEST_CHATS = 12
 DIGEST_ITEMS_PER_CHAT = 5
-SNIPPET_CHARS = 60
+DIGEST_RULE_CHARS = 48
+DIGEST_SENDER_CHARS = 32
+DIGEST_LINE_MAX = DIGEST_RULE_CHARS + DIGEST_SENDER_CHARS + SNIPPET_CHARS + 32
+"""Longest one item line can be, bullet and separators included.
+
+The loop adds a line only when this much still fits, which is what makes "the digest is never
+longer than Telegram will accept" a property of the code rather than of the inputs.
+"""
+
+DIGEST_TAIL_RESERVE = 320
+"""Room kept for the two lines appended after the loop, which nothing else checks."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,23 +237,23 @@ def render_digest(
         rt.add("📡 ")
         rt.add(first.chat_title or str(chat_id), bold=True, url=head_link)
         rt.add(f" — {len(payloads)}").newline()
+        shown_items = 0
         for payload in payloads[:DIGEST_ITEMS_PER_CHAT]:
+            if rt.utf16_length + DIGEST_LINE_MAX + DIGEST_TAIL_RESERVE > MAX_MESSAGE_UTF16:
+                # The budget was checked once per chat, before the chat's whole block went in,
+                # and the two trailing lines were never checked at all. A digest could leave
+                # here at ~4700 units, Telegram answered MESSAGE_TOO_LONG — which is not a
+                # rendering error, so there was no plain-text retry — and the entire batch was
+                # written `failed`, which nothing re-reads. Now every line is asked.
+                break
             link = message_link(chat, payload.msg_id, payload.topic_id)
-            snippet = _snippet(payload)
-            line = t(
-                lang,
-                "digest.item",
-                rule=payload.rule_pattern,
-                sender=sender_label(payload, lang) or "?",
-                snippet=snippet,
-            )
+            line = _digest_line(payload, lang)
             rt.add("  • ")
             rt.add(line, url=link) if link else rt.add(line)
             rt.newline()
-        if len(payloads) > DIGEST_ITEMS_PER_CHAT:
-            rt.add("  ").add(
-                t(lang, "digest.more_items", n=len(payloads) - DIGEST_ITEMS_PER_CHAT)
-            ).newline()
+            shown_items += 1
+        if len(payloads) > shown_items:
+            rt.add("  ").add(t(lang, "digest.more_items", n=len(payloads) - shown_items)).newline()
         shown_chats += 1
 
     if shown_chats < len(ordered):
@@ -259,6 +271,27 @@ def render_digest(
 
     text, entities = rt.build()
     return Rendered(text, entities)
+
+
+def _digest_line(payload: Payload, lang: str) -> str:
+    """One item line, bounded.
+
+    Everything interpolated here is attacker-shaped: the rule is the moderator's own and may
+    be 300 characters, the sender name is whatever somebody called themselves. Cutting them to
+    a preview is what lets `render_digest` know, before it adds a line, that the message will
+    still fit.
+    """
+    return t(
+        lang,
+        "digest.item",
+        rule=_cut(payload.rule_pattern, DIGEST_RULE_CHARS),
+        sender=_cut(sender_label(payload, lang) or "?", DIGEST_SENDER_CHARS),
+        snippet=_snippet(payload),
+    )
+
+
+def _cut(text: str, limit: int) -> str:
+    return text if len(text) <= limit else f"{text[: limit - 1]}…"
 
 
 def _snippet(payload: Payload) -> str:

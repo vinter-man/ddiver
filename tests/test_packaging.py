@@ -108,6 +108,16 @@ class TestDeployScript:
         assert 'running="$(cat "$0")"' in text
         assert '[[ "$(cat "$0")" != "$running" ]]' in text
 
+    def test_a_bad_alert_setting_does_not_kill_the_deploy(self):
+        """render-alerts.sh rejects a malformed ALERT_TELEGRAM_* value with exit 1.
+
+        It runs after the reset and after the build, so under `set -e` a stray quote in a
+        notification setting left the box running the old container on a new tree, with no
+        `up -d` and no rollback.
+        """
+        text = DEPLOY.read_text(encoding="utf-8")
+        assert 'if ! "$APP_DIR/deploy/render-alerts.sh"; then' in text
+
     def test_a_failed_start_still_reaches_the_rollback(self):
         """Under `set -e` a failing `up -d` used to end the script with nothing running."""
         text = DEPLOY.read_text(encoding="utf-8")

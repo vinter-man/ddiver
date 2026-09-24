@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import datetime as dt
+import enum
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
@@ -45,6 +46,18 @@ ButtonFactory = Callable[[OutboxItem, str], Any]
 
 RETRYABLE = (errors.ServerError, errors.TimedOutError, ConnectionError, OSError)
 PAUSE_ERRORS = (errors.UserIsBlockedError, errors.InputUserDeactivatedError)
+
+
+class SendOutcome(enum.Enum):
+    """Why a send stopped, because the three answers need three different things done.
+
+    A pause is not a failure: the rows have to survive it, or blocking the bot for a minute
+    costs a moderator every notification that was waiting behind the first one.
+    """
+
+    SENT = "sent"
+    FAILED = "failed"  # deterministic; the row has already been marked
+    PAUSED = "paused"  # the moderator blocked the bot; every row stays pending
 
 
 class BotPort(Protocol):
@@ -341,8 +354,8 @@ class Delivery:
             # from "stranded", so those rows would stay pending and unreachable for the life
             # of the process, never counted as failed and never seen by the alert.
             try:
-                sent = await self._send(user_id, rendered, buttons=None, item=batch[0])
-                await self._finish_digest(batch, sent=sent)
+                outcome = await self._send(user_id, rendered, buttons=None, item=batch[0])
+                await self._finish_digest(batch, outcome)
             finally:
                 for extra in batch[1:]:
                     state.enqueued_at.pop(extra.key, None)
@@ -351,22 +364,27 @@ class Delivery:
         payload = await self._with_sender_name(Payload.from_json(item.payload), item.key)
         rendered = render_notification(payload, lang=lang, tz=tz, now=self._clock())
         buttons = self._buttons(item, lang) if self._buttons else None
-        if await self._send(user_id, rendered, buttons=buttons, item=item):
+        if await self._send(user_id, rendered, buttons=buttons, item=item) is SendOutcome.SENT:
             await self._storage.set_delivery_status(*item.key, DeliveryStatus.SENT)
             self.metrics.delivered += 1
 
-    async def _finish_digest(self, batch: list[OutboxItem], *, sent: bool) -> None:
-        if sent:
+    async def _finish_digest(self, batch: list[OutboxItem], outcome: SendOutcome) -> None:
+        if outcome is SendOutcome.SENT:
             await self._storage.mark_digested([i.key for i in batch])
             self.metrics.digested += len(batch)
-        else:
-            # _send only marked batch[0]; the rest were taken off the queue, so record them
-            # too instead of leaving rows nothing will ever pick up again.
+        elif outcome is SendOutcome.FAILED:
+            # Deterministic: this batch would fail the same way on every retry, so the rows
+            # are recorded rather than left for a rescan to pick up forever. `_send` marked
+            # batch[0]; the rest were taken off the queue and would otherwise be rows that
+            # nothing ever picks up again.
             for extra in batch[1:]:
                 await self._storage.set_delivery_status(
                     *extra.key, DeliveryStatus.FAILED, error="digest_failed"
                 )
                 self.metrics.failed += 1
+        # SendOutcome.PAUSED: nothing to record. Every row in the batch is still pending and
+        # `pending_deliveries` skips a paused user, so the backlog comes back whole on the
+        # rescan after they unblock the bot — which is what the outbox is for.
 
     async def _with_sender_name(self, payload: Payload, key: tuple[int, int, int]) -> Payload:
         """Fill in a missing sender name.
@@ -421,7 +439,7 @@ class Delivery:
 
     async def _send(
         self, user_id: int, rendered: Rendered, *, buttons: Any, item: OutboxItem
-    ) -> bool:
+    ) -> SendOutcome:
         attempts = item.attempts
         degraded = False
         while True:
@@ -451,12 +469,15 @@ class Delivery:
                 if self._on_user_state_changed is not None:
                     # stop the listener from claiming rows nobody can receive
                     await self._on_user_state_changed()
-                await self._storage.set_delivery_status(
-                    *item.key, DeliveryStatus.FAILED, error=type(exc).__name__, attempts=attempts
-                )
                 await self.drop_user(user_id)
-                self.metrics.failed += 1
-                return False
+                # The row stays pending, and so does the rest of a digest batch. Blocking the
+                # bot is not a delivery failure, it is a pause: `pending_deliveries` skips a
+                # paused user, so nothing retries against them and nothing loops, and the
+                # rescan after `resume_delivery` hands the whole backlog back. Writing them
+                # `failed` destroyed up to DIGEST_MAX_ITEMS notifications per block, because
+                # nothing anywhere re-reads a failed row.
+                self.metrics.dropped_inactive += 1
+                return SendOutcome.PAUSED
             except errors.BadRequestError as exc:
                 if not degraded and _is_rendering_error(exc):
                     degraded = True
@@ -464,11 +485,11 @@ class Delivery:
                     log.warning("retrying plain-text after %s for %s", type(exc).__name__, item.key)
                     continue
                 await self._fail(item, exc, attempts)
-                return False
+                return SendOutcome.FAILED
             except (*RETRYABLE, ValueError) as exc:
                 if isinstance(exc, ValueError) or attempts >= MAX_ATTEMPTS:
                     await self._fail(item, exc, attempts)
-                    return False
+                    return SendOutcome.FAILED
                 delay = min(BACKOFF_CAP, BACKOFF_BASE * 2 ** (attempts - 1))
                 log.warning(
                     "send to %s failed (%s); retry %d in %.0fs",
@@ -479,7 +500,7 @@ class Delivery:
                 )
                 await self._sleep(delay)
                 continue
-            return True
+            return SendOutcome.SENT
 
     async def _fail(self, item: OutboxItem, exc: BaseException, attempts: int) -> None:
         log.error("giving up on %s: %s", item.key, type(exc).__name__)
