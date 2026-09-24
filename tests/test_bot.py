@@ -862,3 +862,26 @@ class TestIgnoreListLimit:
         await cb(router, OWNER, f"sub:{CHAT_A.id}:1")
         await cb(router, OWNER, f"ig:{CHAT_A.id}:777")
         assert await store.count_ignored(OWNER) == 1
+
+
+class TestPreviewBudget:
+    async def test_a_slow_rule_set_does_not_run_forever(self, router, store, monkeypatch):
+        """The live matcher stops after half a second per subscriber; /test had no limit at
+        all, so a full set of slow patterns kept a worker thread busy for the whole set, for
+        every chat, on every invocation."""
+        import ddiver.bot.handlers as handlers_module
+
+        monkeypatch.setattr(handlers_module, "PREVIEW_BUDGET", -1.0)
+        await store.set_chat_shared(CHAT_A.id, True)
+        await cb(router, OWNER, f"sub:{CHAT_A.id}:1")
+        await store.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "такси")
+
+        actions = await msg(router, OWNER, "/test нужно такси")
+        assert "⏱" in actions[0].key_or_text
+
+    async def test_an_ordinary_set_still_answers(self, router, store):
+        await store.set_chat_shared(CHAT_A.id, True)
+        await cb(router, OWNER, f"sub:{CHAT_A.id}:1")
+        await store.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "такси")
+        actions = await msg(router, OWNER, "/test нужно такси")
+        assert "✅" in actions[0].key_or_text

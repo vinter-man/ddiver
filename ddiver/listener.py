@@ -59,6 +59,39 @@ class CursorTracker:
     storage: Storage
     pending: dict[int, tuple[int, dt.datetime]] = field(default_factory=dict)
     blocked: set[int] = field(default_factory=set)
+    holds: dict[int, set[int]] = field(default_factory=dict)
+    """Message ids being processed, per chat. The cursor may never pass the lowest of them.
+
+    Handling a match awaits storage before the row exists; handling a non-match awaits
+    nothing. Telethon dispatches each update in its own task, so message 101 can note its id
+    and be flushed while message 100 is still deciding whether it is a match — and a stored
+    cursor above 100 makes 100 unreachable, because catch-up only ever starts at the cursor.
+    A hold is taken before the first await and released only when that message has actually
+    reached ``note``; a message that failed keeps its hold, which is the point.
+    """
+
+    def hold(self, chat_id: int, msg_id: int) -> None:
+        self.holds.setdefault(chat_id, set()).add(msg_id)
+
+    def release(self, chat_id: int, msg_id: int) -> None:
+        """Release a hold. Deliberately not called from a ``finally``.
+
+        A message whose claim raised is not durable anywhere: releasing it would let the next
+        message flush the cursor straight past it, which is the loss this exists to prevent.
+        The hold stays for the life of the process; the next start re-examines the chat from
+        the older cursor and the outbox deduplicates whatever arrives twice.
+        """
+        held = self.holds.get(chat_id)
+        if held is None:
+            return
+        held.discard(msg_id)
+        if not held:
+            del self.holds[chat_id]
+
+    def _ceiling(self, chat_id: int) -> int | None:
+        """Highest id the cursor may reach for this chat right now."""
+        held = self.holds.get(chat_id)
+        return min(held) - 1 if held else None
 
     def note(self, chat_id: int, msg_id: int, moment: dt.datetime) -> None:
         current = self.pending.get(chat_id)
@@ -88,11 +121,17 @@ class CursorTracker:
         self.blocked.discard(chat_id)
 
     async def flush(self) -> int:
-        ready = [
-            Cursor(chat_id, msg_id, moment)
-            for chat_id, (msg_id, moment) in self.pending.items()
-            if chat_id not in self.blocked
-        ]
+        ready = []
+        for chat_id, (msg_id, moment) in self.pending.items():
+            if chat_id in self.blocked:
+                continue
+            ceiling = self._ceiling(chat_id)
+            if ceiling is None:
+                ready.append(Cursor(chat_id, msg_id, moment))
+            elif ceiling > 0:
+                # Something earlier is still in flight: write what is safely below it and
+                # keep the rest pending, rather than skipping the chat entirely.
+                ready.append(Cursor(chat_id, min(msg_id, ceiling), moment))
         if not ready:
             return 0
         if not await safe_write(self.storage.upsert_cursors(ready), "cursor flush"):
@@ -102,6 +141,10 @@ class CursorTracker:
             if current is not None and current[0] == cursor.last_msg_id:
                 del self.pending[cursor.chat_id]
         return len(ready)
+
+    def held_ids(self, chat_id: int) -> set[int]:
+        """For tests and the heartbeat: what is still in flight in this chat."""
+        return set(self.holds.get(chat_id, ()))
 
 
 def chat_ref_of(entity: Any) -> ChatRef | None:
@@ -181,6 +224,11 @@ class Listener:
             self.metrics.skipped_unmonitored += 1
             return []
 
+        # From here on this message can await — on the chat cache, on the matcher's thread,
+        # on storage — and another message in the same chat can overtake it and move the
+        # cursor. Hold its id until it has reached `note` under its own power.
+        self.cursors.hold(chat_id, message.id)
+
         await self._refresh_chat(chat_id, chat if chat is not None else message.chat)
 
         moment = message.date or self._clock()
@@ -189,6 +237,7 @@ class Listener:
         matches = await self._matcher.evaluate(chat_id, prepared.shadow, _sender_id_of(message))
         if not matches:
             self.cursors.note(chat_id, message.id, moment)
+            self.cursors.release(chat_id, message.id)
             return []
 
         sender = await sender_of(message, self._senders)
@@ -198,6 +247,7 @@ class Listener:
             if not matches:
                 self.metrics.skipped_bot += 1
                 self.cursors.note(chat_id, message.id, moment)
+                self.cursors.release(chat_id, message.id)
                 return []
         if sender is None:
             # No entity came with the update and we refuse to make an RPC here, so we cannot
@@ -224,8 +274,11 @@ class Listener:
             )
             if item is not None:
                 claimed.append(item)
-        # The cursor may only advance once every match for this message is durable.
+        # The cursor may only advance once every match for this message is durable — and only
+        # then is the hold released, so a message whose claim raised keeps the cursor behind
+        # it rather than being lost under it.
         self.cursors.note(chat_id, message.id, moment)
+        self.cursors.release(chat_id, message.id)
         for item in claimed:
             await self._deliver(item)
         return claimed

@@ -39,6 +39,10 @@ VERSION = 1
 MAX_BYTES = 1_000_000
 """An export of 500 rules is about 40 KB; a megabyte is a file that is not one of ours."""
 
+MAX_CHAT_ENTRIES = 2_000
+"""How many chat entries an import will look at. An account with a thousand dialogs is large;
+our own export never carries more than the chats a rule mentions."""
+
 MAX_RULE_ENTRIES = MAX_RULES_PER_USER + MAX_RULES_PER_CHAT
 """How many rule entries an import will even look at.
 
@@ -59,6 +63,7 @@ class BadExportError(Exception):
 class ImportReport:
     chats_subscribed: int = 0
     chats_missing: list[str] = field(default_factory=list)
+    chats_over_limit: bool = False
     rules_added: int = 0
     rules_duplicate: int = 0
     rules_invalid: list[str] = field(default_factory=list)
@@ -181,7 +186,15 @@ async def _import_chats(
 ) -> dict[int, int]:
     """Returns the exported chat id → local chat id map the other two passes need."""
     resolved: dict[int, int] = {}
+    examined = 0
     for entry in data.get("chats") or []:
+        examined += 1
+        if examined > MAX_CHAT_ENTRIES:
+            # Same reasoning as the rule loop: a chat that resolves to nothing never reaches
+            # a stored cap, so the caps alone never end the loop, and every entry costs a
+            # username scan over the whole dialog list.
+            report.chats_over_limit = True
+            break
         if not isinstance(entry, dict):
             continue
         wanted_id = _int(entry.get("id"))

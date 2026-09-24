@@ -407,6 +407,49 @@ class TestImportLimits:
         assert report.rules_over_limit == extra
         assert report.rules_added == 0
 
+    async def test_the_chat_list_is_bounded_too(self, store, monkeypatch):
+        """A chat that resolves to nothing never reaches a stored cap either.
+
+        The subscription cap bounds what an import can *keep*; nothing bounded what it would
+        *look at*, and every entry costs a lookup against the whole dialog list.
+        """
+        looked_up = 0
+        real = portable._find_chat
+
+        async def spy(*args, **kwargs):
+            nonlocal looked_up
+            looked_up += 1
+            return await real(*args, **kwargs)
+
+        monkeypatch.setattr(portable, "_find_chat", spy)
+        config = {
+            "format": portable.FORMAT,
+            "version": 1,
+            "chats": [
+                {"id": -900000 - i, "title": f"nope-{i}", "subscribed": True}
+                for i in range(portable.MAX_CHAT_ENTRIES + 20)
+            ],
+        }
+        report = await portable.import_config(
+            store, OWNER, config, regex_timeout=0.2, is_owner=True
+        )
+        assert looked_up == portable.MAX_CHAT_ENTRIES
+        assert report.chats_over_limit is True
+        assert report.chats_subscribed == 0
+
+    async def test_a_normal_sized_file_is_not_called_over_the_limit(self, store):
+        """The bound must be invisible to a real backup, which carries a handful of chats."""
+        await seed(store)
+        config = {
+            "format": portable.FORMAT,
+            "version": 1,
+            "chats": [{"id": PUBLIC.id, "title": PUBLIC.title, "subscribed": True}],
+        }
+        report = await portable.import_config(
+            store, OWNER, config, regex_timeout=0.2, is_owner=True
+        )
+        assert report.chats_over_limit is False
+
     async def test_compiling_does_not_run_on_the_event_loop(self, store, monkeypatch):
         """A file of slow patterns must not stall everybody else's matching."""
         offloaded = []

@@ -18,6 +18,12 @@ CONTAINER="${CONTAINER:-ddiver}"
 log() { printf '%s  %s\n' "$(date -u +%H:%M:%S)" "$*"; }
 die() { log "FAILED: $*"; exit 1; }
 
+_alerting_fingerprint() {
+	# What Grafana would load. `cat` of a missing directory is empty, which is exactly the
+	# "alerts are off" state and compares correctly against it.
+	cat "$APP_DIR"/deploy/grafana/provisioning/alerting/*.yml 2>/dev/null | shasum | cut -d" " -f1
+}
+
 health_of() {
 	docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' \
 		"$CONTAINER" 2>/dev/null || echo "missing"
@@ -49,11 +55,6 @@ cd "$APP_DIR" || die "no $APP_DIR"
 exec {lock}> "$APP_DIR/.deploy.lock"
 flock --wait 600 "$lock" || die "another deploy has held the lock for ten minutes"
 
-# Alerting is provisioned by writing files into the directory Grafana already mounts, so it
-# has to be rendered before the containers come up — and removed again on a box that has no
-# alert bot, because a contact point without a token is fatal to Grafana at boot.
-"$APP_DIR/deploy/render-alerts.sh"
-
 # Whether it was working *before* matters: if the session has expired, the container is
 # unhealthy whatever the code does, and rolling back would only thrash.
 was_healthy=false
@@ -71,7 +72,10 @@ target="$(git rev-parse origin/main)"
 asked="${SSH_ORIGINAL_COMMAND:-}"
 if [[ -n "$asked" ]]; then
 	if [[ ! "$asked" =~ ^[0-9a-f]{40}$ ]]; then
-		die "refusing a target that is not a full commit sha"
+		# Ignored rather than fatal: the forced command means whatever a human types lands
+		# here, and the documented by-hand form is the script's own path. Falling back to
+		# origin/main is the safe answer — it is the commit CI tested most recently.
+		log "ignoring a target that is not a full commit sha; deploying ${target:0:8}"
 	elif ! git merge-base --is-ancestor "$asked" "$target" 2>/dev/null; then
 		log "ignoring $asked: not on origin/main, deploying ${target:0:8} instead"
 	elif ! git merge-base --is-ancestor "$previous" "$asked" 2>/dev/null; then
@@ -102,6 +106,17 @@ fi
 # Not under `set -e`: a compose failure here has to reach the rollback below, not end the
 # script with the old container already stopped.
 started=true
+# After the reset, so a change to the rules ships with the deploy that carries it rather
+# than the one after. Grafana reads provisioning only at startup, so it is recreated when
+# the rendered files changed — and only then, because recreating it needlessly drops every
+# open dashboard session.
+alerts_before="$(_alerting_fingerprint)"
+"$APP_DIR/deploy/render-alerts.sh"
+if [[ "$(_alerting_fingerprint)" != "$alerts_before" ]]; then
+	log "alerting changed; Grafana will be recreated to pick it up"
+	docker compose "${COMPOSE_FILES[@]}" up -d --force-recreate --no-deps grafana || true
+fi
+
 docker compose "${COMPOSE_FILES[@]}" up -d --remove-orphans || started=false
 
 if $started && wait_for_health; then

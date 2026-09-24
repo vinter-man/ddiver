@@ -326,8 +326,13 @@ class Delivery:
             rendered = render_digest(
                 entries, lang=lang, tz=tz, now=self._clock(), overflow=overflow
             )
-            sent = await self._send(user_id, rendered, buttons=None, item=batch[0])
+            # The send is inside the try on purpose. An error `_send` does not classify
+            # escapes to the worker's catch-all, and the rest of the batch would then keep
+            # its keys in `enqueued_at` — which is how the periodic rescan tells "in flight"
+            # from "stranded", so those rows would stay pending and unreachable for the life
+            # of the process, never counted as failed and never seen by the alert.
             try:
+                sent = await self._send(user_id, rendered, buttons=None, item=batch[0])
                 await self._finish_digest(batch, sent=sent)
             finally:
                 for extra in batch[1:]:

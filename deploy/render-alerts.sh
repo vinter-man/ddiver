@@ -43,9 +43,12 @@ if [[ ! "$token" =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]]; then
 	exit 1
 fi
 
-install -m 600 /dev/null "$DST/contact-points.yml"
-sed -e "s|@@ALERT_TELEGRAM_TOKEN@@|$token|g" \
-    -e "s|@@ALERT_TELEGRAM_CHAT_ID@@|$chat_id|g" \
+# 0644, not 0600. Grafana runs as its own uid inside the container and reads these through a
+# bind mount, where the numeric owner is what counts — a file owned by the deploy user and
+# readable only by it makes Grafana exit 1 with "permission denied" and restart forever. The
+# token is deliberately not in this file, so there is nothing here to protect.
+sed -e "s|@@ALERT_TELEGRAM_CHAT_ID@@|$chat_id|g" \
     "$SRC/contact-points.yml.tmpl" > "$DST/contact-points.yml"
+chmod 644 "$DST/contact-points.yml"
 install -m 644 "$SRC/rules.yml" "$DST/rules.yml"
-echo "alerting: rendered for chat $chat_id"
+echo "alerting: rendered for chat $chat_id (token stays in the environment)"

@@ -2,6 +2,7 @@
 
 STRINGS: dict[str, str] = {
     "rule.err.empty": "Пустой шаблон.",
+    "rule.err.repeat_too_big": "Повтор больше {limit} — такой шаблон съест память при компиляции.",
     "rule.err.too_long": "Шаблон длиннее {limit} символов.",
     "rule.err.invalid_regex": "Некорректное регулярное выражение: {detail}",
     "rule.err.matches_empty": "Это регулярное выражение совпадает с пустым текстом, т.е. сработает на каждое сообщение.",
@@ -91,6 +92,7 @@ STRINGS.update(
             "⚠️ Не поместилось правил: {n}. Лимиты — {chat} на чат и {total} всего."
         ),
         "bot.import.duplicates": "↩️ Пропущено дубликатов правил: {n}.",
+        "bot.import.chats_over_limit": "⚠️ Прочитал только первые {n} чатов из файла.",
         "bot.import.missing_chats": "⚠️ Не нашёл эти чаты: {chats}",
         "bot.import.bad_rules": "⚠️ Не приняты правила: {rules}",
         "bot.menu.title": "Что делаем?",
@@ -214,6 +216,7 @@ STRINGS.update(
         ),
         "bot.test.match": "✅ {chat} — {rule} ({fragment})",
         "bot.test.excluded": "🚫 {chat} — исключено правилом {rule}",
+        "bot.test.too_slow": "⏱ {chat} — правил слишком много, проверка не уложилась во время.",
         "bot.test.nomatch": "— {chat} — нет совпадений",
         "bot.test.no_chats": (
             "⚠️ Вы пока не следите ни за одним чатом, так что уведомлений не будет "

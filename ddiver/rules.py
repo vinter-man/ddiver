@@ -229,6 +229,13 @@ def compile_rule(raw: str, *, timeout: float) -> CompiledRule:
     if len(pattern) > MAX_PATTERN_LEN:
         raise RuleError("rule.err.too_long", limit=MAX_PATTERN_LEN)
 
+    if mode is MatchMode.REGEX:
+        # Before compiling, not after: the length cap bounds the pattern, not what compiling
+        # it costs. `re:a{2000000}` is thirteen characters and allocates about half a gigabyte
+        # while the module unrolls it — measured: a{200000} is 55 MB — which on a container
+        # with a memory limit is an OOM kill delivered by one message.
+        _reject_huge_repeats(payload)
+
     if mode is MatchMode.SUBSTRING:
         expr = regex.escape(payload)
     elif mode is MatchMode.WORD:
@@ -244,6 +251,35 @@ def compile_rule(raw: str, *, timeout: float) -> CompiledRule:
     if mode is MatchMode.REGEX:
         _validate_regex(pattern, compiled, timeout)
     return CompiledRule(pattern=pattern, mode=mode, compiled=compiled)
+
+
+MAX_REPEAT = 1_000
+"""Largest bounded repetition allowed, and the largest product of nested ones.
+
+A moderation pattern has no use for more: ``a{1000}`` costs a third of a megabyte to compile,
+``a{200000}`` costs 55. The limit is on the count rather than on the time because the memory
+is allocated before anything can be timed.
+"""
+
+_REPEAT = regex.compile(r"\{(\d+)(?:,(\d*))?\}")
+
+
+def _reject_huge_repeats(payload: str) -> None:
+    """Refuse a pattern whose bounded repetitions would unroll into an enormous program.
+
+    Counts are multiplied, because ``(a{1000}){1000}`` costs what ``a{1000000}`` costs. A
+    ``{n}`` inside a character class is a literal and this rejects it anyway; that is a
+    pattern nobody writes, and being slightly strict here is cheaper than being clever.
+    """
+    product = 1
+    for match in _REPEAT.finditer(payload):
+        low, high = match.group(1), match.group(2)
+        count = int(high) if high else int(low)
+        if count > MAX_REPEAT:
+            raise RuleError("rule.err.repeat_too_big", limit=MAX_REPEAT)
+        product *= max(count, 1)
+        if product > MAX_REPEAT:
+            raise RuleError("rule.err.repeat_too_big", limit=MAX_REPEAT)
 
 
 def _validate_regex(pattern: str, compiled: regex.Pattern[str], timeout: float) -> None:

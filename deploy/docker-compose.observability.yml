@@ -99,6 +99,9 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      # Read by the provisioned contact point. Empty unless alerts are configured, in which
+      # case render-alerts.sh has also written the file that refers to it.
+      ALERT_TELEGRAM_TOKEN: ${ALERT_TELEGRAM_TOKEN:-}
     volumes:
       - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana

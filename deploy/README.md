@@ -61,7 +61,14 @@ your own code and nothing else.
 To deploy by hand, or to see why an automated one failed:
 
 ```bash
-ssh deploy@YOUR_SERVER /srv/ddiver/deploy/deploy.sh
+ssh deploy@YOUR_SERVER
+```
+
+That key can do nothing else, so it needs no command — whatever you type is ignored and
+`deploy.sh` runs. To pin a particular commit, name it and nothing else:
+
+```bash
+ssh deploy@YOUR_SERVER "$(git rev-parse origin/main)"
 ```
 
 ## Sharing the box with other projects

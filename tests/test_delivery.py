@@ -574,3 +574,29 @@ class TestRescanDoesNotDuplicate:
         stored = await store.get_delivery(*item.key)
         assert stored.payload["sender_name"] == "Сергей"
         assert stored.payload["sender_username"] == "serge"
+
+
+class TestDigestStranding:
+    async def test_an_unclassified_error_does_not_strand_the_rest_of_the_batch(
+        self, delivery, bot, store
+    ):
+        """`enqueued_at` is how the rescan tells "in flight" from "stranded".
+
+        A key left there is never re-queued, so the row stays pending for the life of the
+        process — invisible to the operator, because it is never counted as failed either.
+        """
+        await store.update_user(MOD, digest_threshold=2)
+        bot.fail_next(RuntimeError("something _send has no branch for"))
+        items = [await claim(store, MOD, i) for i in range(1, 5)]
+        for item in items:
+            await delivery.enqueue(item)
+        await settle(delivery)
+
+        state = delivery._queues[MOD]
+        assert state.enqueued_at == {}, "the batch is still marked as in flight"
+
+        # and the rescan can pick the rows up again
+        recovered = await store.pending_deliveries(limit=10)
+        assert len(recovered) == len(
+            [i for i in items if (await store.get_delivery(*i.key)).status.value == "pending"]
+        )

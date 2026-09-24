@@ -3,6 +3,7 @@
 STRINGS: dict[str, str] = {
     # rule validation
     "rule.err.empty": "Empty pattern.",
+    "rule.err.repeat_too_big": "A repetition larger than {limit} would use too much memory to compile.",
     "rule.err.too_long": "Pattern is longer than {limit} characters.",
     "rule.err.invalid_regex": "Invalid regular expression: {detail}",
     "rule.err.matches_empty": "This regular expression matches empty text, so it would match every message.",
@@ -95,6 +96,7 @@ STRINGS.update(
             "⚠️ {n} rules did not fit. The caps are {chat} per chat and {total} in total."
         ),
         "bot.import.duplicates": "↩️ Skipped {n} duplicate rules.",
+        "bot.import.chats_over_limit": "⚠️ Only the first {n} chats in the file were read.",
         "bot.import.missing_chats": "⚠️ These chats were not found: {chats}",
         "bot.import.bad_rules": "⚠️ These rules were rejected: {rules}",
         "bot.menu.title": "What would you like to do?",
@@ -218,6 +220,7 @@ STRINGS.update(
         ),
         "bot.test.match": "✅ {chat} — {rule} ({fragment})",
         "bot.test.excluded": "🚫 {chat} — excluded by {rule}",
+        "bot.test.too_slow": "⏱ {chat} — too many rules to check within the time budget.",
         "bot.test.nomatch": "— {chat} — no match",
         "bot.test.no_chats": (
             "⚠️ You are not watching any chat yet, so no rule can notify you. Below is "

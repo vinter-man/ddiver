@@ -2,11 +2,15 @@
 # .env and writes the result into deploy/grafana/provisioning/alerting/, which Grafana already
 # mounts.
 #
-# Rendered rather than interpolated by Grafana, for a reason worth recording. Grafana expands
-# $VARS in a provisioning file and then re-types the result, so an all-digit chat id arrives as
-# a JSON number and the contact point is rejected — "cannot unmarshal number into Go struct
-# field Config.chatid of type string" — and the container exits. Quoting in the YAML does not
-# help; the value is substituted after the parse. A rendered literal has no $ left to re-type.
+# Only the chat id is rendered, and for a specific reason: Grafana expands $VARS in a
+# provisioning file and then re-types the result, so an all-digit chat id arrives as a JSON
+# number and the contact point is rejected — "cannot unmarshal number into Go struct field
+# Config.chatid of type string" — and the container exits. Quoting in the YAML does not help;
+# the substitution happens after the parse. A rendered literal has no $ left to re-type.
+#
+# The token is NOT rendered. It stays an environment variable, which Grafana expands without
+# trouble because a BotFather token is not all-digits — and that keeps every secret out of
+# this file, so it can carry the mode Grafana's own uid needs to read it.
 #
 # Use a SECOND BotFather bot, not the delivery bot. Sharing one token means an alert about
 # delivery being stuck travels over the thing that is stuck.
@@ -19,7 +23,7 @@ contactPoints:
       - uid: ddiver-telegram
         type: telegram
         settings:
-          bottoken: "@@ALERT_TELEGRAM_TOKEN@@"
+          bottoken: $ALERT_TELEGRAM_TOKEN
           chatid: "@@ALERT_TELEGRAM_CHAT_ID@@"
           message: |
             {{ range .Alerts }}{{ .Status | toUpper }} — {{ .Labels.alertname }}

@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import datetime as dt
+import functools
 import logging
+import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 
@@ -54,6 +56,14 @@ DIGEST_MAX = 500
 # question itself out of view
 DROP_CONFIRM_PREVIEW = 30
 MAX_REPLY_CHARS = 3800  # Telegram's limit is 4096; leave room for the header lines
+PREVIEW_BUDGET = 2.0
+"""Seconds one `/test` may spend on one chat.
+
+The live matcher gives each subscriber half a second per message and stops; the preview had
+no budget at all, so a full rule set of slow patterns turned one `/test` into a worker thread
+busy for as long as the whole set took. The number is larger than the live one because a
+person is waiting for this answer and expects it to be thorough.
+"""
 
 KIND_ICONS = {
     MatchMode.SUBSTRING: "bot.rules.kind.substring",
@@ -813,6 +823,8 @@ def build_router(
                     total=MAX_RULES_PER_USER,
                 )
             )
+        if report.chats_over_limit:
+            lines.append(ctx.t("bot.import.chats_over_limit", n=portable.MAX_CHAT_ENTRIES))
         if report.chats_missing:
             lines.append(ctx.t("bot.import.missing_chats", chats=", ".join(report.chats_missing)))
         if report.rules_invalid:
@@ -847,19 +859,28 @@ def build_router(
             if global_rules:
                 lines.append(
                     await asyncio.to_thread(
-                        _evaluate_preview,
-                        prepared,
-                        global_rules,
-                        ctx.lang,
-                        ctx.t("bot.test.global_scope"),
-                        regex_timeout,
+                        functools.partial(
+                            _evaluate_preview,
+                            prepared,
+                            global_rules,
+                            ctx.lang,
+                            ctx.t("bot.test.global_scope"),
+                            timeout=regex_timeout,
+                        )
                     )
                 )
         for chat in chats:
             rules = await storage.rules_for_chat(chat.id)
             mine = [r for r in rules if r.user_id == ctx.user_id]
             verdict = await asyncio.to_thread(
-                _evaluate_preview, prepared, mine, ctx.lang, chat.ref.title, regex_timeout
+                functools.partial(
+                    _evaluate_preview,
+                    prepared,
+                    mine,
+                    ctx.lang,
+                    chat.ref.title,
+                    timeout=regex_timeout,
+                )
             )
             lines.append(verdict)
         return "\n".join(lines) if lines else ctx.t("bot.test.no_chats")
@@ -876,7 +897,9 @@ def _evaluate_preview(
     rules: Sequence[Rule],
     lang: str,
     chat_title: str,
+    *,
     timeout: float = 0.2,
+    budget: float | None = None,
 ) -> str:
     """Mirror the production order: exclusions first, then chat rules before global ones.
 
@@ -885,7 +908,13 @@ def _evaluate_preview(
     """
     excludes = [r for r in rules if r.kind is RuleKind.EXCLUDE]
     includes = [r for r in rules if r.kind is RuleKind.INCLUDE]
+    # The live matcher stops after half a second per subscriber. This had no limit at all, so
+    # a full set of slow patterns kept a worker thread busy for as long as the whole set took,
+    # for every chat, on every /test.
+    deadline = time.monotonic() + (PREVIEW_BUDGET if budget is None else budget)
     for rule in excludes:
+        if time.monotonic() > deadline:
+            return t(lang, "bot.test.too_slow", chat=chat_title)
         try:
             compiled = compile_rule(rule.pattern, timeout=timeout)
         except (RuleError, RuleTimeout):
@@ -896,6 +925,8 @@ def _evaluate_preview(
         except RuleTimeout:
             continue
     for rule in includes:
+        if time.monotonic() > deadline:
+            return t(lang, "bot.test.too_slow", chat=chat_title)
         try:
             compiled = compile_rule(rule.pattern, timeout=timeout)
         except (RuleError, RuleTimeout):

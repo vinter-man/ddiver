@@ -128,13 +128,33 @@ class TestAlerting:
         ignored = (ROOT / ".gitignore").read_text(encoding="utf-8")
         assert "deploy/grafana/provisioning/alerting/*.yml" in ignored
 
-    def test_the_template_carries_no_bare_variable_for_grafana_to_retype(self):
-        """Grafana expands $VARS and then re-types the result, so an all-digit chat id
-        arrives as a JSON number and the contact point is rejected at boot."""
+    def test_the_chat_id_is_rendered_and_the_token_is_not(self):
+        """Two different problems, two different answers.
+
+        Grafana expands $VARS and then re-types the result, so an all-digit chat id arrives as
+        a JSON number and the contact point is rejected at boot — it has to be a rendered
+        literal. A token is not all-digits and survives expansion, so it stays a variable,
+        which keeps every secret out of a file that Grafana's own uid has to be able to read.
+        """
         tmpl = (ROOT / "deploy/grafana/alerting/contact-points.yml.tmpl").read_text("utf-8")
         body = "\n".join(x for x in tmpl.splitlines() if not x.lstrip().startswith("#"))
-        assert "$ALERT" not in body and "${ALERT" not in body
-        assert '"@@ALERT_TELEGRAM_CHAT_ID@@"' in body, "the placeholder must stay quoted"
+        assert '"@@ALERT_TELEGRAM_CHAT_ID@@"' in body, "the chat id must be rendered, quoted"
+        assert "$ALERT_TELEGRAM_CHAT_ID" not in body, "and never left for Grafana to re-type"
+        assert "$ALERT_TELEGRAM_TOKEN" in body, "the token must not be written to disk"
+        assert "@@ALERT_TELEGRAM_TOKEN@@" not in body
+
+    def test_the_renderer_leaves_the_files_readable_by_grafana(self):
+        """Grafana runs as its own uid and reads these over a bind mount, where the numeric
+        owner is what counts: 0600 owned by the deploy user makes it exit 1 and restart
+        forever, and deploy.sh reports success because it only watches the ddiver container.
+        """
+        script = (ROOT / "deploy/render-alerts.sh").read_text(encoding="utf-8")
+        assert "install -m 600" not in script
+        assert "chmod 644" in script or "install -m 644" in script
+
+    def test_grafana_is_given_the_alert_token(self):
+        grafana = yaml_load(OBSERVABILITY)["services"]["grafana"]
+        assert "ALERT_TELEGRAM_TOKEN" in grafana["environment"]
 
 
 class TestBootstrap:

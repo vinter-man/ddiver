@@ -1,4 +1,6 @@
+import asyncio
 import datetime as dt
+import sqlite3
 
 import pytest
 from telethon.tl import types as tl
@@ -13,7 +15,8 @@ from tests.fakes import T0, make_channel, make_event, make_user
 
 OWNER = 1
 MOD = 2
-CHAT = make_channel(-1001234567890, "Чат модерации")
+CHAT_ID = -1001234567890
+CHAT = make_channel(CHAT_ID, "Чат модерации")
 FORUM = make_channel(-1009876543210, "Forum", forum=True)
 
 
@@ -318,3 +321,74 @@ class TestUnmonitoredAreCounted:
         await listener.handle(event.message, chat=event.chat)
         assert listener.metrics.skipped_unmonitored == 0
         assert listener.metrics.considered == 1
+
+
+class TestCursorNeverPassesAnUnfinishedMessage:
+    """The cursor is the only thing that decides what catch-up will ever look at again.
+
+    Anything below it is unreachable forever, so it must never move past a message that has
+    not finished being examined — whether the next message overtook it, or its own claim
+    failed and left it undelivered.
+    """
+
+    async def test_a_failed_claim_holds_the_cursor_behind_it(self, listener, store, clock):
+        """Reproduces the loss directly: no concurrency needed, just one failure."""
+        boom = make_event("казино", chat=CHAT, msg_id=100)
+
+        async def failing_claim(*_args, **_kwargs):
+            raise sqlite3.OperationalError("database is locked")
+
+        store.claim_delivery = failing_claim
+        with pytest.raises(sqlite3.OperationalError):
+            await listener.handle(boom.message, chat=boom.chat)
+
+        # the very next message must not carry the cursor over the one that failed
+        later = make_event("ничего интересного", chat=CHAT, msg_id=101)
+        await listener.handle(later.message, chat=later.chat)
+        await listener.cursors.flush()
+
+        cursors = await store.get_cursors()
+        stored = cursors.get(CHAT_ID)
+        assert stored is None or stored.last_msg_id < 100, (
+            "message 100 fell below the cursor and can never be fetched again"
+        )
+
+    async def test_a_later_message_cannot_overtake_an_earlier_one(self, listener, store):
+        """Telethon dispatches each update in its own task; 101 finishes while 100 awaits."""
+        started = asyncio.Event()
+        may_finish = asyncio.Event()
+        real_since = store.subscribed_since
+
+        async def slow_since(chat_id):
+            started.set()
+            await may_finish.wait()
+            return await real_since(chat_id)
+
+        store.subscribed_since = slow_since
+        first = make_event("казино", chat=CHAT, msg_id=200)
+        slow = asyncio.create_task(listener.handle(first.message, chat=first.chat))
+        await started.wait()
+
+        second = make_event("ничего", chat=CHAT, msg_id=201)
+        await listener.handle(second.message, chat=second.chat)
+        await listener.cursors.flush()
+
+        cursors = await store.get_cursors()
+        stored = cursors.get(CHAT_ID)
+        assert stored is None or stored.last_msg_id < 200, (
+            f"cursor reached {stored.last_msg_id} while 200 was still in flight"
+        )
+
+        may_finish.set()
+        await slow
+        await listener.cursors.flush()
+        assert (await store.get_cursors())[CHAT_ID].last_msg_id == 201
+
+    async def test_an_ordinary_run_still_advances(self, listener, store):
+        """The guard must not stop the cursor moving when nothing is in flight."""
+        for msg_id in (300, 301, 302):
+            event = make_event("ничего", chat=CHAT, msg_id=msg_id)
+            await listener.handle(event.message, chat=event.chat)
+        await listener.cursors.flush()
+        assert (await store.get_cursors())[CHAT_ID].last_msg_id == 302
+        assert listener.cursors.held_ids(CHAT_ID) == set()
