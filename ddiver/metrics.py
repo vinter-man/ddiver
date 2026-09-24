@@ -120,6 +120,10 @@ class MetricsSource:
                     "duplicates_total": (m.duplicates, "Rows already present (live vs catch-up)"),
                     "skipped_bot_total": (m.skipped_bot, "Matches dropped: sender is a bot"),
                     "skipped_private_total": (m.skipped_private, "Updates from a private chat"),
+                    "skipped_unmonitored_total": (
+                        m.skipped_unmonitored,
+                        "Updates from a chat nobody is subscribed to",
+                    ),
                     "skipped_own_total": (m.skipped_own, "The listener's own outgoing messages"),
                     "unknown_sender_total": (m.unknown_sender, "Matches with no sender entity"),
                 },

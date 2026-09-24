@@ -294,3 +294,27 @@ class TestSubscriptionBoundary:
         with pytest.raises(sqlite3.OperationalError):
             await listener.handle(event.message, chat=event.chat)
         assert listener.cursors.pending == {}
+
+
+class TestUnmonitoredAreCounted:
+    async def test_a_message_from_a_chat_nobody_watches_is_counted(self, listener, store):
+        """Otherwise the gap between `seen` and `considered` has no explanation on the graph.
+
+        The Telethon handler is registered without `chats=`, so every dialog the account is
+        in delivers here. On an account in three hundred chats watching none, `seen` climbs
+        steadily and everything else stays flat — which reads as a bug until this counter
+        says where the messages went.
+        """
+        await store.upsert_chat(ChatRef(-100500, "Чат без подписки", None, "supergroup"))
+        message = make_event("что угодно", chat=make_channel(-100500, "Чат без подписки")).message
+
+        assert await listener.handle(message) == []
+        assert listener.metrics.seen == 1
+        assert listener.metrics.skipped_unmonitored == 1
+        assert listener.metrics.considered == 0
+
+    async def test_a_watched_chat_is_not_counted_as_skipped(self, listener):
+        event = make_event("казино", chat=CHAT)
+        await listener.handle(event.message, chat=event.chat)
+        assert listener.metrics.skipped_unmonitored == 0
+        assert listener.metrics.considered == 1

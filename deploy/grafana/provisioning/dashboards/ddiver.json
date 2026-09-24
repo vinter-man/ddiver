@@ -378,7 +378,7 @@
     {
       "type": "timeseries",
       "title": "Messages per second",
-      "description": "seen is everything the listener looked at; matched is what hit a rule.",
+      "description": "seen is every update the account receives, from all its dialogs — not only the watched ones. matched is what hit a rule. A busy 'seen' with a flat 'matched' is the normal resting state.",
       "datasource": {
         "type": "prometheus",
         "uid": "ddiver-prometheus"
@@ -438,7 +438,7 @@
     {
       "type": "timeseries",
       "title": "Dropped on purpose (per second)",
-      "description": "All of these are designed behaviour. A jump in 'bot senders' usually means somebody added a feed bot to a watched chat.",
+      "description": "All of these are designed behaviour. 'chat nobody watches' is usually the largest by far: the listener sees every message in every dialog the account is in, and drops the ones no moderator subscribed to. That is why 'seen' on the panel above is non-zero even with no chats configured.",
       "datasource": {
         "type": "prometheus",
         "uid": "ddiver-prometheus"
@@ -450,6 +450,15 @@
         "h": 8
       },
       "targets": [
+        {
+          "expr": "rate(ddiver_messages_skipped_unmonitored_total[5m])",
+          "legendFormat": "chat nobody watches",
+          "refId": "Z",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddiver-prometheus"
+          }
+        },
         {
           "expr": "rate(ddiver_messages_skipped_bot_total[5m])",
           "legendFormat": "bot senders",

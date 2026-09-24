@@ -43,6 +43,7 @@ class ListenerMetrics:
     duplicates: int = 0
     skipped_bot: int = 0
     skipped_private: int = 0
+    skipped_unmonitored: int = 0
     skipped_own: int = 0
     unknown_sender: int = 0
 
@@ -173,6 +174,11 @@ class Listener:
             self.metrics.skipped_private += 1
             return []
         if not self._matcher.is_monitored(chat_id):
+            # The handler is registered without `chats=`, so every message in every dialog
+            # the account is in arrives here and most of them are in chats nobody watches.
+            # Counting them is what makes `seen` legible: without this the difference between
+            # `seen` and `considered` is a few hundred messages going somewhere unexplained.
+            self.metrics.skipped_unmonitored += 1
             return []
 
         await self._refresh_chat(chat_id, chat if chat is not None else message.chat)
