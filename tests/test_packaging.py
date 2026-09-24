@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -21,8 +22,10 @@ DEPLOY = ROOT / "deploy/deploy.sh"
 BOOTSTRAP = ROOT / "deploy/bootstrap.sh"
 
 
-def yaml_load(path: Path) -> dict:
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
+def yaml_load(path: Path) -> dict[str, Any]:
+    loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert isinstance(loaded, dict), path
+    return loaded
 
 
 class TestBuildArg:
