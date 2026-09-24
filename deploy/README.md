@@ -47,7 +47,12 @@ is the least interesting thing an anti-fraud system will see that day.
 
 Push to `main`. CI runs ruff, mypy and the tests; only if all of them pass does it SSH in and
 run `deploy/deploy.sh`, which fetches, builds, restarts and then waits for the container to
-report healthy. A failed build changes nothing. A build that succeeds but comes up unhealthy is
+report healthy.
+
+One thing to know about that script: SSH starts it from the checkout as it is *before* the
+fetch, so a commit that changes `deploy.sh` is deployed by the previous version of it, and the
+new one runs from the next deploy onwards. The script says so in its own output when it
+notices. If a change to it has to take effect immediately, run a second deploy by hand. A failed build changes nothing. A build that succeeds but comes up unhealthy is
 rolled back to the previous commit automatically — unless the container was *already* unhealthy
 before the deploy, in which case rolling back would only hide an expired session.
 

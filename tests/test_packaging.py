@@ -96,6 +96,18 @@ class TestDeployScript:
         assert "docker-compose.alerts.yml" not in text
         assert "source .env" not in text, "the forced command must not execute .env"
 
+    def test_it_notices_when_it_has_updated_itself(self):
+        """SSH starts this script from the checkout as it was before the fetch.
+
+        `git reset --hard` then replaces the file through a rename, so the open copy keeps
+        running and a change to the script lands one deploy late. That cost a fix silently:
+        the `host-metrics` profile was in the commit, the deploy reported success, and
+        node-exporter was still not running.
+        """
+        text = DEPLOY.read_text(encoding="utf-8")
+        assert 'running="$(cat "$0")"' in text
+        assert '[[ "$(cat "$0")" != "$running" ]]' in text
+
     def test_a_failed_start_still_reaches_the_rollback(self):
         """Under `set -e` a failing `up -d` used to end the script with nothing running."""
         text = DEPLOY.read_text(encoding="utf-8")

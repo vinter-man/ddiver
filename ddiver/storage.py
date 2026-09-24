@@ -901,8 +901,9 @@ class Storage:
         cur = await self.db.execute(
             """SELECT o.* FROM outbox o JOIN users u ON u.id=o.user_id
                WHERE o.status='pending' AND u.delivery_paused_at IS NULL
+                 AND (u.role='allowed' OR u.id=?)
                ORDER BY o.created_at, o.msg_id LIMIT ?""",
-            (limit,),
+            (self._owner_id, limit),
         )
         rows = [self._outbox(r) for r in await cur.fetchall()]
         active = await self.active_user_ids()

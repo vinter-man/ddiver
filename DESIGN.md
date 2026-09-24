@@ -323,13 +323,15 @@ lists show a kind icon and truncate patterns to 60 chars. Multi-line add reports
 chat), 500 per user. **There is no comment syntax** — `#промо` is a hashtag keyword.
 Validation runs in a thread so a slow pattern cannot stall the loop.
 
-Notification buttons carry no nonce: `ig:<chat>:<sender>` and `ex:<chat>:<msg_id>` (both ≤40
-bytes) and the handler reads the rule id and matched fragment from the user's own `outbox` row,
-which survives restarts and is scoped by construction. Expired (pruned) rows answer "expired,
-use ➕ in Rules". The exclusion proposal expands the match to whitespace boundaries and is
-offered as `=token`; if it would equal or contain the include pattern, only "type my own" is
-offered, with a warning. "Ignore sender" reads `sender_id == chat_id` and then offers
-"ignore anonymous admins" instead.
+Notification buttons carry no nonce: `ig:<chat>:<sender>` mutes a sender and
+`rdrop:<rule_id>` offers to remove the rule that fired (both ≤40 bytes, and both are looked up
+against the acting user, so a guessed id resolves to nothing). Dropping asks for confirmation
+first — one tap must not silently kill a rule that is active on every chat. "Ignore sender"
+reads `sender_id == chat_id` as an anonymous admin and stores it under that name.
+
+An earlier draft of this section described a third button that proposed an exclusion rule
+built from the matched fragment. It was never built, and the description outlived that
+decision by several months — which is the failure this paragraph now exists to not repeat.
 
 `/test <text>` runs the production pipeline for every subscribed chat and prints, per chat,
 "would notify — rule (fragment)", "excluded by …" or "no match". Pending input has a 15-minute

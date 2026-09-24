@@ -73,6 +73,11 @@ was_healthy=false
 [[ "$(health_of)" == "healthy" ]] && was_healthy=true
 
 previous="$(git rev-parse HEAD)"
+# What this run is executing. `git reset --hard` below replaces the file through a rename, so
+# the already-open copy keeps running — which means a change to this script takes effect on
+# the deploy *after* the one that ships it. That is not a bug to fix here (re-exec'ing would
+# have to hand over the lock), but it is a silent surprise unless it is said out loud.
+running="$(cat "$0")"
 git fetch --prune --quiet origin
 
 # The caller may name the commit its tests passed on. It is attacker-controlled — this is the
@@ -108,6 +113,11 @@ else
 fi
 
 git reset --hard --quiet "$target"
+
+if [[ "$(cat "$0")" != "$running" ]]; then
+	log "NOTE: deploy.sh itself changed in this commit"
+	log "      this run is still the previous version; the next deploy uses the new one"
+fi
 
 # Build before touching the running container: a broken build must change nothing.
 if ! GIT_SHA="$target" docker compose "${COMPOSE_FILES[@]}" build; then
