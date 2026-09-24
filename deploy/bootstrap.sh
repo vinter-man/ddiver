@@ -95,7 +95,13 @@ chown "$APP_USER:$APP_USER" "$KNOWN"
 chmod 644 "$KNOWN"
 
 log "clone"
-if [[ ! -d "$APP_DIR/.git" ]]; then
+if [[ -d "$APP_DIR/.git" ]]; then
+	# Idempotent means current, not merely present: the forced command runs a script that
+	# lives in the checkout, so a stale one cannot deploy itself out of being stale.
+	sudo -u "$APP_USER" git -C "$APP_DIR" fetch --quiet origin
+	sudo -u "$APP_USER" git -C "$APP_DIR" reset --hard --quiet origin/main
+	echo "updated to $(sudo -u "$APP_USER" git -C "$APP_DIR" rev-parse --short HEAD)"
+else
 	echo "Add this as a read-only deploy key on the repository, then re-run:"
 	echo
 	cat "$KEY.pub"
@@ -104,7 +110,11 @@ if [[ ! -d "$APP_DIR/.git" ]]; then
 		|| { echo "clone failed — the deploy key above is not on the repo yet"; exit 1; }
 fi
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
-install -d -m 700 -o "$APP_USER" -g "$APP_USER" "$APP_DIR/data"
+# data/ is written by the container, which runs as the image's own unprivileged user rather
+# than as $APP_USER. On a Linux bind mount the numeric owner is what counts, so the directory
+# has to belong to that uid or the session file cannot be created at all.
+CONTAINER_UID=10001
+install -d -m 700 -o "$CONTAINER_UID" -g "$CONTAINER_UID" "$APP_DIR/data"
 
 log "ci key"
 # A separate key, used by GitHub Actions to reach *this box*, restricted to one command.
