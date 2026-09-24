@@ -22,3 +22,31 @@ jobs:
         run: uv run mypy
       - name: Tests
         run: uv run pytest -q --cov --cov-report=term-missing
+
+  deploy:
+    # Only after the checks above are green, only from main, and never from a pull request —
+    # a fork's PR must not be able to reach the server.
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      # Two deploys at once would race on the same git checkout on the box.
+      group: deploy-production
+      cancel-in-progress: false
+    environment: production
+    steps:
+      - name: Deploy over SSH
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+        run: |
+          test -n "$HOST" || { echo "DEPLOY_HOST is not set; nothing to deploy to"; exit 1; }
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Pinned, not accept-new: the first connection is exactly the one worth protecting.
+          printf '%s\n' "$HOST_KEY" > ~/.ssh/known_hosts
+          # No command: the server forces deploy.sh on this key, so there is nothing to pass.
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -i ~/.ssh/id_ed25519 "$USER@$HOST"

@@ -24,6 +24,8 @@ services:
     image: prom/prometheus:v3.1.0
     container_name: ddiver-prometheus
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.retention.time=90d
@@ -39,6 +41,8 @@ services:
     image: grafana/loki:3.3.2
     container_name: ddiver-loki
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
     command: -config.file=/etc/loki/loki.yml
     volumes:
       - ./deploy/loki.yml:/etc/loki/loki.yml:ro
@@ -50,6 +54,8 @@ services:
     image: grafana/alloy:v1.6.1
     container_name: ddiver-alloy
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
     command:
       - run
       - --server.http.listen-addr=0.0.0.0:12345
@@ -71,6 +77,8 @@ services:
     image: prom/node-exporter:v1.8.2
     container_name: ddiver-node-exporter
     restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.25
     profiles: [host-metrics]
     command:
       - --path.rootfs=/host
@@ -83,6 +91,8 @@ services:
     image: grafana/grafana:11.5.1
     container_name: ddiver-grafana
     restart: unless-stopped
+    mem_limit: 384m
+    cpus: 0.5
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}

@@ -67,6 +67,9 @@ docker compose logs -f
 one data directory** — Telegram invalidates a session used from two places at once. ddiver takes
 a lock file and refuses, but a copy of the directory elsewhere would still break it.
 
+For a VPS — the setup script, the deploy-on-push pipeline and how to share the box with your
+other projects — see [deploy/README.md](deploy/README.md).
+
 ## Using it
 
 `/start` walks you through language and timezone, then the menu:
