@@ -181,7 +181,7 @@ class Router:
         self._storage = storage
         self._clock = clock
         self._on_user_state_changed = on_user_state_changed
-        self._commands: dict[str, Handler] = {}
+        self._commands: dict[str, tuple[Handler, bool]] = {}
         self._callbacks: dict[str, tuple[Handler, bool]] = {}
         self._pending_handlers: dict[str, Handler] = {}
         self._pending: dict[int, PendingInput] = {}
@@ -189,9 +189,15 @@ class Router:
 
     # -- registration ----------------------------------------------------------------------
 
-    def command(self, name: str) -> Callable[[Handler], Handler]:
+    def command(self, name: str, *, owner_only: bool = False) -> Callable[[Handler], Handler]:
+        """Register a command; ``owner_only`` refuses everyone else before the handler runs.
+
+        Authorisation lives here rather than in each handler for the same reason it does for
+        callbacks: an app adding an operator command (``/resume``) cannot forget the check.
+        """
+
         def register(handler: Handler) -> Handler:
-            self._commands[name] = handler
+            self._commands[name] = (handler, owner_only)
             return handler
 
         return register
@@ -272,10 +278,14 @@ class Router:
         command = ctx.incoming.command or self._registered_command(ctx.incoming)
         if command is not None:
             self.clear_pending(ctx.user_id)
-            handler = self._commands.get(command)
-            if handler is not None:
-                return await handler(ctx)
-            return [Reply("bot.err.unknown_command")]
+            entry = self._commands.get(command)
+            if entry is None:
+                return [Reply("bot.err.unknown_command")]
+            command_handler, owner_only = entry
+            if owner_only and not ctx.is_owner:
+                log.warning("user %s tried an owner-only command /%s", ctx.user_id, command)
+                return [Reply("bot.err.owner_only")]
+            return await command_handler(ctx)
 
         # A rule line may legitimately start with a slash, so only complain about an unknown
         # command when we are not waiting for input.

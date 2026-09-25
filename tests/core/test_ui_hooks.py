@@ -348,6 +348,34 @@ class TestAppCommands:
     async def test_other_unknown_commands_stay_unknown(self, router):
         assert await msg(router, OWNER, "/pause") == [Reply("bot.err.unknown_command")]
 
+    async def test_an_open_command_is_open_to_moderators_too(self, router):
+        assert await msg(router, MOD, "/resume") == [Reply("resume -", literal=True)]
+
+    async def test_an_owner_only_command_refuses_a_moderator_before_the_handler(self, store, clock):
+        router = build_router(store, clock=clock)
+        entered: list[int] = []
+
+        @router.command("lease", owner_only=True)
+        async def lease(ctx: Context) -> list[Action]:
+            entered.append(ctx.user_id)
+            return [Reply("moved", literal=True)]
+
+        assert await msg(router, MOD, "/lease home-2") == [Reply("bot.err.owner_only")]
+        assert entered == []
+        assert await msg(router, OWNER, "/lease home-2") == [Reply("moved", literal=True)]
+        assert entered == [OWNER]
+
+    async def test_a_refused_command_still_ends_pending_input(self, store, clock):
+        router = build_router(store, clock=clock)
+
+        @router.command("lease", owner_only=True)
+        async def lease(ctx: Context) -> list[Action]:
+            return []
+
+        await msg(router, MOD, "/import")
+        assert await msg(router, MOD, "/lease") == [Reply("bot.err.owner_only")]
+        assert router.get_pending(MOD) is None
+
     async def test_a_bare_slash_is_not_a_command(self, router):
         assert Incoming(user_id=OWNER, text="/").command_name is None
         assert Incoming(user_id=OWNER, text=None).command_name is None
