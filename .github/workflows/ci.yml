@@ -10,6 +10,11 @@ jobs:
     runs-on: ubuntu-latest  # timezone handling is case-sensitive here, unlike macOS
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The whole history, not the one commit checkout fetches by default: the upgrade
+          # test rebuilds its fixtures from `git archive b25b311`, the build that is deployed,
+          # and in CI it fails rather than skips when that commit is missing.
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true

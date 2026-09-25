@@ -21,6 +21,7 @@ import dataclasses
 import datetime as dt
 import io
 import json
+import os
 import shutil
 import sqlite3
 import subprocess
@@ -334,11 +335,20 @@ def _b25b311_is_reachable() -> bool:
     return found.returncode == 0
 
 
-@pytest.mark.skipif(
-    not _b25b311_is_reachable(), reason="b25b311 is not in this clone (CI checks out one commit)"
-)
+def _need_b25b311(*, reachable: bool, in_ci: bool) -> None:
+    """Skip where b25b311 cannot be had: a `git archive` of this tree, a shallow clone. Never
+    in CI, where a skip would leave every test above checking committed files that nothing
+    ties to b25b311 any more; the check job fetches the whole history for this."""
+    if reachable:
+        return
+    if in_ci:
+        pytest.fail("b25b311 is not in this clone; the check job must check out with fetch-depth 0")
+    pytest.skip("b25b311 is not in this clone")
+
+
 def test_the_fixtures_are_still_exactly_what_b25b311_writes(tmp_path):
     """Rebuild everything from b25b311's own source and compare with what is committed."""
+    _need_b25b311(reachable=_b25b311_is_reachable(), in_ci=bool(os.environ.get("CI")))
     git = shutil.which("git")
     assert git is not None
     archive = subprocess.run(  # noqa: S603 - git with fixed arguments
@@ -354,3 +364,19 @@ def test_the_fixtures_are_still_exactly_what_b25b311_writes(tmp_path):
     for name in ("rendered.json", "export-owner.json", "export-moderator.json"):
         assert (out / name).read_bytes() == (DATA / name).read_bytes(), name
     assert snapshot(out / "ddiver.sqlite3") == snapshot(DATA / "ddiver.sqlite3")
+
+
+class TestWhereB25b311IsMissing:
+    """The test above once skipped in every CI run, because checkout fetched one commit."""
+
+    def test_it_runs_wherever_b25b311_is_there(self):
+        _need_b25b311(reachable=True, in_ci=True)
+        _need_b25b311(reachable=True, in_ci=False)
+
+    def test_ci_fails_rather_than_skips(self):
+        with pytest.raises(pytest.fail.Exception, match="fetch-depth 0"):
+            _need_b25b311(reachable=False, in_ci=True)
+
+    def test_a_copy_without_the_history_skips(self):
+        with pytest.raises(pytest.skip.Exception):
+            _need_b25b311(reachable=False, in_ci=False)

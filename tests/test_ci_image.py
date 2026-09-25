@@ -49,6 +49,20 @@ def test_deploy_waits_for_the_image_job():
     assert "image" in jobs()["deploy"]["needs"]
 
 
+def test_the_check_job_has_b25b311_to_rebuild_the_upgrade_fixtures():
+    """checkout@v4 fetches one commit unless told otherwise, and without b25b311 in the clone
+    the test that ties tests/fixtures/b25b311 to b25b311's own code cannot run. The check job
+    is the one deploy waits for, so it is the one that needs the history."""
+    assert "check" in jobs()["deploy"]["needs"]
+    checkouts = [
+        step
+        for step in jobs()["check"]["steps"]
+        if str(step.get("uses", "")).startswith("actions/checkout@")
+    ]
+    assert len(checkouts) == 1
+    assert (checkouts[0].get("with") or {}).get("fetch-depth") == 0
+
+
 def test_the_image_job_imports_every_module_of_both_packages_offline():
     assert "--network none --entrypoint python ddiver:ci" in smoke()
     script = smoke_script()
