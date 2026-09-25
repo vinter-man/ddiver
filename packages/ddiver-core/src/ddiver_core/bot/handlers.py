@@ -1,4 +1,4 @@
-"""All bot UI flows, registered on a :class:`~ddiver.bot.router.Router`.
+"""All bot UI flows, registered on a :class:`~ddiver_core.bot.router.Router`.
 
 Every handler returns actions; nothing here talks to Telethon. Authorisation is already done
 by the router, but each storage call still carries the acting ``user_id`` so a forged callback
@@ -15,11 +15,11 @@ import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 
-from ddiver import portable
-from ddiver.bot import menus
-from ddiver.bot.router import Action, Context, Edit, Reply, Router, Send, SendDocument, Toast
-from ddiver.matcher import Matcher
+from ddiver_core import portable
+from ddiver_core.bot import menus
+from ddiver_core.bot.router import Action, Context, Edit, Reply, Router, Send, SendDocument, Toast
 from ddiver_core.i18n import LANG_NAMES, LANGS, t
+from ddiver_core.matcher import Matcher
 from ddiver_core.rules import (
     MAX_IGNORED_PER_USER,
     MAX_RULES_PER_CHAT,

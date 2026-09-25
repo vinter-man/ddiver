@@ -23,23 +23,23 @@ from telethon.tl import types as tl
 from telethon.tl.functions.bots import SetBotCommandsRequest
 from telethon.tl.functions.updates import GetStateRequest
 
-from ddiver import portable
 from ddiver.app import PeriodicTask, Supervisor, boot_delay, format_uptime
-from ddiver.bot import menus
-from ddiver.bot.handlers import StatusInfo, build_router
-from ddiver.bot.router import Edit, Incoming, Reply, Router, Send, SendDocument, Toast
 from ddiver.catchup import Catchup, telethon_history
 from ddiver.clients import connect_with_timeout, make_bot_client, make_user_client
 from ddiver.config import Settings
-from ddiver.delivery import ButtonFactory, Delivery
-from ddiver.formatter import render_weekly
 from ddiver.listener import CURSOR_FLUSH_SECONDS, Listener, chat_ref_of
-from ddiver.matcher import Matcher
-from ddiver.senders import SenderCache
+from ddiver_core import portable
+from ddiver_core.bot import menus
+from ddiver_core.bot.handlers import StatusInfo, build_router
+from ddiver_core.bot.router import Edit, Incoming, Reply, Router, Send, SendDocument, Toast
+from ddiver_core.delivery import ButtonFactory, Delivery
+from ddiver_core.formatter import render_weekly
 from ddiver_core.health import Heartbeat, write_heartbeat
 from ddiver_core.i18n import DEFAULT_LANG, LANGS, t
 from ddiver_core.links import ChatRef
+from ddiver_core.matcher import Matcher
 from ddiver_core.metrics import MetricsServer, MetricsSource
+from ddiver_core.senders import SenderCache
 from ddiver_core.storage import OutboxItem, Rule, Storage, User, safe_write
 from ddiver_core.timeutil import Clock, to_zone, utcnow
 from ddiver_core.watchdog import Watchdog
@@ -82,7 +82,7 @@ def _local_time(moment: dt.datetime, tz: str | None) -> dt.datetime:
 
 
 class BotAdapter:
-    """Turns :mod:`ddiver.bot.router` actions into Telethon calls."""
+    """Turns :mod:`ddiver_core.bot.router` actions into Telethon calls."""
 
     def __init__(self, client: TelegramClient) -> None:
         self._client = client

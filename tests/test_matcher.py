@@ -3,9 +3,9 @@ import asyncio
 import pytest
 import regex
 
-import ddiver.matcher as matcher_module
-from ddiver.matcher import TIMEOUTS_BEFORE_DISABLE, Matcher
+import ddiver_core.matcher as matcher_module
 from ddiver_core.links import ChatRef
+from ddiver_core.matcher import TIMEOUTS_BEFORE_DISABLE, Matcher
 from ddiver_core.rules import CompiledRule, MatchMode, RuleKind
 from ddiver_core.storage import ALL_CHATS, Role, Storage
 
@@ -181,7 +181,7 @@ async def test_timeout_counts_and_disables_after_threshold(store, monkeypatch):
     await m.reload()
     # Replace compilation with a genuinely catastrophic pattern that validation would reject.
     monkeypatch.setattr(
-        "ddiver.matcher.compile_rule",
+        "ddiver_core.matcher.compile_rule",
         lambda raw, timeout: CompiledRule(raw, MatchMode.REGEX, regex.compile("((a|aa)+)+b")),
     )
     for i in range(TIMEOUTS_BEFORE_DISABLE):
@@ -202,7 +202,7 @@ class TestOffloadAndBudget:
         Asserted on the mechanism rather than on timing: a wall-clock test here passed even
         with the offload removed, because awaiting the ticker drove it to completion anyway.
         """
-        import ddiver.matcher as matcher_module
+        import ddiver_core.matcher as matcher_module
 
         offloaded = []
         real_to_thread = asyncio.to_thread
@@ -232,7 +232,7 @@ class TestOffloadAndBudget:
 
     async def test_compiling_a_rule_set_never_runs_on_the_event_loop(self, store, matcher):
         """The first message into a chat used to stall everything while its rules compiled."""
-        import ddiver.matcher as matcher_module
+        import ddiver_core.matcher as matcher_module
 
         seen = []
         real = asyncio.to_thread
@@ -280,10 +280,10 @@ class TestOffloadAndBudget:
         for i in range(30):
             await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, f"re:slow{i}")
         monkeypatch.setattr(
-            "ddiver.matcher.compile_rule",
+            "ddiver_core.matcher.compile_rule",
             lambda raw, timeout: CompiledRule(raw, MatchMode.REGEX, regex.compile("((a|aa)+)+b")),
         )
-        monkeypatch.setattr("ddiver.matcher.MESSAGE_BUDGET", 0.05)
+        monkeypatch.setattr("ddiver_core.matcher.MESSAGE_BUDGET", 0.05)
         await m.invalidate()
         assert await m.evaluate(CHAT_A.id, "a" * 40, 1) == []
         assert m.stats_budget_exceeded >= 1
@@ -302,7 +302,7 @@ class TestCacheGeneration:
         the same loop, so a moderator's tap lands in the middle of it. Caching the older read
         would hide that rule until the next invalidation, which for a quiet chat is days.
         """
-        import ddiver.matcher as matcher_module
+        import ddiver_core.matcher as matcher_module
 
         await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "первое")
         await matcher.invalidate()

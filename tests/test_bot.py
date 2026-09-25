@@ -3,13 +3,13 @@ import json
 
 import pytest
 
-from ddiver import portable
-from ddiver.bot import menus
-from ddiver.bot.handlers import StatusInfo, build_router
-from ddiver.bot.router import Edit, Incoming, Reply, Send, Toast
-from ddiver.matcher import Matcher
+from ddiver_core import portable
+from ddiver_core.bot import menus
+from ddiver_core.bot.handlers import StatusInfo, build_router
+from ddiver_core.bot.router import Edit, Incoming, Reply, Send, Toast
 from ddiver_core.i18n import t
 from ddiver_core.links import ChatRef
+from ddiver_core.matcher import Matcher
 from ddiver_core.rules import MAX_IGNORED_PER_USER, RuleKind
 from ddiver_core.storage import ALL_CHATS, ChatRow, IgnoredSender, Role, Rule, Storage
 
@@ -266,11 +266,11 @@ class TestRules:
         assert patterns == ["казино", "#промо", "=бан"]  # hashtags are keywords, not comments
 
     async def test_rule_limits(self, router, store, monkeypatch):
-        monkeypatch.setattr("ddiver.bot.handlers.MAX_LINES_PER_MESSAGE", 2)
+        monkeypatch.setattr("ddiver_core.bot.handlers.MAX_LINES_PER_MESSAGE", 2)
         await cb(router, OWNER, f"radd:{CHAT_A.id}:include")
         actions = await msg(router, OWNER, "a\nb\nc")
         assert texts(actions)[0] == t("ru", "bot.rules.too_many_lines", limit=2)
-        monkeypatch.setattr("ddiver.bot.handlers.MAX_RULES_PER_CHAT", 1)
+        monkeypatch.setattr("ddiver_core.bot.handlers.MAX_RULES_PER_CHAT", 1)
         await cb(router, OWNER, f"radd:{CHAT_A.id}:include")
         actions = await msg(router, OWNER, "один\nдва")
         assert "1" in texts(actions)[0]
@@ -911,7 +911,7 @@ class TestPreviewBudget:
         """The live matcher stops after half a second per subscriber; /test had no limit at
         all, so a full set of slow patterns kept a worker thread busy for the whole set, for
         every chat, on every invocation."""
-        import ddiver.bot.handlers as handlers_module
+        import ddiver_core.bot.handlers as handlers_module
 
         monkeypatch.setattr(handlers_module, "PREVIEW_BUDGET", -1.0)
         await store.set_chat_shared(CHAT_A.id, True)

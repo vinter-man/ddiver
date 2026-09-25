@@ -6,10 +6,10 @@ import pytest
 from telethon.tl import types as tl
 
 from ddiver.listener import CursorTracker, Listener, chat_ref_of, should_consider
-from ddiver.matcher import Matcher
-from ddiver.senders import SenderCache
 from ddiver_core.links import ChatRef
+from ddiver_core.matcher import Matcher
 from ddiver_core.rules import RuleKind
+from ddiver_core.senders import SenderCache
 from ddiver_core.storage import ALL_CHATS, Cursor, Role, Storage
 from tests.fakes import T0, make_channel, make_event, make_user
 

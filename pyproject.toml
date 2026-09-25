@@ -73,7 +73,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # build_router is one long registration function on purpose: every handler is a closure over
 # the same storage/matcher, and splitting it would only add indirection.
-"ddiver/bot/handlers.py" = ["PLR0915"]
+"packages/ddiver-core/src/ddiver_core/bot/handlers.py" = ["PLR0915"]
 # The CLI imports heavy modules lazily so `ddiver health` does not pull in Telethon, and it
 # reports configuration problems instead of raising.
 "ddiver/__main__.py" = [

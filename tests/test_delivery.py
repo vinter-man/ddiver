@@ -5,7 +5,7 @@ import pytest
 from telethon import errors
 from telethon.tl import types as tl
 
-from ddiver.delivery import MAX_ATTEMPTS, Delivery
+from ddiver_core.delivery import MAX_ATTEMPTS, Delivery
 from ddiver_core.storage import DeliveryStatus, Role, Storage
 from tests.fakes import T0, FakeBotClient
 
@@ -345,7 +345,7 @@ class TestQueueLimits:
     async def test_overflow_is_counted_and_reported_in_the_next_digest(
         self, delivery, bot, store, monkeypatch
     ):
-        monkeypatch.setattr("ddiver.delivery.QUEUE_MAXSIZE", 3)
+        monkeypatch.setattr("ddiver_core.delivery.QUEUE_MAXSIZE", 3)
         await store.update_user(MOD, digest_threshold=3)
         bot.hold()  # fill the queue without letting the worker drain it
         accepted = 0
@@ -407,7 +407,7 @@ class TestRecoveryFromStrandedRows:
         so a backlog larger than the queue was destroyed by exactly the restart the outbox
         exists to survive. A catch-up after an outage produces that backlog by design.
         """
-        monkeypatch.setattr("ddiver.delivery.QUEUE_MAXSIZE", 2)
+        monkeypatch.setattr("ddiver_core.delivery.QUEUE_MAXSIZE", 2)
         bot.hold()
         items = [await claim(store, MOD, i) for i in range(1, 8)]
         for item in items:
@@ -441,7 +441,7 @@ class TestRecoveryFromStrandedRows:
         self, delivery, bot, store, monkeypatch
     ):
         """Otherwise a long backlog re-reads every row, every 300 seconds, for nothing."""
-        monkeypatch.setattr("ddiver.delivery.QUEUE_MAXSIZE", 2)
+        monkeypatch.setattr("ddiver_core.delivery.QUEUE_MAXSIZE", 2)
         bot.hold()
         for i in range(1, 8):
             await delivery.enqueue(await claim(store, MOD, i))
@@ -540,7 +540,7 @@ class TestShutdownUnderLoad:
 class TestSenderEnrichment:
     async def test_a_missing_name_is_resolved_at_send_time(self, bot, store, clock, sleeps):
         """Basic groups deliver no entities, so the listener can only record the id."""
-        from ddiver.senders import SenderCache
+        from ddiver_core.senders import SenderCache
         from tests.fakes import make_user
 
         resolved = []
@@ -565,7 +565,7 @@ class TestSenderEnrichment:
         assert "Неизвестный" not in bot.sent[0].text
 
     async def test_a_known_name_is_not_resolved_again(self, bot, store, clock, sleeps):
-        from ddiver.senders import SenderCache
+        from ddiver_core.senders import SenderCache
 
         resolved = []
 
@@ -585,7 +585,7 @@ class TestSenderEnrichment:
         assert resolved == []
 
     async def test_a_failed_resolve_still_delivers(self, bot, store, clock, sleeps):
-        from ddiver.senders import SenderCache
+        from ddiver_core.senders import SenderCache
 
         async def resolver(peer_id, chat_id=None):
             raise ValueError("Could not find the input entity")
@@ -636,7 +636,7 @@ class TestRescanDoesNotDuplicate:
 
     async def test_a_resolved_name_is_written_back(self, bot, store, clock, sleeps):
         """So a retry needs no second lookup and the stored row shows what was sent."""
-        from ddiver.senders import SenderCache
+        from ddiver_core.senders import SenderCache
         from tests.fakes import make_user
 
         async def resolver(peer_id, chat_id=None):

@@ -11,15 +11,15 @@ import pytest
 from telethon import errors, events
 from telethon.tl import types as tl
 
-from ddiver import portable
-from ddiver.bot import menus
-from ddiver.bot.router import Edit, Reply, Send, Toast
 from ddiver.runtime import (
     RECONCILE_SECONDS,
     BotAdapter,
     notification_buttons_factory,
     refresh_dialogs,
 )
+from ddiver_core import portable
+from ddiver_core.bot import menus
+from ddiver_core.bot.router import Edit, Reply, Send, Toast
 from ddiver_core.i18n import t
 from ddiver_core.links import ChatRef
 from ddiver_core.storage import OutboxItem, Role, Storage

@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from ddiver import portable
+from ddiver_core import portable
 from ddiver_core.links import ChatRef
 from ddiver_core.rules import (
     MAX_IGNORED_PER_USER,

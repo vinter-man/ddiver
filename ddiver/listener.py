@@ -20,11 +20,11 @@ from typing import Any
 from telethon import utils
 from telethon.tl import types as tl
 
-from ddiver.formatter import Payload
-from ddiver.matcher import Match, Matcher
-from ddiver.senders import SenderCache, SenderInfo, sender_of
+from ddiver_core.formatter import Payload
 from ddiver_core.links import ChatRef, topic_id_of
+from ddiver_core.matcher import Match, Matcher
 from ddiver_core.rules import PreparedText, prepare_text
+from ddiver_core.senders import SenderCache, SenderInfo, sender_of
 from ddiver_core.storage import Cursor, OutboxItem, Storage, safe_write
 from ddiver_core.timeutil import Clock, utcnow
 

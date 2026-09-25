@@ -36,7 +36,7 @@ from telethon.tl import types as tl
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ddiver.config import Settings
-from ddiver.formatter import Payload, render_notification
+from ddiver_core.formatter import Payload, render_notification
 from ddiver_core.links import message_link
 from ddiver_core.richtext import utf16_len
 from ddiver_core.rules import RuleKind

@@ -23,9 +23,9 @@ from typing import Any, Protocol
 from telethon import errors
 from telethon.tl import types as tl
 
-from ddiver.formatter import DigestEntry, Payload, Rendered, render_digest, render_notification
-from ddiver.senders import SenderCache
+from ddiver_core.formatter import DigestEntry, Payload, Rendered, render_digest, render_notification
 from ddiver_core.i18n import DEFAULT_LANG
+from ddiver_core.senders import SenderCache
 from ddiver_core.storage import DeliveryStatus, OutboxItem, Storage
 from ddiver_core.timeutil import Clock, utcnow
 

@@ -5,7 +5,7 @@ import pytest
 from telethon.errors import FloodWaitError
 from telethon.tl import types as tl
 
-from ddiver.senders import SenderCache, active_username, sender_from_entity, sender_of
+from ddiver_core.senders import SenderCache, active_username, sender_from_entity, sender_of
 from tests.fakes import FakeClock, make_channel, make_event, make_user
 
 
@@ -139,7 +139,7 @@ async def test_resolver_timeout_is_swallowed():
 
     cache = SenderCache(hang, min_interval=0)
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr("ddiver.senders.RESOLVE_TIMEOUT", 0.01)
+        mp.setattr("ddiver_core.senders.RESOLVE_TIMEOUT", 0.01)
         assert await cache.resolve(9) is None
     assert cache.stats_failures == 1
 

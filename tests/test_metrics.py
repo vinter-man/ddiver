@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 import urllib.request
 
-from ddiver.delivery import Metrics as DeliveryMetrics
 from ddiver.listener import ListenerMetrics
+from ddiver_core.delivery import Metrics as DeliveryMetrics
 from ddiver_core.metrics import MetricsServer, MetricsSource, _number
 
 

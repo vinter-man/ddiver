@@ -3,7 +3,7 @@ import datetime as dt
 import pytest
 from telethon.tl import types as tl
 
-from ddiver.formatter import (
+from ddiver_core.formatter import (
     DIGEST_CHATS,
     DIGEST_ITEMS_PER_CHAT,
     DigestEntry,
