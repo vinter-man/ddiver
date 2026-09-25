@@ -42,11 +42,19 @@ jobs:
         # install; this imports every module of both packages from site-packages, as
         # production does, makes sure nothing of the dev group came along, and runs the entry
         # point, with no network and no credentials.
+        #
+        # -P matters: `python -c` puts the working directory first on sys.path, the image's
+        # WORKDIR is /app, and the builder copied the sources to /app/ddiver. Without it
+        # `import ddiver` finds those sources rather than the wheel, and a wheel missing a
+        # module passes. The assertion makes sure that cannot come back unnoticed.
         run: |
-          docker run --rm --network none --entrypoint python ddiver:ci -c '
-          import importlib, importlib.util, pkgutil
+          docker run --rm --network none --entrypoint python ddiver:ci -P -c '
+          import importlib, importlib.util, pkgutil, sysconfig
           import ddiver, ddiver_core
+          installed = sysconfig.get_paths()["purelib"] + "/"
           for package in (ddiver, ddiver_core):
+              where = str(package.__file__)
+              assert where.startswith(installed), f"{package.__name__} is not the installed wheel: {where}"
               for found in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
                   importlib.import_module(found.name)
           dev_only = ("pytest", "ddiver_core_testing")
