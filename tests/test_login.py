@@ -14,7 +14,7 @@ from ddiver.login import (
     sign_in_with_password,
     state_path,
 )
-from tests.fakes import T0
+from ddiver_core_testing import T0
 
 
 class FakeAuthClient:

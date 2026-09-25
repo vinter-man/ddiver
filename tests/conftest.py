@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.fakes import FakeClock
+from ddiver_core_testing import FakeClock
 
 
 @pytest.fixture

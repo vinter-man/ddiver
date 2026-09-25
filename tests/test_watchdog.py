@@ -10,7 +10,7 @@ from typing import ClassVar
 import pytest
 
 from ddiver_core.watchdog import Watchdog, _is_success
-from tests.fakes import FakeClock
+from ddiver_core_testing import FakeClock
 
 
 class Recorder(http.server.BaseHTTPRequestHandler):

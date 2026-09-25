@@ -17,7 +17,7 @@ from ddiver_core.storage import (
     Storage,
     safe_write,
 )
-from tests.fakes import T0
+from ddiver_core_testing import T0
 
 OWNER = 1
 MOD = 2

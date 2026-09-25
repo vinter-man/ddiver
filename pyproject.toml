@@ -21,6 +21,7 @@ ddiver = "ddiver.__main__:main"
 
 [dependency-groups]
 dev = [
+  "ddiver-core-testing",  # the shared fakes, never in the image
   "pytest>=8.3",
   "pytest-asyncio>=0.25",
   "pytest-cov>=6.0",
@@ -34,10 +35,11 @@ dev = [
 ]
 
 [tool.uv.workspace]
-members = ["packages/ddiver-core"]
+members = ["packages/ddiver-core", "packages/ddiver-core-testing"]
 
 [tool.uv.sources]
 ddiver-core = { workspace = true }
+ddiver-core-testing = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
@@ -49,7 +51,7 @@ packages = ["ddiver"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["ddiver", "packages/ddiver-core/src", "tests"]
+src = ["ddiver", "packages/ddiver-core/src", "packages/ddiver-core-testing/src", "tests"]
 
 [tool.ruff.lint]
 select = [
@@ -91,9 +93,12 @@ ignore = [
   "DTZ001", "S105", "S106", "PLC0415",
 ]
 "packages/ddiver-core/src/ddiver_core/i18n/*.py" = ["E501"]
+# InstanceLock imports fcntl only when it takes the lock, and a configuration error must be
+# reported even when the error object itself is broken.
+"packages/ddiver-core/src/ddiver_core/process.py" = ["PLC0415", "BLE001"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ddiver", "ddiver_core"]
+known-first-party = ["ddiver", "ddiver_core", "ddiver_core_testing"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -104,7 +109,7 @@ disallow_any_generics = true
 no_implicit_reexport = true
 show_error_codes = true
 pretty = true
-files = ["ddiver", "packages/ddiver-core/src", "tests", "tools"]
+files = ["ddiver", "packages/ddiver-core/src", "packages/ddiver-core-testing/src", "tests", "tools"]
 
 [[tool.mypy.overrides]]
 module = ["telethon", "telethon.*", "cryptg", "cryptg.*"]

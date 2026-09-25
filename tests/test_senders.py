@@ -6,7 +6,8 @@ from telethon.errors import FloodWaitError
 from telethon.tl import types as tl
 
 from ddiver_core.senders import SenderCache, active_username, sender_from_entity, sender_of
-from tests.fakes import FakeClock, make_channel, make_event, make_user
+from ddiver_core_testing import FakeClock
+from tests.fakes import make_channel, make_event, make_user
 
 
 def test_sender_from_user_entity():

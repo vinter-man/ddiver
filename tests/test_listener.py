@@ -11,7 +11,8 @@ from ddiver_core.matcher import Matcher
 from ddiver_core.rules import RuleKind
 from ddiver_core.senders import SenderCache
 from ddiver_core.storage import ALL_CHATS, Cursor, Role, Storage
-from tests.fakes import T0, make_channel, make_event, make_user
+from ddiver_core_testing import T0
+from tests.fakes import make_channel, make_event, make_user
 
 OWNER = 1
 MOD = 2

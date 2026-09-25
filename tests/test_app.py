@@ -19,7 +19,7 @@ from ddiver_core.app import (
     format_uptime,
 )
 from ddiver_core.tgerrors import is_fatal_auth_error, is_session_file_error
-from tests.fakes import T0, FakeClock
+from ddiver_core_testing import T0, FakeClock
 
 
 class Sleeps:

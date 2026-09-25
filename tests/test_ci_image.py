@@ -8,6 +8,7 @@ keep that smoke step in the job deploy waits for, and keep the dev group out of 
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -64,3 +65,20 @@ def test_the_image_job_checks_the_dev_group_did_not_come_along():
 
 def test_the_image_job_runs_the_entry_point():
     assert "--network none ddiver:ci --help" in smoke()
+
+
+def test_the_shared_fakes_never_reach_the_image():
+    """ddiver-core-testing is a dev dependency. uv needs its pyproject to read the workspace;
+    nothing else of it may enter the build context, and the smoke step proves it is not in the
+    venv."""
+    dev_only = smoke_script().split("dev_only = ", 1)[1].splitlines()[0]
+    assert '"ddiver_core_testing"' in dev_only
+    ignored = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+    assert "packages/ddiver-core-testing/src/" in ignored
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert "COPY packages/ddiver-core-testing/pyproject.toml" in dockerfile
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert "ddiver-core-testing" in pyproject["dependency-groups"]["dev"]
+    core = tomllib.loads((ROOT / "packages/ddiver-core/pyproject.toml").read_text(encoding="utf-8"))
+    for dependencies in (pyproject["project"]["dependencies"], core["project"]["dependencies"]):
+        assert not [d for d in dependencies if d.startswith("ddiver-core-testing")]

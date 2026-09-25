@@ -10,6 +10,7 @@ WORKDIR /app
 # even while it installs none of them.
 COPY pyproject.toml uv.lock README.md ./
 COPY packages/ddiver-core/pyproject.toml ./packages/ddiver-core/
+COPY packages/ddiver-core-testing/pyproject.toml ./packages/ddiver-core-testing/
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-workspace
 # Then the code. --no-editable installs ddiver and ddiver-core into the venv as ordinary

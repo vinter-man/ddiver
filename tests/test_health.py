@@ -7,7 +7,7 @@ from ddiver_core.health import (
     read_heartbeat,
     write_heartbeat,
 )
-from tests.fakes import T0
+from ddiver_core_testing import T0
 
 
 def beat(**kw) -> Heartbeat:

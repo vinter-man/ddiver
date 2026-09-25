@@ -6,12 +6,9 @@ import stat
 import pytest
 
 from ddiver.__main__ import (
-    InstanceLock,
     build_parser,
     cmd_check_config,
     cmd_health,
-    describe_config_error,
-    harden_data_dir,
     main,
     permission_hint,
     world_readable,
@@ -19,7 +16,8 @@ from ddiver.__main__ import (
 from ddiver.config import Settings
 from ddiver_core.app import EXIT_ERROR, EXIT_OK
 from ddiver_core.health import write_heartbeat
-from tests.fakes import T0
+from ddiver_core.process import InstanceLock, describe_config_error, harden_data_dir
+from ddiver_core_testing import T0
 
 ENV = {
     "API_ID": "12345",

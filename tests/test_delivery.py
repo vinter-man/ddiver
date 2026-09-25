@@ -7,7 +7,7 @@ from telethon.tl import types as tl
 
 from ddiver_core.delivery import MAX_ATTEMPTS, Delivery
 from ddiver_core.storage import DeliveryStatus, Role, Storage
-from tests.fakes import T0, FakeBotClient
+from ddiver_core_testing import T0, FakeBotClient
 
 OWNER = 1
 MOD = 2

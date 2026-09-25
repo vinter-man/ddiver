@@ -11,19 +11,16 @@ import pytest
 from telethon import errors, events
 from telethon.tl import types as tl
 
-from ddiver.runtime import (
-    RECONCILE_SECONDS,
-    BotAdapter,
-    notification_buttons_factory,
-    refresh_dialogs,
-)
+from ddiver.runtime import RECONCILE_SECONDS, refresh_dialogs
 from ddiver_core import portable
 from ddiver_core.bot import menus
 from ddiver_core.bot.router import Edit, Reply, Send, Toast
+from ddiver_core.botruntime import BotAdapter, notification_buttons_factory
 from ddiver_core.i18n import t
 from ddiver_core.links import ChatRef
 from ddiver_core.storage import OutboxItem, Role, Storage
-from tests.fakes import T0, make_channel, make_user
+from ddiver_core_testing import T0
+from tests.fakes import make_channel, make_user
 
 PAYLOAD = {
     "chat_id": -1001,

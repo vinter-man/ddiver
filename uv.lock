@@ -10,6 +10,7 @@ resolution-markers = [
 members = [
     "ddiver",
     "ddiver-core",
+    "ddiver-core-testing",
 ]
 
 [[package]]
@@ -251,6 +252,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "ddiver-core-testing" },
     { name = "hypothesis" },
     { name = "mypy" },
     { name = "pytest" },
@@ -276,6 +278,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "ddiver-core-testing", editable = "packages/ddiver-core-testing" },
     { name = "hypothesis", specifier = ">=6.120" },
     { name = "mypy", specifier = ">=1.14" },
     { name = "pytest", specifier = ">=8.3" },
@@ -310,6 +313,11 @@ requires-dist = [
     { name = "telethon", specifier = ">=1.45,<2" },
     { name = "tzdata", specifier = ">=2025.1" },
 ]
+
+[[package]]
+name = "ddiver-core-testing"
+version = "0.1.0"
+source = { editable = "packages/ddiver-core-testing" }
 
 [[package]]
 name = "hypothesis"
