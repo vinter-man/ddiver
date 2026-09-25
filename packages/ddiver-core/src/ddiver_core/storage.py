@@ -19,7 +19,7 @@ from typing import Any
 
 import aiosqlite
 
-from ddiver.links import ChatRef
+from ddiver_core.links import ChatRef
 from ddiver_core.rules import RuleKind, pattern_key
 from ddiver_core.timeutil import Clock, utcnow
 

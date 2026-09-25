@@ -17,8 +17,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from ddiver.storage import Role, Storage, User
 from ddiver_core.i18n import DEFAULT_LANG, LANGS, t
+from ddiver_core.storage import Role, Storage, User
 from ddiver_core.timeutil import Clock, utcnow
 
 log = logging.getLogger(__name__)

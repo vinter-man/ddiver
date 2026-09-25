@@ -23,9 +23,9 @@ from ddiver.app import (
     EXIT_OK,
 )
 from ddiver.config import Settings
-from ddiver.storage import DatabaseCorruptError, Storage
 from ddiver_core.health import check as health_check
 from ddiver_core.health import heartbeat_age
+from ddiver_core.storage import DatabaseCorruptError, Storage
 
 log = logging.getLogger("ddiver")
 

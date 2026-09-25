@@ -5,12 +5,12 @@ import sqlite3
 import pytest
 from telethon.tl import types as tl
 
-from ddiver.links import ChatRef
 from ddiver.listener import CursorTracker, Listener, chat_ref_of, should_consider
 from ddiver.matcher import Matcher
 from ddiver.senders import SenderCache
-from ddiver.storage import ALL_CHATS, Cursor, Role, Storage
+from ddiver_core.links import ChatRef
 from ddiver_core.rules import RuleKind
+from ddiver_core.storage import ALL_CHATS, Cursor, Role, Storage
 from tests.fakes import T0, make_channel, make_event, make_user
 
 OWNER = 1

@@ -15,8 +15,8 @@ from typing import Any
 
 from telethon.tl import types as tl
 
-from ddiver.links import ChatRef, chat_link, message_link
 from ddiver_core.i18n import t
+from ddiver_core.links import ChatRef, chat_link, message_link
 from ddiver_core.richtext import MAX_MESSAGE_UTF16, RichText, Span, window
 from ddiver_core.rules import RuleKind
 from ddiver_core.timeutil import format_local, relative

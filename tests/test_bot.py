@@ -7,11 +7,11 @@ from ddiver import portable
 from ddiver.bot import menus
 from ddiver.bot.handlers import StatusInfo, build_router
 from ddiver.bot.router import Edit, Incoming, Reply, Send, Toast
-from ddiver.links import ChatRef
 from ddiver.matcher import Matcher
-from ddiver.storage import ALL_CHATS, ChatRow, IgnoredSender, Role, Rule, Storage
 from ddiver_core.i18n import t
+from ddiver_core.links import ChatRef
 from ddiver_core.rules import MAX_IGNORED_PER_USER, RuleKind
+from ddiver_core.storage import ALL_CHATS, ChatRow, IgnoredSender, Role, Rule, Storage
 
 OWNER = 1
 MOD = 2

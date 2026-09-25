@@ -25,8 +25,8 @@ from telethon.tl import types as tl
 
 from ddiver.formatter import DigestEntry, Payload, Rendered, render_digest, render_notification
 from ddiver.senders import SenderCache
-from ddiver.storage import DeliveryStatus, OutboxItem, Storage
 from ddiver_core.i18n import DEFAULT_LANG
+from ddiver_core.storage import DeliveryStatus, OutboxItem, Storage
 from ddiver_core.timeutil import Clock, utcnow
 
 log = logging.getLogger(__name__)

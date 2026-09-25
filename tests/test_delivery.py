@@ -6,7 +6,7 @@ from telethon import errors
 from telethon.tl import types as tl
 
 from ddiver.delivery import MAX_ATTEMPTS, Delivery
-from ddiver.storage import DeliveryStatus, Role, Storage
+from ddiver_core.storage import DeliveryStatus, Role, Storage
 from tests.fakes import T0, FakeBotClient
 
 OWNER = 1

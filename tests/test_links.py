@@ -1,6 +1,6 @@
 from telethon.tl import types as tl
 
-from ddiver.links import ChatRef, chat_link, message_link, topic_id_of, user_link
+from ddiver_core.links import ChatRef, chat_link, message_link, topic_id_of, user_link
 
 PUBLIC = ChatRef(-1001234567890, "Pub", "pubchat", "supergroup")
 PRIVATE = ChatRef(-1001234567890, "Priv", None, "supergroup")

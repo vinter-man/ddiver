@@ -19,17 +19,6 @@ from ddiver import portable
 from ddiver.bot import menus
 from ddiver.bot.router import Action, Context, Edit, Reply, Router, Send, SendDocument, Toast
 from ddiver.matcher import Matcher
-from ddiver.storage import (
-    ALL_CHATS,
-    SQLITE_INT_MAX,
-    SQLITE_INT_MIN,
-    ChatRow,
-    DuplicateRuleError,
-    Role,
-    Rule,
-    Storage,
-    User,
-)
 from ddiver_core.i18n import LANG_NAMES, LANGS, t
 from ddiver_core.rules import (
     MAX_IGNORED_PER_USER,
@@ -44,6 +33,17 @@ from ddiver_core.rules import (
     parse_pattern,
     parse_rule_lines,
     prepare_text,
+)
+from ddiver_core.storage import (
+    ALL_CHATS,
+    SQLITE_INT_MAX,
+    SQLITE_INT_MIN,
+    ChatRow,
+    DuplicateRuleError,
+    Role,
+    Rule,
+    Storage,
+    User,
 )
 from ddiver_core.timeutil import Clock, format_clock, relative, resolve_tz, utcnow
 

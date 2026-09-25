@@ -14,15 +14,15 @@ from telethon.tl import types as tl
 from ddiver import portable
 from ddiver.bot import menus
 from ddiver.bot.router import Edit, Reply, Send, Toast
-from ddiver.links import ChatRef
 from ddiver.runtime import (
     RECONCILE_SECONDS,
     BotAdapter,
     notification_buttons_factory,
     refresh_dialogs,
 )
-from ddiver.storage import OutboxItem, Role, Storage
 from ddiver_core.i18n import t
+from ddiver_core.links import ChatRef
+from ddiver_core.storage import OutboxItem, Role, Storage
 from tests.fakes import T0, make_channel, make_user
 
 PAYLOAD = {
@@ -952,7 +952,7 @@ class TestAttachedDocuments:
         assert downloaded == [], "a megabyte was pulled for somebody with no access"
 
     async def test_a_denied_user_cannot_either(self, app):
-        from ddiver.storage import Role
+        from ddiver_core.storage import Role
 
         downloaded = []
 

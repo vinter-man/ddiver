@@ -23,7 +23,7 @@ from telethon import errors
 from telethon.tl import types as tl
 
 from ddiver.listener import Listener, should_consider
-from ddiver.storage import ChatRow, Storage
+from ddiver_core.storage import ChatRow, Storage
 from ddiver_core.timeutil import Clock, utcnow
 
 log = logging.getLogger(__name__)

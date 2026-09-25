@@ -8,14 +8,14 @@ import json
 import pytest
 
 from ddiver import portable
-from ddiver.links import ChatRef
-from ddiver.storage import ALL_CHATS, Storage
+from ddiver_core.links import ChatRef
 from ddiver_core.rules import (
     MAX_IGNORED_PER_USER,
     MAX_RULES_PER_CHAT,
     MAX_RULES_PER_USER,
     RuleKind,
 )
+from ddiver_core.storage import ALL_CHATS, Storage
 
 OWNER = 1
 MOD = 2

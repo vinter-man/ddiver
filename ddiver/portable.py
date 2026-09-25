@@ -18,13 +18,6 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from ddiver.storage import (
-    ALL_CHATS,
-    SQLITE_INT_MAX,
-    SQLITE_INT_MIN,
-    DuplicateRuleError,
-    Storage,
-)
 from ddiver_core.rules import (
     MAX_IGNORED_PER_USER,
     MAX_RULES_PER_CHAT,
@@ -32,6 +25,13 @@ from ddiver_core.rules import (
     RuleError,
     RuleKind,
     compile_rule,
+)
+from ddiver_core.storage import (
+    ALL_CHATS,
+    SQLITE_INT_MAX,
+    SQLITE_INT_MIN,
+    DuplicateRuleError,
+    Storage,
 )
 
 FORMAT = "ddiver.config"

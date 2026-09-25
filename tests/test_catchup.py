@@ -5,12 +5,12 @@ from telethon import errors
 from telethon.tl import types as tl
 
 from ddiver.catchup import Catchup
-from ddiver.links import ChatRef
 from ddiver.listener import Listener
 from ddiver.matcher import Matcher
 from ddiver.senders import SenderCache
-from ddiver.storage import ALL_CHATS, Cursor, Storage
+from ddiver_core.links import ChatRef
 from ddiver_core.rules import RuleKind
+from ddiver_core.storage import ALL_CHATS, Cursor, Storage
 from tests.fakes import T0, make_channel, make_event
 
 OWNER = 1
@@ -430,7 +430,7 @@ class TestInputPeers:
     def test_built_from_the_stored_access_hash(self):
 
         from ddiver.catchup import input_peer_for
-        from ddiver.storage import ChatRow
+        from ddiver_core.storage import ChatRow
 
         supergroup = ChatRow(ChatRef(-1001234567890, "S", None, "supergroup"), True, True, 999)
         peer = input_peer_for(supergroup)
