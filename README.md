@@ -47,7 +47,7 @@ version of this README is in [README.ru.md](README.ru.md).*
 ```bash
 git clone https://github.com/vinter-man/ddiver && cd ddiver
 cp .env.example .env         # fill in API_ID, API_HASH, BOT_TOKEN, OWNER_ID
-uv sync                      # or: pip install -e .
+uv sync                      # or: pip install -e ./packages/ddiver-core -e .
 uv run ddiver login          # phone, code, 2FA — the session stays in ./data
 uv run ddiver check-config   # verifies the token, permissions and that you started the bot
 uv run ddiver run

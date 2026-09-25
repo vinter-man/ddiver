@@ -6,6 +6,12 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 
+[manifest]
+members = [
+    "ddiver",
+    "ddiver-core",
+]
+
 [[package]]
 name = "aiosqlite"
 version = "0.22.1"
@@ -236,6 +242,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
     { name = "cryptg" },
+    { name = "ddiver-core" },
     { name = "pydantic-settings" },
     { name = "regex" },
     { name = "telethon" },
@@ -260,6 +267,7 @@ dev = [
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.21" },
     { name = "cryptg", specifier = ">=0.5" },
+    { name = "ddiver-core", editable = "packages/ddiver-core" },
     { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "regex", specifier = ">=2024.11" },
     { name = "telethon", specifier = ">=1.45,<2" },
@@ -278,6 +286,29 @@ dev = [
     { name = "ruff", specifier = ">=0.9" },
     { name = "types-pyyaml" },
     { name = "types-regex" },
+]
+
+[[package]]
+name = "ddiver-core"
+version = "0.1.0"
+source = { editable = "packages/ddiver-core" }
+dependencies = [
+    { name = "aiosqlite" },
+    { name = "cryptg" },
+    { name = "pydantic-settings" },
+    { name = "regex" },
+    { name = "telethon" },
+    { name = "tzdata" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiosqlite", specifier = ">=0.21" },
+    { name = "cryptg", specifier = ">=0.5" },
+    { name = "pydantic-settings", specifier = ">=2.6" },
+    { name = "regex", specifier = ">=2024.11" },
+    { name = "telethon", specifier = ">=1.45,<2" },
+    { name = "tzdata", specifier = ">=2025.1" },
 ]
 
 [[package]]

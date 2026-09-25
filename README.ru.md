@@ -45,7 +45,7 @@
 ```bash
 git clone https://github.com/vinter-man/ddiver && cd ddiver
 cp .env.example .env         # заполните API_ID, API_HASH, BOT_TOKEN, OWNER_ID
-uv sync                      # или: pip install -e .
+uv sync                      # или: pip install -e ./packages/ddiver-core -e .
 uv run ddiver login          # телефон, код, 2FA — сессия останется в ./data
 uv run ddiver check-config   # проверит токен, права на файлы и что вы нажали Start у бота
 uv run ddiver run

@@ -23,5 +23,6 @@ tests/
 deploy/
 docs/
 scripts/
+tools/
 *.md
 !README.md

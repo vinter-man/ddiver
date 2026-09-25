@@ -27,10 +27,38 @@ jobs:
         # once turned an error message into a command substitution.
         run: shellcheck deploy/*.sh
 
+  image:
+    # A COPY that misses a workspace member breaks only the image, and nothing but the server
+    # builds one. Build it here, so that deploy never ships a commit that cannot be built.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build --build-arg GIT_SHA="$GITHUB_SHA" -t ddiver:ci .
+      - name: Smoke-test the image
+        # A build can succeed while the installed wheels miss a module (a hatch `packages`
+        # setting that drops a subpackage) or the console script is broken, and the box would
+        # only find out at its healthcheck, after `up -d`. The check job tests the editable
+        # install; this imports every module of both packages from site-packages, as
+        # production does, makes sure nothing of the dev group came along, and runs the entry
+        # point, with no network and no credentials.
+        run: |
+          docker run --rm --network none --entrypoint python ddiver:ci -c '
+          import importlib, importlib.util, pkgutil
+          import ddiver, ddiver_core
+          for package in (ddiver, ddiver_core):
+              for found in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
+                  importlib.import_module(found.name)
+          dev_only = ("pytest",)
+          shipped = [name for name in dev_only if importlib.util.find_spec(name)]
+          assert not shipped, f"dev-only packages in the image: {shipped}"
+          '
+          docker run --rm --network none ddiver:ci --help
+
   deploy:
     # Only after the checks above are green, only from main, and never from a pull request —
     # a fork's PR must not be able to reach the server.
-    needs: check
+    needs: [check, image]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     concurrency:
