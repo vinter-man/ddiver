@@ -14,6 +14,7 @@ Telegram carries its links in the payload and gets no derived link at all.
 from __future__ import annotations
 
 import datetime as dt
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -51,6 +52,11 @@ SOURCE_TELEGRAM = "tg"
 """The only source whose links can be built from ids; any other value gets no derived link."""
 
 _LINK_SCHEMES = frozenset({"https", "http"})
+_LINK_MAX_CHARS = 2048
+"""Longer than any link a source has reason to send. The link line shows it in full, so a
+longer one would crowd the post text out of the message."""
+_INVISIBLE = frozenset({"Cc", "Cf"})
+"""Control and format characters: line breaks, bidi overrides, zero-width joiners."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,8 +214,15 @@ def _safe_url(url: object) -> str | None:
     The payload's links are data from a source, and they end up as clickable text in a private
     chat. Anything that is not a plain web address (``javascript:``, ``tg:``, a bare path, a
     non-string from a damaged row) is dropped rather than linked.
+
+    So is an address with whitespace or an invisible character in it. ``urlsplit`` quietly
+    removes tabs and line breaks while it parses, but the string it was given is what would
+    be shown: a line break would add a line of the source's choosing to the notification's
+    header, and a bidi override would make the link line read as another address.
     """
-    if not isinstance(url, str):
+    if not isinstance(url, str) or len(url) > _LINK_MAX_CHARS:
+        return None
+    if any(ch.isspace() or unicodedata.category(ch) in _INVISIBLE for ch in url):
         return None
     try:
         parts = urlsplit(url)

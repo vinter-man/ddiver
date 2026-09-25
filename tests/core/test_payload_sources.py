@@ -247,6 +247,19 @@ class TestFacebookNotification:
             "",
             "https://[::1",  # urlsplit raises on it
             "https:///no-host",
+            # urlsplit parses these by removing the break, but the original would be shown
+            f"{POST_URL}\n🔒 Rule: fake",
+            f"{POST_URL}\r\nx",
+            f"{POST_URL}\tx",
+            f" {POST_URL}",
+            f"{POST_URL}x y",
+            f"{POST_URL}\u00a0",  # no-break space
+            f"{POST_URL}\u2028x",  # line separator
+            f"{POST_URL}\x00",
+            f"{POST_URL}\x85",  # C1 next-line
+            "https://www.facebook.com/\u202eputs/12/",  # bidi override: reads as another path
+            f"{POST_URL}\u200d",  # zero-width joiner
+            "https://www.facebook.com/" + "a" * 2024,  # one over the limit
         ],
     )
     def test_a_link_that_is_not_a_web_address_is_dropped(self, bad):
@@ -254,6 +267,20 @@ class TestFacebookNotification:
             fb_payload(url=bad, chat_url=bad, sender_url=bad), lang="en", tz="UTC", now=NOW
         )
         assert urls(r) == []
+        assert not bad or bad not in r.text  # nor shown on the link line
+
+    @pytest.mark.parametrize(
+        "good",
+        [
+            "https://www.facebook.com/" + "a" * 2023,  # exactly the limit
+            "https://www.facebook.com/people/Олена-К/100000000000001/",
+            "HTTPS://WWW.FACEBOOK.COM/groups/1/",
+            "http://example.org/a?b=c&d=%20e#f",
+        ],
+    )
+    def test_a_plain_web_address_is_kept_as_it_is(self, good):
+        r = render_notification(fb_payload(url=good), lang="en", tz="UTC", now=NOW)
+        assert good in urls(r)
 
     def test_a_damaged_row_with_a_non_text_link_renders_without_it(self):
         data = {**fb_payload().to_json(), "url": 12345, "chat_url": ["x"], "sender_url": {}}
