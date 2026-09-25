@@ -102,7 +102,15 @@ def build_router(
     status: StatusProvider | None = None,
     regex_timeout: float = 0.2,
     clock: Clock = utcnow,
+    export_format: str = portable.FORMAT,
 ) -> Router:
+    """Register every flow on a new router.
+
+    ``export_format`` is the tag /export writes and the only one /import accepts; it also
+    names the exported file. An app with chats of its own kind passes its own tag.
+    """
+    export_app = portable.app_name(export_format)  # a bad tag fails at startup, not at /export
+
     async def invalidate(chat_id: int | None = None) -> None:
         if matcher is not None:
             await matcher.invalidate(chat_id)
@@ -787,12 +795,14 @@ def build_router(
     @router.command("export")
     async def export_cmd(ctx: Context) -> list[Action]:
         """Hand back the part of the configuration that is worth keeping: chats and rules."""
-        config = await portable.export_config(storage, ctx.user_id, now=clock())
+        config = await portable.export_config(
+            storage, ctx.user_id, now=clock(), format_tag=export_format
+        )
         body = portable.dumps(config).encode()
         stamp = clock().strftime("%Y-%m-%d")
         return [
             SendDocument(
-                filename=f"ddiver-{stamp}.json",
+                filename=f"{export_app}-{stamp}.json",
                 content=body,
                 caption_key="bot.export.caption",
                 params={
@@ -817,7 +827,7 @@ def build_router(
             return [Reply("bot.import.need_file")]
         router.clear_pending(ctx.user_id)
         try:
-            data = portable.loads(raw)
+            data = portable.loads(raw, format_tag=export_format)
         except portable.BadExportError as exc:
             return [Reply(t(ctx.lang, "bot.import.bad_file", reason=str(exc)), literal=True)]
         report = await portable.import_config(

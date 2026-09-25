@@ -8,6 +8,11 @@ session — is either recoverable on its own or must not leave the machine at al
 Chats are matched on import by ``@username`` first and by id second. Ids are stable, but a
 config moved to another account is useless unless a public chat can be found by name, and the
 username is the only thing that survives a different listener.
+
+Every export names its app in a format tag (``ddiver.config``), and an import refuses any
+other tag. Two apps built on the core share the file layout but not the meaning of a chat id:
+a Telegram chat id fed to ddiver-fb would be looked up as a Facebook group id, and the other
+way round. Both functions take the tag as a parameter; ddiver's is the default.
 """
 
 from __future__ import annotations
@@ -15,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import datetime as dt
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -35,6 +41,8 @@ from ddiver_core.storage import (
 )
 
 FORMAT = "ddiver.config"
+FORMAT_TAG = re.compile(r"[a-z][a-z0-9-]{0,31}\.config")
+"""What a format tag looks like. The app name in it goes into messages and the file name."""
 VERSION = 1
 MAX_BYTES = 1_000_000
 """An export of 500 rules is about 40 KB; a megabyte is a file that is not one of ours."""
@@ -66,7 +74,18 @@ account is 500 entries, so this bound is never met by a real file.
 
 
 class BadExportError(Exception):
-    """The document is not a ddiver export, or is one we cannot read."""
+    """The document is not an export of this app, or is one we cannot read."""
+
+
+def app_name(format_tag: str) -> str:
+    """The app a format tag names: ``ddiver.config`` is ddiver's.
+
+    A tag of another shape is a programming error, not a bad file, so it raises ValueError.
+    """
+    if not FORMAT_TAG.fullmatch(format_tag):
+        msg = f"bad export format tag {format_tag!r}: want <app>.config"
+        raise ValueError(msg)
+    return format_tag.removesuffix(".config")
 
 
 @dataclass(slots=True)
@@ -86,8 +105,11 @@ class ImportReport:
         return bool(self.chats_subscribed or self.rules_added or self.ignored_added)
 
 
-async def export_config(storage: Storage, user_id: int, *, now: dt.datetime) -> dict[str, Any]:
+async def export_config(
+    storage: Storage, user_id: int, *, now: dt.datetime, format_tag: str = FORMAT
+) -> dict[str, Any]:
     """Everything this user would have to retype after a reinstall, and nothing else."""
+    app_name(format_tag)  # refuse a malformed tag before doing any work
     chats = await storage.list_subscriptions(user_id)
     by_id = {chat.id: chat for chat in chats}
     rules = await storage.list_rules(user_id)
@@ -98,7 +120,7 @@ async def export_config(storage: Storage, user_id: int, *, now: dt.datetime) -> 
                 by_id[found.id] = found
 
     return {
-        "format": FORMAT,
+        "format": format_tag,
         "version": VERSION,
         "exported_at": now.isoformat(),
         "chats": [
@@ -129,11 +151,16 @@ def dumps(config: dict[str, Any]) -> str:
     return json.dumps(config, ensure_ascii=False, indent=2)
 
 
-def loads(raw: bytes | str) -> dict[str, Any]:
-    """Parse and sanity-check an export, with messages a person can act on."""
+def loads(raw: bytes | str, *, format_tag: str = FORMAT) -> dict[str, Any]:
+    """Parse and sanity-check an export, with messages a person can act on.
+
+    A document with any other tag, or none, gets the same answer as one that is not an
+    export at all: which app a file came from is not something the reply needs to reveal.
+    """
+    app = app_name(format_tag)
     if isinstance(raw, bytes):
         if len(raw) > MAX_BYTES:
-            msg = "file is too large to be a ddiver export"
+            msg = f"file is too large to be a {app} export"
             raise BadExportError(msg)
         try:
             raw = raw.decode("utf-8")
@@ -141,7 +168,7 @@ def loads(raw: bytes | str) -> dict[str, Any]:
             msg = "file is not UTF-8 text"
             raise BadExportError(msg) from exc
     if len(raw) > MAX_BYTES:
-        msg = "file is too large to be a ddiver export"
+        msg = f"file is too large to be a {app} export"
         raise BadExportError(msg)
     try:
         data = json.loads(raw)
@@ -160,11 +187,11 @@ def loads(raw: bytes | str) -> dict[str, Any]:
         # of ValueError, so this has to come second.
         msg = "contains a number this cannot read"
         raise BadExportError(msg) from exc
-    if not isinstance(data, dict) or data.get("format") != FORMAT:
-        msg = "not a ddiver export"
+    if not isinstance(data, dict) or data.get("format") != format_tag:
+        msg = f"not a {app} export"
         raise BadExportError(msg)
     if _int(data.get("version")) > VERSION:
-        msg = "made by a newer ddiver; upgrade before importing"
+        msg = f"made by a newer {app}; upgrade before importing"
         raise BadExportError(msg)
     return data
 
