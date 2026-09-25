@@ -3,6 +3,12 @@
 Ownership is *computed* (``user_id == OWNER_ID``), never stored, so the owner can never be
 locked out and changing ``OWNER_ID`` needs no migration. Every mutating method takes the acting
 ``user_id`` and filters on it, because callback payloads are client-controlled.
+
+The core's own schema is versioned by ``PRAGMA user_version``, as it always was. An app built
+on the core keeps its tables in *named tracks* instead, recorded in ``schema_tracks``, so the
+app's schema and the core's can each move on without renumbering the other: a core upgrade
+adds core migrations and leaves the app's version alone, and the reverse. A database opened
+without tracks (ddiver's) never gets the table at all.
 """
 
 from __future__ import annotations
@@ -11,8 +17,9 @@ import datetime as dt
 import enum
 import json
 import logging
+import re
 import sqlite3
-from collections.abc import Awaitable, Mapping
+from collections.abc import Awaitable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -63,6 +70,14 @@ class DeliveryStatus(enum.StrEnum):
 
 class DatabaseCorruptError(Exception):
     """``PRAGMA quick_check`` failed; the file needs restoring from a backup."""
+
+
+class MigrationError(Exception):
+    """An app track's migration failed and was rolled back; the file itself is fine.
+
+    Kept apart from :class:`DatabaseCorruptError` on purpose: a constraint a migration trips
+    over is a bug in the migration, and "restore from a backup" would be the wrong advice.
+    """
 
 
 class DuplicateRuleError(Exception):
@@ -255,6 +270,50 @@ _MIGRATIONS: list[str] = [
 ]
 
 
+TRACK_NAME = re.compile(r"[a-z][a-z0-9_]{0,31}")
+"""What a migration track may be called.
+
+The name is written into the migration script itself (``executescript`` takes no parameters,
+and the transaction has to live inside the script), so it is held to a shape that needs no
+quoting.
+"""
+
+_FORBIDDEN_IN_TRACKS = re.compile(r"user_version|schema_tracks", re.IGNORECASE)
+
+_TRACKS_TABLE = """
+CREATE TABLE IF NOT EXISTS schema_tracks (
+  track TEXT PRIMARY KEY,
+  version INTEGER NOT NULL CHECK (version >= 0)
+)
+"""
+
+
+def _checked_tracks(tracks: Mapping[str, object]) -> dict[str, tuple[str, ...]]:
+    """Refuse, at construction, a track that could damage the core's own bookkeeping."""
+    checked: dict[str, tuple[str, ...]] = {}
+    for name, scripts in tracks.items():
+        if not TRACK_NAME.fullmatch(name):
+            msg = f"bad migration track name {name!r}: want {TRACK_NAME.pattern}"
+            raise ValueError(msg)
+        # A str is a Sequence[str] too, and every character would become a "migration".
+        if isinstance(scripts, str) or not isinstance(scripts, Sequence):
+            msg = f"track {name}: pass a list of SQL scripts"
+            raise TypeError(msg)
+        texts: list[str] = []
+        for index, script in enumerate(scripts, start=1):
+            if not isinstance(script, str):
+                msg = f"track {name} v{index} is not SQL text"
+                raise TypeError(msg)
+            if _FORBIDDEN_IN_TRACKS.search(script):
+                # user_version is the core's track and schema_tracks is this module's ledger;
+                # an app script that writes either would silently skip or repeat migrations.
+                msg = f"track {name} v{index} touches user_version or schema_tracks"
+                raise ValueError(msg)
+            texts.append(script)
+        checked[name] = tuple(texts)
+    return checked
+
+
 def _day(moment: dt.datetime) -> str:
     """The UTC day a match is counted under. One boundary for everybody, stated in the report:
     a weekly window does not get more honest by being cut in each person's own midnight."""
@@ -286,8 +345,12 @@ class Storage:
         owner_id: int = 0,
         clock: Clock = utcnow,
         digest_threshold: int = DEFAULT_DIGEST_THRESHOLD,
+        tracks: Mapping[str, Sequence[str]] | None = None,
     ) -> None:
         self._path = str(path)
+        # App migration tracks, applied in this order after the core schema (their tables may
+        # reference the core's). Each list is append-only, like _MIGRATIONS.
+        self._tracks = _checked_tracks(tracks or {})
         self._owner_id = owner_id
         self._clock = clock
         # What a moderator starts with, from DIGEST_THRESHOLD. It has to be applied where the
@@ -313,6 +376,7 @@ class Storage:
             await db.execute("PRAGMA busy_timeout=5000")
             await self._quick_check()
             await self._migrate()
+            await self._migrate_tracks()
         except sqlite3.DatabaseError as exc:
             self._db = None
             await db.close()
@@ -354,6 +418,51 @@ class Storage:
         cur = await self.db.execute("PRAGMA user_version")
         row = await cur.fetchone()
         return int(row[0]) if row else 0
+
+    async def _migrate_tracks(self) -> None:
+        if not self._tracks:
+            return  # a database opened without tracks (ddiver's) never gets the table
+        await self.db.execute(_TRACKS_TABLE)
+        for name, scripts in self._tracks.items():
+            version = await self.track_version(name)
+            if version > len(scripts):
+                # A newer build migrated this file and an older one is running, which is what
+                # a rolled-back deploy looks like. The core's own track has always accepted
+                # that silently, and refusing would turn the rollback into an outage; the
+                # tracks are append-only, so the older code's tables are all still there.
+                log.warning(
+                    "migration track %s is at v%d, this build knows v%d; running anyway",
+                    name,
+                    version,
+                    len(scripts),
+                )
+                continue
+            for index, script in enumerate(scripts[version:], start=version + 1):
+                try:
+                    await self.db.executescript(
+                        f"BEGIN;\n{script}\n"
+                        # safe to inline: the name matched TRACK_NAME and the index is an int
+                        "INSERT INTO schema_tracks (track, version) "
+                        f"VALUES ('{name}', {index}) "
+                        "ON CONFLICT(track) DO UPDATE SET version=excluded.version;\n"
+                        "COMMIT;"
+                    )
+                except sqlite3.Error as exc:
+                    # The script's transaction is still open; closing the connection (open()
+                    # does, on any error) rolls it back, so the track stays where it was.
+                    msg = f"migration track {name} v{index} failed: {exc}"
+                    raise MigrationError(msg) from exc
+
+    async def track_version(self, track: str) -> int:
+        """How far an app's migration track has run on this file; 0 when it never has."""
+        cur = await self.db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_tracks'"
+        )
+        if await cur.fetchone() is None:
+            return 0
+        cur = await self.db.execute("SELECT version FROM schema_tracks WHERE track=?", (track,))
+        row = await cur.fetchone()
+        return int(row["version"]) if row else 0
 
     def _now(self) -> str:
         return _iso(self._clock())
