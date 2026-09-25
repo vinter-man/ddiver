@@ -293,24 +293,35 @@ _LEADING_NOISE = re.compile(r"(?:\s+|--[^\n]*(?:\n|$)|/\*.*?(?:\*/|$))*", re.DOT
 _FIRST_WORD = re.compile(r"[A-Za-z]+")
 
 
-def _transaction_control(script: str) -> str | None:
-    """The first top-level statement of *script* that opens or ends a transaction, if any.
+def _split_statements(script: str) -> tuple[list[str], str]:
+    """The top-level statements of *script*, and whatever is left after the last one.
 
     Statements are split where SQLite itself would end them (``sqlite3.complete_statement``
     knows about string literals, comments and ``CREATE TRIGGER ... BEGIN ... END;`` bodies), so
-    a ``BEGIN`` inside a trigger or a quoted ``'COMMIT'`` is not mistaken for one.
+    a ``BEGIN`` inside a trigger or a quoted ``'COMMIT'`` is not mistaken for one. The script
+    is read as the migration wrapper places it, followed by a line break and a semicolon, so a
+    closing ``-- comment`` or a last statement without its semicolon ends there. The remainder
+    is non-empty only when the script ends inside a block comment, a string literal or a
+    trigger body.
     """
+    statements: list[str] = []
     pending = ""
-    for piece in script.split(";"):
+    for piece in (script + "\n").split(";"):
         pending += piece + ";"
-        if not sqlite3.complete_statement(pending):
-            continue
-        noise = _LEADING_NOISE.match(pending)
-        body = pending[noise.end() :] if noise else pending
+        if sqlite3.complete_statement(pending):
+            statements.append(pending)
+            pending = ""
+    return statements, pending
+
+
+def _transaction_control(statements: Sequence[str]) -> str | None:
+    """The first of *statements* that opens or ends a transaction, if any."""
+    for statement in statements:
+        noise = _LEADING_NOISE.match(statement)
+        body = statement[noise.end() :] if noise else statement
         word = _FIRST_WORD.match(body)
         if word is not None and word.group(0).upper() in _TRANSACTION_VERBS:
             return word.group(0).upper()
-        pending = ""
     return None
 
 
@@ -335,7 +346,15 @@ def _checked_tracks(tracks: Mapping[str, object]) -> dict[str, tuple[str, ...]]:
                 # an app script that writes either would silently skip or repeat migrations.
                 msg = f"track {name} v{index} touches user_version or schema_tracks"
                 raise ValueError(msg)
-            verb = _transaction_control(script)
+            statements, unterminated = _split_statements(script)
+            if unterminated:
+                # SQLite reads an unclosed /* to the end of its input, so the ledger row and
+                # the COMMIT the wrapper appends would become part of the comment: the file
+                # would open with the transaction still open, and every write after it would
+                # be lost when the connection closed.
+                msg = f"track {name} v{index} ends inside a comment, a string or a trigger body"
+                raise ValueError(msg)
+            verb = _transaction_control(statements)
             if verb is not None:
                 # The script runs inside the ledger's own BEGIN ... COMMIT. A ROLLBACK in it
                 # would let the ledger row commit on its own in autocommit mode, recording a
@@ -473,7 +492,10 @@ class Storage:
             for index, script in enumerate(scripts[version:], start=version + 1):
                 try:
                     await self.db.executescript(
-                        f"BEGIN;\n{script}\n"
+                        # The line break and semicolon after the script end its last statement
+                        # even without one of its own, as _split_statements assumed; an empty
+                        # statement is harmless.
+                        f"BEGIN;\n{script}\n;\n"
                         # safe to inline: the name matched TRACK_NAME and the index is an int
                         "INSERT INTO schema_tracks (track, version) "
                         f"VALUES ('{name}', {index}) "
@@ -485,6 +507,13 @@ class Storage:
                     # does, on any error) rolls it back, so the track stays where it was.
                     msg = f"migration track {name} v{index} failed: {exc}"
                     raise MigrationError(msg) from exc
+                if self.db.in_transaction:
+                    # The construction checks refuse every script known to do this; this is
+                    # what keeps one they missed from running the whole process inside a
+                    # transaction that is never committed.
+                    await self.db.execute("ROLLBACK")
+                    msg = f"migration track {name} v{index} left its transaction open"
+                    raise MigrationError(msg)
 
     async def track_version(self, track: str) -> int:
         """How far an app's migration track has run on this file; 0 when it never has."""

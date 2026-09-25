@@ -306,6 +306,31 @@ class TestFailures:
             await older.close()
         assert "migration track fb is at v2, this build knows v1" in caplog.text
 
+    async def test_a_script_that_leaves_its_transaction_open_fails_and_leaves_nothing(
+        self, tmp_path
+    ):
+        """The last line of defence, with the construction checks out of the way.
+
+        An unclosed ``/*`` runs to the end of the input, taking the ledger row and the COMMIT
+        with it. Without this check the file opened with the transaction still open, and every
+        write after it was lost when the connection closed.
+        """
+        path = tmp_path / "fb.sqlite3"
+        failing = Storage(path, owner_id=1, tracks={"fb": [FB_V1]})
+        failing._tracks = {"fb": ("CREATE TABLE fb_x (id INTEGER); /* never closed",)}
+        with pytest.raises(MigrationError, match="fb v1 left its transaction open"):
+            await failing.open()
+        with pytest.raises(RuntimeError, match="not open"):
+            _ = failing.db
+
+        store = await opened(path)
+        try:
+            assert "fb_x" not in await tables(store)
+            assert await store.track_version("fb") == 0
+            assert await store.schema_version() == CORE
+        finally:
+            await store.close()
+
 
 class TestValidation:
     @pytest.mark.parametrize(
@@ -384,6 +409,106 @@ class TestValidation:
             assert await store.track_version("fb") == 1
         finally:
             await store.close()
+
+    @pytest.mark.parametrize(
+        "script",
+        [
+            "CREATE TABLE fb_x (id INTEGER); /* a note left open",
+            "CREATE TABLE fb_x (note TEXT DEFAULT 'never closed);",
+            (
+                "CREATE TABLE fb_x (id INTEGER);\n"
+                "CREATE TRIGGER fb_x_ai AFTER INSERT ON fb_x BEGIN\n"
+                "  UPDATE fb_x SET id = id WHERE id = NEW.id;"
+            ),
+        ],
+    )
+    def test_a_script_that_ends_inside_a_comment_string_or_trigger_is_refused(self, script):
+        # The wrapper appends the ledger row and COMMIT; any of these would swallow them.
+        with pytest.raises(ValueError, match="fb v2 ends inside a comment, a string or a trigger"):
+            Storage(":memory:", tracks={"fb": [FB_V1, script]})
+
+    @pytest.mark.parametrize(
+        "script",
+        [
+            "CREATE TABLE fb_x (id INTEGER); -- a closing note, no line break after it",
+            "CREATE TABLE fb_x (id INTEGER)",  # no final semicolon
+            "CREATE TABLE fb_x (id INTEGER); /* a closed note */",
+            (
+                "CREATE TABLE fb_x (id INTEGER);\n"
+                "CREATE TRIGGER fb_x_ai AFTER INSERT ON fb_x BEGIN\n"
+                "  UPDATE fb_x SET id = id WHERE id = NEW.id;\n"
+                "END"
+            ),
+        ],
+    )
+    async def test_a_script_that_ends_cleanly_without_a_semicolon_or_newline_runs(
+        self, tmp_path, script
+    ):
+        store = await opened(tmp_path / "fb.sqlite3", tracks={"fb": [script]})
+        try:
+            assert await store.track_version("fb") == 1
+            assert "fb_x" in await tables(store)
+            assert not store.db.in_transaction
+        finally:
+            await store.close()
+
+
+FRAGMENTS = [
+    "CREATE TABLE IF NOT EXISTS fb_p (id INTEGER);",
+    "INSERT INTO fb_p VALUES (1);",
+    "SELECT 'a;b'",
+    "SELECT 1",
+    ";",
+    "\n",
+    " -- a note",
+    "/* a note */",
+    "/* open",
+    "'",
+    "CREATE TRIGGER IF NOT EXISTS fb_p_ai AFTER INSERT ON fb_p BEGIN SELECT 1;",
+    " END",
+]
+
+
+@settings(max_examples=200, deadline=None)
+@given(st.lists(st.sampled_from(FRAGMENTS), min_size=1, max_size=6).map("".join))
+def test_a_script_either_is_refused_or_ends_with_its_ledger_row_committed(script):
+    """The construction check reads a script the way SQLite will run it inside the wrapper.
+
+    Whatever it lets through either migrates, with the ledger row committed and no transaction
+    left open, or fails as a whole; the runtime guard behind it never has to step in.
+    """
+
+    async def run(path: Path) -> None:
+        try:
+            store = Storage(path, owner_id=1, tracks={"fb": [script]})
+        except ValueError:
+            return
+        try:
+            await store.open()
+        except MigrationError as exc:
+            assert "left its transaction open" not in str(exc)
+            store = await opened(path)
+            try:
+                assert await store.track_version("fb") == 0
+                assert "fb_p" not in await tables(store)
+            finally:
+                await store.close()
+            return
+        try:
+            assert not store.db.in_transaction
+            assert await store.track_version("fb") == 1
+            await store.ensure_user(2)
+        finally:
+            await store.close()
+        store = await opened(path)
+        try:
+            cur = await store.db.execute("SELECT count(*) FROM users WHERE id = 2")
+            assert (await cur.fetchone())[0] == 1  # a write after the migration was kept
+        finally:
+            await store.close()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        asyncio.run(run(Path(tmp) / "fb.sqlite3"))
 
 
 SCRIPTS = [FB_V1, FB_V2, FB_V3]
