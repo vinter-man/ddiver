@@ -392,8 +392,18 @@ class Delivery:
         Basic groups deliver updates with no entities, so the listener — which is forbidden
         from making RPCs — can only record the id. Here we are already off the ingestion path
         and behind a rate limit, so one cached lookup is affordable.
+
+        Only for a Telegram payload. The cache resolves ids against Telegram, and an id from
+        another source (a Facebook author) can be a real Telegram account's id: a
+        misconfigured app passing a cache would otherwise print a stranger's name under a
+        post. An app without Telegram senders passes ``senders=None`` in the first place.
         """
-        if payload.sender_name or payload.sender_id is None or self._senders is None:
+        if (
+            payload.sender_name
+            or payload.sender_id is None
+            or self._senders is None
+            or not payload.is_telegram
+        ):
             return payload
         info = await self._senders.resolve(payload.sender_id, payload.chat_id)
         if info is None or not info.display_name:
