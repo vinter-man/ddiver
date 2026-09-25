@@ -75,6 +75,7 @@ STRINGS.update(
         "bot.btn.cancel": "✖️ Отмена",
         "bot.btn.all_chats": "🌐 Все чаты",
         "bot.btn.search": "🔍 Поиск",
+        "bot.btn.refresh_chats": "🔄 Обновить чаты",
         "bot.btn.include": "🔑 Ключевые слова",
         "bot.btn.exclude": "➖ Исключения",
         "bot.cmd.start": "Начать и открыть меню",
@@ -191,6 +192,7 @@ STRINGS.update(
         "bot.settings.title": (
             "Язык: {lang} · Часовой пояс: {tz} · Порог дайджеста: {digest}\nСообщения ботов: {bots}"
         ),
+        "bot.settings.title_basic": "Язык: {lang} · Часовой пояс: {tz} · Порог дайджеста: {digest}",
         "bot.settings.language": "🌐 Язык",
         "bot.settings.timezone": "🕒 Часовой пояс",
         "bot.settings.digest": "📦 Порог дайджеста",

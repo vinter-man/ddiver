@@ -75,6 +75,7 @@ STRINGS.update(
         "bot.btn.cancel": "✖️ Скасувати",
         "bot.btn.all_chats": "🌐 Усі чати",
         "bot.btn.search": "🔍 Пошук",
+        "bot.btn.refresh_chats": "🔄 Оновити чати",
         "bot.btn.include": "🔑 Ключові слова",
         "bot.btn.exclude": "➖ Винятки",
         "bot.cmd.start": "Почати й відкрити меню",
@@ -190,6 +191,7 @@ STRINGS.update(
             "Мова: {lang} · Часовий пояс: {tz} · Поріг дайджесту: {digest}\n"
             "Повідомлення ботів: {bots}"
         ),
+        "bot.settings.title_basic": "Мова: {lang} · Часовий пояс: {tz} · Поріг дайджесту: {digest}",
         "bot.settings.language": "🌐 Мова",
         "bot.settings.timezone": "🕒 Часовий пояс",
         "bot.settings.digest": "📦 Поріг дайджесту",

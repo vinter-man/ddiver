@@ -93,6 +93,33 @@ class StatusInfo:
 
 StatusProvider = Callable[[], Awaitable[StatusInfo]]
 Invalidator = Callable[[int | None], Awaitable[None]]
+StatusTextProvider = Callable[[Context], Awaitable[str]]
+"""Writes the whole /status body for the person asking: their language, owner or not."""
+ChatsRefresher = Callable[[Context], Awaitable[list[Action]]]
+"""What the owner's refresh button does, and what it answers."""
+
+
+@dataclass(frozen=True, slots=True)
+class UiHooks:
+    """What an app on the core may change in the bot without forking these handlers.
+
+    The defaults are ddiver's bot, exactly: no field changes a screen, a callback or a string
+    unless it is set.
+    """
+
+    telegram_settings: bool = True
+    """Offer the settings only a Telegram listener can act on (count messages sent by bots).
+    ddiver-fb has no bot senders, so the toggle would change nothing and say otherwise."""
+    weekly_settings: bool = True
+    """Offer the weekly summary and backup toggles. The core stores them; the weekly task that
+    reads them is the app's (ddiver's runs in its ``Application``), so an app without one turns
+    them off rather than show two switches that do nothing."""
+    refresh_chats: ChatsRefresher | None = None
+    """Give the owner a refresh button on the chat lists, calling this. ddiver has none: its
+    chat list follows the listener's own dialogs. Without it the ``refresh`` callback is not
+    registered at all, so a forged one gets the usual "this button no longer works"."""
+    status_text: StatusTextProvider | None = None
+    """Write /status in place of the listener card built from :class:`StatusInfo`."""
 
 
 def build_router(
@@ -103,13 +130,17 @@ def build_router(
     regex_timeout: float = 0.2,
     clock: Clock = utcnow,
     export_format: str = portable.FORMAT,
+    hooks: UiHooks | None = None,
 ) -> Router:
     """Register every flow on a new router.
 
     ``export_format`` is the tag /export writes and the only one /import accepts; it also
-    names the exported file. An app with chats of its own kind passes its own tag.
+    names the exported file. An app with chats of its own kind passes its own tag, and its
+    own :class:`UiHooks`. Commands of its own go on the returned router.
     """
     export_app = portable.app_name(export_format)  # a bad tag fails at startup, not at /export
+    hooks = hooks or UiHooks()
+    refresher = hooks.refresh_chats
 
     async def invalidate(chat_id: int | None = None) -> None:
         if matcher is not None:
@@ -203,6 +234,9 @@ def build_router(
 
     # -- chats -----------------------------------------------------------------------------
 
+    def can_refresh(ctx: Context) -> bool:
+        return refresher is not None and ctx.is_owner
+
     async def visible_chats(user: User) -> list[ChatRow]:
         """The owner sees every known chat; moderators only the shared ones."""
         return await storage.list_chats(shared_only=not user.is_owner)
@@ -238,13 +272,16 @@ def build_router(
         rows = await visible_chats(ctx.user)
         if not rows:
             key = "bot.chats.empty" if ctx.is_owner else "bot.chats.none_shared"
-            return [Edit(key, buttons=[[("bot.btn.back", "menu")]])]
+            back: menus.Keyboard = [[("bot.btn.back", "menu")]]
+            # an empty list is exactly where the owner needs the refresh button most
+            buttons = [list(menus.REFRESH_ROW), *back] if can_refresh(ctx) else back
+            return [Edit(key, buttons=buttons)]
         subscribed = {c.id for c in await storage.list_subscriptions(ctx.user_id)}
         return [
             Edit(
                 "bot.chats.title",
                 {"n": len(subscribed)},
-                buttons=menus.chats_menu(rows, subscribed, page_index),
+                buttons=menus.chats_menu(rows, subscribed, page_index, refresh=can_refresh(ctx)),
             )
         ]
 
@@ -264,7 +301,7 @@ def build_router(
             Reply(
                 "bot.chats.title",
                 {"n": len(subscribed)},
-                buttons=menus.chats_menu(rows, subscribed, 0),
+                buttons=menus.chats_menu(rows, subscribed, 0, refresh=can_refresh(ctx)),
             )
         ]
 
@@ -293,7 +330,7 @@ def build_router(
             Edit(
                 "bot.chats.title",
                 {"n": len(subscribed)},
-                buttons=menus.chats_menu(rows, subscribed, page_index),
+                buttons=menus.chats_menu(rows, subscribed, page_index, refresh=can_refresh(ctx)),
             ),
         ]
 
@@ -304,7 +341,10 @@ def build_router(
         page_index = _int(_parts(ctx.incoming.data or "shared:0", 2)[1])
         rows = await storage.list_chats()
         return [
-            Edit("bot.shared.hint", buttons=menus.shared_menu(rows, page_index)),
+            Edit(
+                "bot.shared.hint",
+                buttons=menus.shared_menu(rows, page_index, refresh=can_refresh(ctx)),
+            ),
         ]
 
     @router.callback("share", owner_only=True)
@@ -337,8 +377,16 @@ def build_router(
                     )
                 )
         rows = await storage.list_chats()
-        actions.append(Edit("bot.shared.hint", buttons=menus.shared_menu(rows, 0)))
+        actions.append(
+            Edit("bot.shared.hint", buttons=menus.shared_menu(rows, 0, refresh=can_refresh(ctx)))
+        )
         return actions
+
+    if refresher is not None:
+
+        @router.callback("refresh", owner_only=True)
+        async def refresh(ctx: Context) -> list[Action]:
+            return await refresher(ctx)
 
     # -- users (owner only) ----------------------------------------------------------------
 
@@ -683,17 +731,17 @@ def build_router(
             return [Reply("bot.settings.digest_prompt", {"n": ctx.user.digest_threshold})]
         user = ctx.user
         toast: list[Action] = []
-        if what == "weekly":
+        if what == "weekly" and hooks.weekly_settings:
             user = await storage.update_user(ctx.user_id, weekly_report=not user.weekly_report)
             toast = [
                 Toast("bot.settings.weekly_hint" if user.weekly_report else "bot.settings.off_hint")
             ]
-        elif what == "backup":
+        elif what == "backup" and hooks.weekly_settings:
             user = await storage.update_user(ctx.user_id, auto_backup=not user.auto_backup)
             toast = [
                 Toast("bot.settings.backup_hint" if user.auto_backup else "bot.settings.off_hint")
             ]
-        elif what == "bots":
+        elif what == "bots" and hooks.telegram_settings:
             user = await storage.update_user(ctx.user_id, include_bots=not user.include_bots)
             await invalidate(None)  # the preference lives in the matcher's per-chat cache
             toast = [
@@ -703,28 +751,34 @@ def build_router(
                     else "bot.settings.bots_off_hint"
                 )
             ]
-        body = t(
-            ctx.lang,
-            "bot.settings.title",
-            lang=LANG_NAMES.get(ctx.lang, ctx.lang),
-            tz=user.tz or "UTC",
-            digest=user.digest_threshold,
-            bots=t(
-                ctx.lang, "bot.settings.bots_yes" if user.include_bots else "bot.settings.bots_no"
-            ),
-        )
-        return [
-            *toast,
-            Edit(
-                body,
-                literal=True,
-                buttons=menus.settings_menu(
-                    include_bots=user.include_bots,
-                    weekly_report=user.weekly_report,
-                    auto_backup=user.auto_backup,
+        if hooks.telegram_settings:
+            body = t(
+                ctx.lang,
+                "bot.settings.title",
+                lang=LANG_NAMES.get(ctx.lang, ctx.lang),
+                tz=user.tz or "UTC",
+                digest=user.digest_threshold,
+                bots=t(
+                    ctx.lang,
+                    "bot.settings.bots_yes" if user.include_bots else "bot.settings.bots_no",
                 ),
-            ),
-        ]
+            )
+        else:
+            body = t(
+                ctx.lang,
+                "bot.settings.title_basic",
+                lang=LANG_NAMES.get(ctx.lang, ctx.lang),
+                tz=user.tz or "UTC",
+                digest=user.digest_threshold,
+            )
+        buttons = menus.settings_menu(
+            include_bots=user.include_bots,
+            weekly_report=user.weekly_report,
+            auto_backup=user.auto_backup,
+            telegram=hooks.telegram_settings,
+            weekly=hooks.weekly_settings,
+        )
+        return [*toast, Edit(body, literal=True, buttons=buttons)]
 
     @router.pending("digest")
     async def digest_input(ctx: Context) -> list[Action]:
@@ -755,6 +809,8 @@ def build_router(
         return [Edit(await _status_text(ctx), literal=True, buttons=[[("bot.btn.back", "menu")]])]
 
     async def _status_text(ctx: Context) -> str:
+        if hooks.status_text is not None:
+            return _clamp(await hooks.status_text(ctx))
         info = await status() if status is not None else StatusInfo()
         state = ctx.t(
             "bot.status.listener_ok" if info.listener_ok else "bot.status.listener_degraded"

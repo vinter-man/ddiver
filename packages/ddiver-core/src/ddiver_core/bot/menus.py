@@ -104,7 +104,13 @@ def chat_label(chat: ChatRow, *, subscribed: bool) -> str:
     return literal(f"{mark} {chat.ref.title}{warn}")
 
 
-def chats_menu(chats: Sequence[ChatRow], subscribed: set[int], page_index: int) -> Keyboard:
+REFRESH_ROW: list[Button] = [("bot.btn.refresh_chats", "refresh")]
+"""The owner's refresh button, drawn only when the app gave the router something to call."""
+
+
+def chats_menu(
+    chats: Sequence[ChatRow], subscribed: set[int], page_index: int, *, refresh: bool = False
+) -> Keyboard:
     # Watched chats come first: with a few hundred cached dialogs, the alphabetical position of
     # a chat you subscribed to is no help at all when you want to drop it again.
     ordered = sorted(chats, key=lambda chat: chat.id not in subscribed)
@@ -123,11 +129,13 @@ def chats_menu(chats: Sequence[ChatRow], subscribed: set[int], page_index: int) 
     nav = nav_row("chats", page)
     if nav:
         rows.append(nav)
+    if refresh:
+        rows.append(list(REFRESH_ROW))
     rows.append([("bot.btn.search", "chats:search"), ("bot.btn.back", "menu")])
     return rows
 
 
-def shared_menu(chats: Sequence[ChatRow], page_index: int) -> Keyboard:
+def shared_menu(chats: Sequence[ChatRow], page_index: int, *, refresh: bool = False) -> Keyboard:
     page = paginate(chats, page_index, CHATS_PER_PAGE)
     rows: Keyboard = []
     for chat in page.items:
@@ -137,6 +145,8 @@ def shared_menu(chats: Sequence[ChatRow], page_index: int) -> Keyboard:
     nav = nav_row("shared", page)
     if nav:
         rows.append(nav)
+    if refresh:
+        rows.append(list(REFRESH_ROW))
     rows.append([("bot.btn.back", "menu")])
     return rows
 
@@ -207,18 +217,28 @@ def ignored_menu(entries: Sequence[IgnoredSender], page_index: int) -> Keyboard:
 
 
 def settings_menu(
-    *, include_bots: bool = False, weekly_report: bool = True, auto_backup: bool = True
+    *,
+    include_bots: bool = False,
+    weekly_report: bool = True,
+    auto_backup: bool = True,
+    telegram: bool = True,
+    weekly: bool = True,
 ) -> Keyboard:
-    bots = "bot.settings.bots_on" if include_bots else "bot.settings.bots_off"
-    weekly = "bot.settings.weekly_on" if weekly_report else "bot.settings.weekly_off"
-    backup = "bot.settings.backup_on" if auto_backup else "bot.settings.backup_off"
-    return [
+    """``telegram=False`` leaves out what only a Telegram listener can act on (bot senders),
+    and ``weekly=False`` the weekly summary and backup, for an app that does not send them."""
+    rows: Keyboard = [
         [("bot.settings.language", "set:lang"), ("bot.settings.timezone", "set:tz")],
         [("bot.settings.digest", "set:digest")],
-        [(bots, "set:bots")],
-        [(weekly, "set:weekly"), (backup, "set:backup")],
-        [("bot.btn.back", "menu")],
     ]
+    if telegram:
+        bots = "bot.settings.bots_on" if include_bots else "bot.settings.bots_off"
+        rows.append([(bots, "set:bots")])
+    if weekly:
+        report = "bot.settings.weekly_on" if weekly_report else "bot.settings.weekly_off"
+        backup = "bot.settings.backup_on" if auto_backup else "bot.settings.backup_off"
+        rows.append([(report, "set:weekly"), (backup, "set:backup")])
+    rows.append([("bot.btn.back", "menu")])
+    return rows
 
 
 def notification_buttons(

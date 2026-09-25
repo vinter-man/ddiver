@@ -54,6 +54,11 @@ class Incoming:
         name = self._command_name()
         return name is not None and name not in COMMANDS
 
+    @property
+    def command_name(self) -> str | None:
+        """The word after the slash, lower-cased and without ``@botname``, known or not."""
+        return self._command_name()
+
     def _command_name(self) -> str | None:
         if not self.text:
             return None
@@ -159,6 +164,13 @@ class Context:
 
 
 class Router:
+    """Dispatches updates to the handlers registered on it.
+
+    A command is dispatched when it is one of :data:`COMMANDS` or was registered here, so an
+    app can add its own (ddiver-fb's owner-only ``/resume``) on the router ``build_router``
+    returns, without a fork of the handlers.
+    """
+
     def __init__(
         self,
         storage: Storage,
@@ -257,7 +269,7 @@ class Router:
         return await handler(ctx)
 
     async def _dispatch_message(self, ctx: Context) -> list[Action]:
-        command = ctx.incoming.command
+        command = ctx.incoming.command or self._registered_command(ctx.incoming)
         if command is not None:
             self.clear_pending(ctx.user_id)
             handler = self._commands.get(command)
@@ -278,6 +290,11 @@ class Router:
         if self._fallback is not None:
             return await self._fallback(ctx)
         return [Reply("bot.err.not_waiting")]
+
+    def _registered_command(self, incoming: Incoming) -> str | None:
+        """A command an app added beyond :data:`COMMANDS` (ddiver adds none)."""
+        name = incoming.command_name
+        return name if name is not None and name in self._commands else None
 
     def pending_payload(self, user_id: int) -> dict[str, Any]:
         state = self.get_pending(user_id)

@@ -79,6 +79,7 @@ STRINGS.update(
         "bot.btn.cancel": "✖️ Cancel",
         "bot.btn.all_chats": "🌐 All chats",
         "bot.btn.search": "🔍 Search",
+        "bot.btn.refresh_chats": "🔄 Refresh chats",
         "bot.btn.include": "🔑 Keywords",
         "bot.btn.exclude": "➖ Exclusions",
         "bot.cmd.start": "Start and open the menu",
@@ -192,6 +193,7 @@ STRINGS.update(
             "Language: {lang} · Timezone: {tz} · Digest threshold: {digest}\n"
             "Messages from bots: {bots}"
         ),
+        "bot.settings.title_basic": "Language: {lang} · Timezone: {tz} · Digest threshold: {digest}",
         "bot.settings.language": "🌐 Language",
         "bot.settings.timezone": "🕒 Timezone",
         "bot.settings.digest": "📦 Digest threshold",
