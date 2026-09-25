@@ -37,6 +37,8 @@ STRINGS: dict[str, str] = {
     "notif.btn.ignore": "🚫 Ігнорувати відправника",
     "notif.btn.drop_rule": "🗑 Прибрати це правило",
     "notif.forwarded": "↪️ переслано",
+    "notif.private": "🔒 Закритий чат — посилання відкриється лише учасникам",
+    "notif.late": "⏳ Опубліковано {ago}, з'явилося лише зараз",
 }
 
 STRINGS.update(

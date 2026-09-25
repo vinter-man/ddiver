@@ -39,6 +39,8 @@ STRINGS: dict[str, str] = {
     "notif.btn.ignore": "🚫 Ignore sender",
     "notif.btn.drop_rule": "🗑 Remove this rule",
     "notif.forwarded": "↪️ forwarded",
+    "notif.private": "🔒 Private chat — the link opens for members only",
+    "notif.late": "⏳ Posted {ago}, appeared only now",
 }
 
 STRINGS.update(
