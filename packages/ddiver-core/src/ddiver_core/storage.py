@@ -288,6 +288,32 @@ CREATE TABLE IF NOT EXISTS schema_tracks (
 """
 
 
+_TRANSACTION_VERBS = frozenset({"BEGIN", "COMMIT", "END", "ROLLBACK", "SAVEPOINT", "RELEASE"})
+_LEADING_NOISE = re.compile(r"(?:\s+|--[^\n]*(?:\n|$)|/\*.*?(?:\*/|$))*", re.DOTALL)
+_FIRST_WORD = re.compile(r"[A-Za-z]+")
+
+
+def _transaction_control(script: str) -> str | None:
+    """The first top-level statement of *script* that opens or ends a transaction, if any.
+
+    Statements are split where SQLite itself would end them (``sqlite3.complete_statement``
+    knows about string literals, comments and ``CREATE TRIGGER ... BEGIN ... END;`` bodies), so
+    a ``BEGIN`` inside a trigger or a quoted ``'COMMIT'`` is not mistaken for one.
+    """
+    pending = ""
+    for piece in script.split(";"):
+        pending += piece + ";"
+        if not sqlite3.complete_statement(pending):
+            continue
+        noise = _LEADING_NOISE.match(pending)
+        body = pending[noise.end() :] if noise else pending
+        word = _FIRST_WORD.match(body)
+        if word is not None and word.group(0).upper() in _TRANSACTION_VERBS:
+            return word.group(0).upper()
+        pending = ""
+    return None
+
+
 def _checked_tracks(tracks: Mapping[str, object]) -> dict[str, tuple[str, ...]]:
     """Refuse, at construction, a track that could damage the core's own bookkeeping."""
     checked: dict[str, tuple[str, ...]] = {}
@@ -308,6 +334,13 @@ def _checked_tracks(tracks: Mapping[str, object]) -> dict[str, tuple[str, ...]]:
                 # user_version is the core's track and schema_tracks is this module's ledger;
                 # an app script that writes either would silently skip or repeat migrations.
                 msg = f"track {name} v{index} touches user_version or schema_tracks"
+                raise ValueError(msg)
+            verb = _transaction_control(script)
+            if verb is not None:
+                # The script runs inside the ledger's own BEGIN ... COMMIT. A ROLLBACK in it
+                # would let the ledger row commit on its own in autocommit mode, recording a
+                # version whose tables do not exist; a COMMIT would split the migration in two.
+                msg = f"track {name} v{index} controls the transaction itself ({verb})"
                 raise ValueError(msg)
             texts.append(script)
         checked[name] = tuple(texts)

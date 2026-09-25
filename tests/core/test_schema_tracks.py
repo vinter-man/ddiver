@@ -343,6 +343,48 @@ class TestValidation:
         with pytest.raises(ValueError, match="touches user_version or schema_tracks"):
             Storage(":memory:", tracks={"fb": [FB_V1, script]})
 
+    @pytest.mark.parametrize(
+        ("script", "verb"),
+        [
+            ("CREATE TABLE fb_x (id INTEGER); ROLLBACK;", "ROLLBACK"),
+            ("CREATE TABLE fb_x (id INTEGER);\ncommit;", "COMMIT"),
+            ("  -- leading comment\n  END TRANSACTION;", "END"),
+            ("/* opens its own */ BEGIN IMMEDIATE; CREATE TABLE fb_x (id INTEGER);", "BEGIN"),
+            ("SAVEPOINT s1; CREATE TABLE fb_x (id INTEGER); RELEASE s1;", "SAVEPOINT"),
+            ("CREATE TABLE fb_x (id INTEGER); release s1", "RELEASE"),
+        ],
+    )
+    def test_a_script_that_controls_the_transaction_is_refused(self, script, verb):
+        # The script runs inside the ledger's BEGIN ... COMMIT: a ROLLBACK there would let the
+        # ledger row commit alone and record a version whose tables do not exist.
+        with pytest.raises(ValueError, match=f"controls the transaction itself \\({verb}\\)"):
+            Storage(":memory:", tracks={"fb": [FB_V1, script]})
+
+    @pytest.mark.parametrize(
+        "script",
+        [
+            # BEGIN ... END inside a trigger body is part of CREATE TRIGGER, not a transaction.
+            (
+                "CREATE TABLE fb_x (id INTEGER);\n"
+                "CREATE TRIGGER fb_x_ai AFTER INSERT ON fb_x BEGIN\n"
+                "  UPDATE fb_x SET id = id WHERE id = NEW.id;\n"
+                "END;"
+            ),
+            # The words inside literals and comments are data, not statements.
+            "CREATE TABLE fb_x (note TEXT DEFAULT 'COMMIT; ROLLBACK;');",
+            "-- ROLLBACK; would be bad\nCREATE TABLE fb_x (id INTEGER);",
+            "/* BEGIN; */ CREATE TABLE fb_x (id INTEGER);",
+        ],
+    )
+    async def test_triggers_literals_and_comments_are_not_transaction_control(
+        self, tmp_path, script
+    ):
+        store = await opened(tmp_path / "fb.sqlite3", tracks={"fb": [script]})
+        try:
+            assert await store.track_version("fb") == 1
+        finally:
+            await store.close()
+
 
 SCRIPTS = [FB_V1, FB_V2, FB_V3]
 
