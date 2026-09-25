@@ -1,0 +1,102 @@
+{
+  "format": "ddiver.config",
+  "version": 1,
+  "exported_at": "2026-09-20T12:00:00+00:00",
+  "chats": [
+    {
+      "id": -4444444444,
+      "username": null,
+      "title": "Basic group",
+      "subscribed": true
+    },
+    {
+      "id": -1006666666666,
+      "username": null,
+      "title": "Old basic group",
+      "subscribed": true
+    },
+    {
+      "id": -1003333333333,
+      "username": "robota_sofia",
+      "title": "Robota Sofia 🇧🇬",
+      "subscribed": true
+    },
+    {
+      "id": -1002222222222,
+      "username": null,
+      "title": "Закрытый <чат> & co",
+      "subscribed": true
+    },
+    {
+      "id": -1005555555555,
+      "username": "novosti_bg",
+      "title": "Новости",
+      "subscribed": true
+    },
+    {
+      "id": -1001111111111,
+      "username": "varna_rent",
+      "title": "Оренда Варна",
+      "subscribed": true
+    }
+  ],
+  "rules": [
+    {
+      "chat_id": 0,
+      "kind": "include",
+      "pattern": "квартира"
+    },
+    {
+      "chat_id": 0,
+      "kind": "include",
+      "pattern": "=такси"
+    },
+    {
+      "chat_id": -1006666666666,
+      "kind": "include",
+      "pattern": "#promo"
+    },
+    {
+      "chat_id": -1005555555555,
+      "kind": "include",
+      "pattern": "курс"
+    },
+    {
+      "chat_id": -1003333333333,
+      "kind": "include",
+      "pattern": "from:@vasya"
+    },
+    {
+      "chat_id": -1002222222222,
+      "kind": "include",
+      "pattern": "re:(?i)срочно\\s+продам"
+    },
+    {
+      "chat_id": -1002222222222,
+      "kind": "include",
+      "pattern": "from:123456789"
+    },
+    {
+      "chat_id": -1001111111111,
+      "kind": "exclude",
+      "pattern": "реклама"
+    }
+  ],
+  "ignored": [
+    {
+      "chat_id": 0,
+      "sender_id": -1007777777777,
+      "note": null
+    },
+    {
+      "chat_id": -1006666666666,
+      "sender_id": 777000777,
+      "note": "moved with the chat"
+    },
+    {
+      "chat_id": -1001111111111,
+      "sender_id": 999000999,
+      "note": "спам"
+    }
+  ]
+}

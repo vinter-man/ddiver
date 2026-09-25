@@ -1,0 +1,49 @@
+{
+  "format": "ddiver.config",
+  "version": 1,
+  "exported_at": "2026-09-20T12:00:00+00:00",
+  "chats": [
+    {
+      "id": -1006666666666,
+      "username": null,
+      "title": "Old basic group",
+      "subscribed": true
+    },
+    {
+      "id": -1003333333333,
+      "username": "robota_sofia",
+      "title": "Robota Sofia 🇧🇬",
+      "subscribed": true
+    },
+    {
+      "id": -1001111111111,
+      "username": "varna_rent",
+      "title": "Оренда Варна",
+      "subscribed": true
+    }
+  ],
+  "rules": [
+    {
+      "chat_id": 0,
+      "kind": "include",
+      "pattern": "from:Иван Петров"
+    },
+    {
+      "chat_id": -1003333333333,
+      "kind": "exclude",
+      "pattern": "from:@spam_bot"
+    },
+    {
+      "chat_id": -1001111111111,
+      "kind": "include",
+      "pattern": "казино"
+    }
+  ],
+  "ignored": [
+    {
+      "chat_id": -1003333333333,
+      "sender_id": 888000888,
+      "note": "бот объявлений"
+    }
+  ]
+}

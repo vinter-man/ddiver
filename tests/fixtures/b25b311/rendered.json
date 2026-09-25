@@ -1,0 +1,3137 @@
+{
+ "built_by": "b25b311",
+ "digests": [
+  {
+   "entities": [
+    {
+     "_": "MessageEntityBold",
+     "length": 32,
+     "offset": 0
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 37,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 12,
+     "offset": 37
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 57,
+     "offset": 58,
+     "url": "https://t.me/varna_rent/101"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 44,
+     "offset": 120,
+     "url": "https://t.me/varna_rent/108"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 11,
+     "offset": 168
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 260,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 17,
+     "offset": 260
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 22,
+     "offset": 286,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 312,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 19,
+     "offset": 312
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 70,
+     "offset": 340,
+     "url": "https://t.me/c/2222222222/202"
+    }
+   ],
+   "keys": [
+    [
+     111111111,
+     -1001111111111,
+     101
+    ],
+    [
+     111111111,
+     -1002222222222,
+     202
+    ],
+    [
+     111111111,
+     -1003333333333,
+     303
+    ],
+    [
+     111111111,
+     -4444444444,
+     404
+    ],
+    [
+     111111111,
+     -1001111111111,
+     108
+    ]
+   ],
+   "lang": "en",
+   "overflow": 0,
+   "text": "📦 5 matches while you were busy\n\n📡 Оренда Варна — 2\n  • квартира · Иван · Сдаётся квартира в центре, 2 комнаты 🏠\n  • квартира · Резолвнутый Имя · квартира у моря\n📡 Basic group — 1\n  • квартира · Deleted account · …ное объявление. Ищу квартиру на месяц.\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@vasya · Вася · —\n📡 Закрытый <чат> & co — 1\n  • re:(?i)срочно\\s+продам · Ольга · СРОЧНО продам велосипед <почти новый>",
+   "tz": "UTC",
+   "user_id": 111111111
+  },
+  {
+   "entities": [
+    {
+     "_": "MessageEntityBold",
+     "length": 32,
+     "offset": 0
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 37,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 12,
+     "offset": 37
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 57,
+     "offset": 58,
+     "url": "https://t.me/varna_rent/101"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 44,
+     "offset": 120,
+     "url": "https://t.me/varna_rent/108"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 11,
+     "offset": 168
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 260,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 17,
+     "offset": 260
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 22,
+     "offset": 286,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 312,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 19,
+     "offset": 312
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 70,
+     "offset": 340,
+     "url": "https://t.me/c/2222222222/202"
+    }
+   ],
+   "keys": [
+    [
+     111111111,
+     -1001111111111,
+     101
+    ],
+    [
+     111111111,
+     -1002222222222,
+     202
+    ],
+    [
+     111111111,
+     -1003333333333,
+     303
+    ],
+    [
+     111111111,
+     -4444444444,
+     404
+    ],
+    [
+     111111111,
+     -1001111111111,
+     108
+    ]
+   ],
+   "lang": "en",
+   "overflow": 12,
+   "text": "📦 5 matches while you were busy\n\n📡 Оренда Варна — 2\n  • квартира · Иван · Сдаётся квартира в центре, 2 комнаты 🏠\n  • квартира · Резолвнутый Имя · квартира у моря\n📡 Basic group — 1\n  • квартира · Deleted account · …ное объявление. Ищу квартиру на месяц.\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@vasya · Вася · —\n📡 Закрытый <чат> & co — 1\n  • re:(?i)срочно\\s+продам · Ольга · СРОЧНО продам велосипед <почти новый>\n\n⚠️ 12 matches were dropped because the queue was full",
+   "tz": "UTC",
+   "user_id": 111111111
+  },
+  {
+   "entities": [
+    {
+     "_": "MessageEntityBold",
+     "length": 36,
+     "offset": 0
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 41,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 12,
+     "offset": 41
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 57,
+     "offset": 62,
+     "url": "https://t.me/varna_rent/101"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 44,
+     "offset": 124,
+     "url": "https://t.me/varna_rent/108"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 11,
+     "offset": 172
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 266,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 17,
+     "offset": 266
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 22,
+     "offset": 292,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 318,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 19,
+     "offset": 318
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 70,
+     "offset": 346,
+     "url": "https://t.me/c/2222222222/202"
+    }
+   ],
+   "keys": [
+    [
+     111111111,
+     -1001111111111,
+     101
+    ],
+    [
+     111111111,
+     -1002222222222,
+     202
+    ],
+    [
+     111111111,
+     -1003333333333,
+     303
+    ],
+    [
+     111111111,
+     -4444444444,
+     404
+    ],
+    [
+     111111111,
+     -1001111111111,
+     108
+    ]
+   ],
+   "lang": "ru",
+   "overflow": 0,
+   "text": "📦 5 совпадений, пока вы были заняты\n\n📡 Оренда Варна — 2\n  • квартира · Иван · Сдаётся квартира в центре, 2 комнаты 🏠\n  • квартира · Резолвнутый Имя · квартира у моря\n📡 Basic group — 1\n  • квартира · Удалённый аккаунт · …ное объявление. Ищу квартиру на месяц.\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@vasya · Вася · —\n📡 Закрытый <чат> & co — 1\n  • re:(?i)срочно\\s+продам · Ольга · СРОЧНО продам велосипед <почти новый>",
+   "tz": "Europe/Kyiv",
+   "user_id": 111111111
+  },
+  {
+   "entities": [
+    {
+     "_": "MessageEntityBold",
+     "length": 36,
+     "offset": 0
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 41,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 12,
+     "offset": 41
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 57,
+     "offset": 62,
+     "url": "https://t.me/varna_rent/101"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 44,
+     "offset": 124,
+     "url": "https://t.me/varna_rent/108"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 11,
+     "offset": 172
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 266,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 17,
+     "offset": 266
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 22,
+     "offset": 292,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 318,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 19,
+     "offset": 318
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 70,
+     "offset": 346,
+     "url": "https://t.me/c/2222222222/202"
+    }
+   ],
+   "keys": [
+    [
+     111111111,
+     -1001111111111,
+     101
+    ],
+    [
+     111111111,
+     -1002222222222,
+     202
+    ],
+    [
+     111111111,
+     -1003333333333,
+     303
+    ],
+    [
+     111111111,
+     -4444444444,
+     404
+    ],
+    [
+     111111111,
+     -1001111111111,
+     108
+    ]
+   ],
+   "lang": "ru",
+   "overflow": 12,
+   "text": "📦 5 совпадений, пока вы были заняты\n\n📡 Оренда Варна — 2\n  • квартира · Иван · Сдаётся квартира в центре, 2 комнаты 🏠\n  • квартира · Резолвнутый Имя · квартира у моря\n📡 Basic group — 1\n  • квартира · Удалённый аккаунт · …ное объявление. Ищу квартиру на месяц.\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@vasya · Вася · —\n📡 Закрытый <чат> & co — 1\n  • re:(?i)срочно\\s+продам · Ольга · СРОЧНО продам велосипед <почти новый>\n\n⚠️ 12 совпадений отброшено: очередь была переполнена",
+   "tz": "Europe/Kyiv",
+   "user_id": 111111111
+  },
+  {
+   "entities": [
+    {
+     "_": "MessageEntityBold",
+     "length": 33,
+     "offset": 0
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 38,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 12,
+     "offset": 38
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 57,
+     "offset": 59,
+     "url": "https://t.me/varna_rent/101"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 44,
+     "offset": 121,
+     "url": "https://t.me/varna_rent/108"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 11,
+     "offset": 169
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 262,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 17,
+     "offset": 262
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 22,
+     "offset": 288,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 314,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 19,
+     "offset": 314
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 70,
+     "offset": 342,
+     "url": "https://t.me/c/2222222222/202"
+    }
+   ],
+   "keys": [
+    [
+     111111111,
+     -1001111111111,
+     101
+    ],
+    [
+     111111111,
+     -1002222222222,
+     202
+    ],
+    [
+     111111111,
+     -1003333333333,
+     303
+    ],
+    [
+     111111111,
+     -4444444444,
+     404
+    ],
+    [
+     111111111,
+     -1001111111111,
+     108
+    ]
+   ],
+   "lang": "uk",
+   "overflow": 0,
+   "text": "📦 5 збігів, поки ви були зайняті\n\n📡 Оренда Варна — 2\n  • квартира · Иван · Сдаётся квартира в центре, 2 комнаты 🏠\n  • квартира · Резолвнутый Имя · квартира у моря\n📡 Basic group — 1\n  • квартира · Видалений акаунт · …ное объявление. Ищу квартиру на месяц.\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@vasya · Вася · —\n📡 Закрытый <чат> & co — 1\n  • re:(?i)срочно\\s+продам · Ольга · СРОЧНО продам велосипед <почти новый>",
+   "tz": "America/New_York",
+   "user_id": 111111111
+  },
+  {
+   "entities": [
+    {
+     "_": "MessageEntityBold",
+     "length": 33,
+     "offset": 0
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 38,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 12,
+     "offset": 38
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 57,
+     "offset": 59,
+     "url": "https://t.me/varna_rent/101"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 44,
+     "offset": 121,
+     "url": "https://t.me/varna_rent/108"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 11,
+     "offset": 169
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 262,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 17,
+     "offset": 262
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 22,
+     "offset": 288,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 314,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 19,
+     "offset": 314
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 70,
+     "offset": 342,
+     "url": "https://t.me/c/2222222222/202"
+    }
+   ],
+   "keys": [
+    [
+     111111111,
+     -1001111111111,
+     101
+    ],
+    [
+     111111111,
+     -1002222222222,
+     202
+    ],
+    [
+     111111111,
+     -1003333333333,
+     303
+    ],
+    [
+     111111111,
+     -4444444444,
+     404
+    ],
+    [
+     111111111,
+     -1001111111111,
+     108
+    ]
+   ],
+   "lang": "uk",
+   "overflow": 12,
+   "text": "📦 5 збігів, поки ви були зайняті\n\n📡 Оренда Варна — 2\n  • квартира · Иван · Сдаётся квартира в центре, 2 комнаты 🏠\n  • квартира · Резолвнутый Имя · квартира у моря\n📡 Basic group — 1\n  • квартира · Видалений акаунт · …ное объявление. Ищу квартиру на месяц.\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@vasya · Вася · —\n📡 Закрытый <чат> & co — 1\n  • re:(?i)срочно\\s+продам · Ольга · СРОЧНО продам велосипед <почти новый>\n\n⚠️ 12 збігів відкинуто: черга була переповнена",
+   "tz": "America/New_York",
+   "user_id": 111111111
+  },
+  {
+   "entities": [
+    {
+     "_": "MessageEntityBold",
+     "length": 32,
+     "offset": 0
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 37,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 12,
+     "offset": 37
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 37,
+     "offset": 58,
+     "url": "https://t.me/varna_rent/109"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 35,
+     "offset": 100,
+     "url": "https://t.me/varna_rent/111"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 139,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 17,
+     "offset": 139
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 44,
+     "offset": 165,
+     "url": "https://t.me/robota_sofia/1/310"
+    }
+   ],
+   "keys": [
+    [
+     222222222,
+     -1001111111111,
+     109
+    ],
+    [
+     222222222,
+     -1003333333333,
+     310
+    ],
+    [
+     222222222,
+     -1001111111111,
+     111
+    ]
+   ],
+   "lang": "en",
+   "overflow": 0,
+   "text": "📦 3 matches while you were busy\n\n📡 Оренда Варна — 2\n  • казино · Иван · 🎰🎰 Заходи в казино!\n  • казино · Иван · <b>&amp;</b> казино\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Иван Петров · Иван Петров · Всем привет",
+   "tz": "UTC",
+   "user_id": 222222222
+  },
+  {
+   "entities": [
+    {
+     "_": "MessageEntityBold",
+     "length": 32,
+     "offset": 0
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 37,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 12,
+     "offset": 37
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 37,
+     "offset": 58,
+     "url": "https://t.me/varna_rent/109"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 35,
+     "offset": 100,
+     "url": "https://t.me/varna_rent/111"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 139,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 17,
+     "offset": 139
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 44,
+     "offset": 165,
+     "url": "https://t.me/robota_sofia/1/310"
+    }
+   ],
+   "keys": [
+    [
+     222222222,
+     -1001111111111,
+     109
+    ],
+    [
+     222222222,
+     -1003333333333,
+     310
+    ],
+    [
+     222222222,
+     -1001111111111,
+     111
+    ]
+   ],
+   "lang": "en",
+   "overflow": 12,
+   "text": "📦 3 matches while you were busy\n\n📡 Оренда Варна — 2\n  • казино · Иван · 🎰🎰 Заходи в казино!\n  • казино · Иван · <b>&amp;</b> казино\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Иван Петров · Иван Петров · Всем привет\n\n⚠️ 12 matches were dropped because the queue was full",
+   "tz": "UTC",
+   "user_id": 222222222
+  },
+  {
+   "entities": [
+    {
+     "_": "MessageEntityBold",
+     "length": 36,
+     "offset": 0
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 41,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 12,
+     "offset": 41
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 37,
+     "offset": 62,
+     "url": "https://t.me/varna_rent/109"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 35,
+     "offset": 104,
+     "url": "https://t.me/varna_rent/111"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 143,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 17,
+     "offset": 143
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 44,
+     "offset": 169,
+     "url": "https://t.me/robota_sofia/1/310"
+    }
+   ],
+   "keys": [
+    [
+     222222222,
+     -1001111111111,
+     109
+    ],
+    [
+     222222222,
+     -1003333333333,
+     310
+    ],
+    [
+     222222222,
+     -1001111111111,
+     111
+    ]
+   ],
+   "lang": "ru",
+   "overflow": 0,
+   "text": "📦 3 совпадений, пока вы были заняты\n\n📡 Оренда Варна — 2\n  • казино · Иван · 🎰🎰 Заходи в казино!\n  • казино · Иван · <b>&amp;</b> казино\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Иван Петров · Иван Петров · Всем привет",
+   "tz": "Europe/Kyiv",
+   "user_id": 222222222
+  },
+  {
+   "entities": [
+    {
+     "_": "MessageEntityBold",
+     "length": 36,
+     "offset": 0
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 41,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 12,
+     "offset": 41
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 37,
+     "offset": 62,
+     "url": "https://t.me/varna_rent/109"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 35,
+     "offset": 104,
+     "url": "https://t.me/varna_rent/111"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 143,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 17,
+     "offset": 143
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 44,
+     "offset": 169,
+     "url": "https://t.me/robota_sofia/1/310"
+    }
+   ],
+   "keys": [
+    [
+     222222222,
+     -1001111111111,
+     109
+    ],
+    [
+     222222222,
+     -1003333333333,
+     310
+    ],
+    [
+     222222222,
+     -1001111111111,
+     111
+    ]
+   ],
+   "lang": "ru",
+   "overflow": 12,
+   "text": "📦 3 совпадений, пока вы были заняты\n\n📡 Оренда Варна — 2\n  • казино · Иван · 🎰🎰 Заходи в казино!\n  • казино · Иван · <b>&amp;</b> казино\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Иван Петров · Иван Петров · Всем привет\n\n⚠️ 12 совпадений отброшено: очередь была переполнена",
+   "tz": "Europe/Kyiv",
+   "user_id": 222222222
+  },
+  {
+   "entities": [
+    {
+     "_": "MessageEntityBold",
+     "length": 33,
+     "offset": 0
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 38,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 12,
+     "offset": 38
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 37,
+     "offset": 59,
+     "url": "https://t.me/varna_rent/109"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 35,
+     "offset": 101,
+     "url": "https://t.me/varna_rent/111"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 140,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 17,
+     "offset": 140
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 44,
+     "offset": 166,
+     "url": "https://t.me/robota_sofia/1/310"
+    }
+   ],
+   "keys": [
+    [
+     222222222,
+     -1001111111111,
+     109
+    ],
+    [
+     222222222,
+     -1003333333333,
+     310
+    ],
+    [
+     222222222,
+     -1001111111111,
+     111
+    ]
+   ],
+   "lang": "uk",
+   "overflow": 0,
+   "text": "📦 3 збігів, поки ви були зайняті\n\n📡 Оренда Варна — 2\n  • казино · Иван · 🎰🎰 Заходи в казино!\n  • казино · Иван · <b>&amp;</b> казино\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Иван Петров · Иван Петров · Всем привет",
+   "tz": "America/New_York",
+   "user_id": 222222222
+  },
+  {
+   "entities": [
+    {
+     "_": "MessageEntityBold",
+     "length": 33,
+     "offset": 0
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 38,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 12,
+     "offset": 38
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 37,
+     "offset": 59,
+     "url": "https://t.me/varna_rent/109"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 35,
+     "offset": 101,
+     "url": "https://t.me/varna_rent/111"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 140,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 17,
+     "offset": 140
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 44,
+     "offset": 166,
+     "url": "https://t.me/robota_sofia/1/310"
+    }
+   ],
+   "keys": [
+    [
+     222222222,
+     -1001111111111,
+     109
+    ],
+    [
+     222222222,
+     -1003333333333,
+     310
+    ],
+    [
+     222222222,
+     -1001111111111,
+     111
+    ]
+   ],
+   "lang": "uk",
+   "overflow": 12,
+   "text": "📦 3 збігів, поки ви були зайняті\n\n📡 Оренда Варна — 2\n  • казино · Иван · 🎰🎰 Заходи в казино!\n  • казино · Иван · <b>&amp;</b> казино\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Иван Петров · Иван Петров · Всем привет\n\n⚠️ 12 збігів відкинуто: черга була переповнена",
+   "tz": "America/New_York",
+   "user_id": 222222222
+  }
+ ],
+ "notifications": [
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 8,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 31,
+     "url": "https://t.me/varna_rent/101"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 38,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 53
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 67,
+     "url": "https://t.me/varna_rent/101"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 149
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 188
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    101
+   ],
+   "lang": "en",
+   "text": "📡 Chat Оренда Варна\n👤 Sender Иван · @ivan_petrov · 42\n🔗 Message https://t.me/varna_rent/101\n🕒 2026-09-20 09:41:00 +00:00 (UTC) · 1 h ago\n🔑 Rule квартира (rule for all chats)\n\nСдаётся квартира в центре, 2 комнаты 🏠",
+   "tz": "UTC"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 35,
+     "url": "https://t.me/varna_rent/101"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 42,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 57
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 73,
+     "url": "https://t.me/varna_rent/101"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 168
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 211
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    101
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Оренда Варна\n👤 Отправитель Иван · @ivan_petrov · 42\n🔗 Сообщение https://t.me/varna_rent/101\n🕒 2026-09-20 12:41:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило квартира (правило для всех чатов)\n\nСдаётся квартира в центре, 2 комнаты 🏠",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 34,
+     "url": "https://t.me/varna_rent/101"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 41,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 56
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 75,
+     "url": "https://t.me/varna_rent/101"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 176
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 219
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    101
+   ],
+   "lang": "uk",
+   "text": "📡 Чат Оренда Варна\n👤 Відправник Иван · @ivan_petrov · 42\n🔗 Повідомлення https://t.me/varna_rent/101\n🕒 2026-09-20 05:41:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило квартира (правило для всіх чатів)\n\nСдаётся квартира в центре, 2 комнаты 🏠",
+   "tz": "America/New_York"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1002222222222:43"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:2"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 8,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 5,
+     "offset": 38,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 46
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 29,
+     "offset": 75,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 22,
+     "offset": 159
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 13,
+     "offset": 195
+    }
+   ],
+   "key": [
+    111111111,
+    -1002222222222,
+    202
+   ],
+   "lang": "en",
+   "text": "📡 Chat Закрытый <чат> & co\n👤 Sender Ольга · 43 · ↪️ forwarded\n🔗 Message https://t.me/c/2222222222/202\n🕒 2026-09-20 09:22:00 +00:00 (UTC) · 1 h ago\n🔑 Rule re:(?i)срочно\\s+продам (chat rule)\n\nСРОЧНО продам велосипед <почти новый>",
+   "tz": "UTC"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1002222222222:43"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:2"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 7,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 5,
+     "offset": 42,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 50
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 29,
+     "offset": 81,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 22,
+     "offset": 178
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 13,
+     "offset": 217
+    }
+   ],
+   "key": [
+    111111111,
+    -1002222222222,
+    202
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Закрытый <чат> & co\n👤 Отправитель Ольга · 43 · ↪️ переслано\n🔗 Сообщение https://t.me/c/2222222222/202\n🕒 2026-09-20 12:22:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило re:(?i)срочно\\s+продам (правило чата)\n\nСРОЧНО продам велосипед <почти новый>",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1002222222222:43"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:2"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 7,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 5,
+     "offset": 41,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 49
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 29,
+     "offset": 83,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 22,
+     "offset": 186
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 13,
+     "offset": 225
+    }
+   ],
+   "key": [
+    111111111,
+    -1002222222222,
+    202
+   ],
+   "lang": "uk",
+   "text": "📡 Чат Закрытый <чат> & co\n👤 Відправник Ольга · 43 · ↪️ переслано\n🔗 Повідомлення https://t.me/c/2222222222/202\n🕒 2026-09-20 05:22:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило re:(?i)срочно\\s+продам (правило чату)\n\nСРОЧНО продам велосипед <почти новый>",
+   "tz": "America/New_York"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1003333333333:44"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:3"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 8,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 36,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 6,
+     "offset": 43,
+     "url": "https://t.me/vasya"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 52
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 31,
+     "offset": 66,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 11,
+     "offset": 152
+    }
+   ],
+   "key": [
+    111111111,
+    -1003333333333,
+    303
+   ],
+   "lang": "en",
+   "text": "📡 Chat Robota Sofia 🇧🇬\n👤 Sender Вася · @vasya · 44\n🔗 Message https://t.me/robota_sofia/7/303\n🕒 2026-09-20 09:03:00 +00:00 (UTC) · 2 h ago\n🔑 Rule from:@vasya (chat rule)",
+   "tz": "UTC"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1003333333333:44"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:3"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 7,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 40,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 6,
+     "offset": 47,
+     "url": "https://t.me/vasya"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 56
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 31,
+     "offset": 72,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 11,
+     "offset": 171
+    }
+   ],
+   "key": [
+    111111111,
+    -1003333333333,
+    303
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Robota Sofia 🇧🇬\n👤 Отправитель Вася · @vasya · 44\n🔗 Сообщение https://t.me/robota_sofia/7/303\n🕒 2026-09-20 12:03:00 +03:00 (Europe/Kyiv) · 2 ч назад\n🔑 Правило from:@vasya (правило чата)",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1003333333333:44"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:3"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 7,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 39,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 6,
+     "offset": 46,
+     "url": "https://t.me/vasya"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 55
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 31,
+     "offset": 74,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 11,
+     "offset": 179
+    }
+   ],
+   "key": [
+    111111111,
+    -1003333333333,
+    303
+   ],
+   "lang": "uk",
+   "text": "📡 Чат Robota Sofia 🇧🇬\n👤 Відправник Вася · @vasya · 44\n🔗 Повідомлення https://t.me/robota_sofia/7/303\n🕒 2026-09-20 05:03:00 -04:00 (America/New_York) · 2 год тому\n🔑 Правило from:@vasya (правило чату)",
+   "tz": "America/New_York"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-4444444444:45"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 48
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 130
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 7,
+     "offset": 1046
+    }
+   ],
+   "key": [
+    111111111,
+    -4444444444,
+    404
+   ],
+   "lang": "en",
+   "text": "📡 Chat Basic group\n👤 Sender Deleted account · 45\n🕒 2026-09-20 09:44:00 +00:00 (UTC) · 1 h ago · ⏪ missed while offline\n🔑 Rule квартира (rule for all chats)\n⚠️ Older messages in this chat were not checked — the catch-up limit was reached\n\nДлинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Ищу квартиру на месяц.",
+   "tz": "UTC"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-4444444444:45"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 54
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 159
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 7,
+     "offset": 1073
+    }
+   ],
+   "key": [
+    111111111,
+    -4444444444,
+    404
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Basic group\n👤 Отправитель Удалённый аккаунт · 45\n🕒 2026-09-20 12:44:00 +03:00 (Europe/Kyiv) · 1 ч назад · ⏪ пропущено, пока бот был офлайн\n🔑 Правило квартира (правило для всех чатов)\n⚠️ Более старые сообщения в этом чате не проверены — сработал лимит догона\n\nДлинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Ищу квартиру на месяц.",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-4444444444:45"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 52
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 163
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 7,
+     "offset": 1084
+    }
+   ],
+   "key": [
+    111111111,
+    -4444444444,
+    404
+   ],
+   "lang": "uk",
+   "text": "📡 Чат Basic group\n👤 Відправник Видалений акаунт · 45\n🕒 2026-09-20 05:44:00 -04:00 (America/New_York) · 1 год тому · ⏪ пропущено, поки бот був офлайн\n🔑 Правило квартира (правило для всіх чатів)\n⚠️ Старіші повідомлення в цьому чаті не перевірені — спрацював ліміт наздоганяння\n\nДлинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Ищу квартиру на месяц.",
+   "tz": "America/New_York"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 8,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 15,
+     "offset": 31,
+     "url": "https://t.me/varna_rent/108"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 49,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 64
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 78,
+     "url": "https://t.me/varna_rent/108"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 160
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 191
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    108
+   ],
+   "lang": "en",
+   "text": "📡 Chat Оренда Варна\n👤 Sender Резолвнутый Имя · @ivan_petrov · 42\n🔗 Message https://t.me/varna_rent/108\n🕒 2026-09-20 09:48:00 +00:00 (UTC) · 1 h ago\n🔑 Rule квартира (rule for all chats)\n\nквартира у моря",
+   "tz": "UTC"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 15,
+     "offset": 35,
+     "url": "https://t.me/varna_rent/108"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 53,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 68
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 84,
+     "url": "https://t.me/varna_rent/108"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 179
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 214
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    108
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Оренда Варна\n👤 Отправитель Резолвнутый Имя · @ivan_petrov · 42\n🔗 Сообщение https://t.me/varna_rent/108\n🕒 2026-09-20 12:48:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило квартира (правило для всех чатов)\n\nквартира у моря",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 15,
+     "offset": 34,
+     "url": "https://t.me/varna_rent/108"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 52,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 67
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 86,
+     "url": "https://t.me/varna_rent/108"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 187
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 222
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    108
+   ],
+   "lang": "uk",
+   "text": "📡 Чат Оренда Варна\n👤 Відправник Резолвнутый Имя · @ivan_petrov · 42\n🔗 Повідомлення https://t.me/varna_rent/108\n🕒 2026-09-20 05:48:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило квартира (правило для всіх чатів)\n\nквартира у моря",
+   "tz": "America/New_York"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:9"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 8,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 31,
+     "url": "https://t.me/varna_rent/109"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 38,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 53
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 67,
+     "url": "https://t.me/varna_rent/109"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 6,
+     "offset": 149
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 6,
+     "offset": 183
+    }
+   ],
+   "key": [
+    222222222,
+    -1001111111111,
+    109
+   ],
+   "lang": "en",
+   "text": "📡 Chat Оренда Варна\n👤 Sender Иван · @ivan_petrov · 42\n🔗 Message https://t.me/varna_rent/109\n🕒 2026-09-20 09:49:00 +00:00 (UTC) · 1 h ago\n🔑 Rule казино (chat rule)\n\n🎰🎰 Заходи в казино!",
+   "tz": "UTC"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:9"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 35,
+     "url": "https://t.me/varna_rent/109"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 42,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 57
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 73,
+     "url": "https://t.me/varna_rent/109"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 6,
+     "offset": 168
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 6,
+     "offset": 205
+    }
+   ],
+   "key": [
+    222222222,
+    -1001111111111,
+    109
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Оренда Варна\n👤 Отправитель Иван · @ivan_petrov · 42\n🔗 Сообщение https://t.me/varna_rent/109\n🕒 2026-09-20 12:49:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило казино (правило чата)\n\n🎰🎰 Заходи в казино!",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:9"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 34,
+     "url": "https://t.me/varna_rent/109"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 41,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 56
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 75,
+     "url": "https://t.me/varna_rent/109"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 6,
+     "offset": 176
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 6,
+     "offset": 213
+    }
+   ],
+   "key": [
+    222222222,
+    -1001111111111,
+    109
+   ],
+   "lang": "uk",
+   "text": "📡 Чат Оренда Варна\n👤 Відправник Иван · @ivan_petrov · 42\n🔗 Повідомлення https://t.me/varna_rent/109\n🕒 2026-09-20 05:49:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило казино (правило чату)\n\n🎰🎰 Заходи в казино!",
+   "tz": "America/New_York"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1003333333333:46"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:10"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 8,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 11,
+     "offset": 36,
+     "url": "https://t.me/robota_sofia/1/310"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 50
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 31,
+     "offset": 64,
+     "url": "https://t.me/robota_sofia/1/310"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 16,
+     "offset": 150
+    }
+   ],
+   "key": [
+    222222222,
+    -1003333333333,
+    310
+   ],
+   "lang": "en",
+   "text": "📡 Chat Robota Sofia 🇧🇬\n👤 Sender Иван Петров · 46\n🔗 Message https://t.me/robota_sofia/1/310\n🕒 2026-09-20 09:10:00 +00:00 (UTC) · 1 h ago\n🔑 Rule from:Иван Петров (rule for all chats)\n\nВсем привет",
+   "tz": "UTC"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1003333333333:46"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:10"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 7,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 11,
+     "offset": 40,
+     "url": "https://t.me/robota_sofia/1/310"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 54
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 31,
+     "offset": 70,
+     "url": "https://t.me/robota_sofia/1/310"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 16,
+     "offset": 169
+    }
+   ],
+   "key": [
+    222222222,
+    -1003333333333,
+    310
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Robota Sofia 🇧🇬\n👤 Отправитель Иван Петров · 46\n🔗 Сообщение https://t.me/robota_sofia/1/310\n🕒 2026-09-20 12:10:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило from:Иван Петров (правило для всех чатов)\n\nВсем привет",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1003333333333:46"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:10"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 7,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 11,
+     "offset": 39,
+     "url": "https://t.me/robota_sofia/1/310"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 53
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 31,
+     "offset": 72,
+     "url": "https://t.me/robota_sofia/1/310"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 16,
+     "offset": 177
+    }
+   ],
+   "key": [
+    222222222,
+    -1003333333333,
+    310
+   ],
+   "lang": "uk",
+   "text": "📡 Чат Robota Sofia 🇧🇬\n👤 Відправник Иван Петров · 46\n🔗 Повідомлення https://t.me/robota_sofia/1/310\n🕒 2026-09-20 05:10:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило from:Иван Петров (правило для всіх чатів)\n\nВсем привет",
+   "tz": "America/New_York"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:9"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 8,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 31,
+     "url": "https://t.me/varna_rent/111"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 38,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 53
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 67,
+     "url": "https://t.me/varna_rent/111"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 6,
+     "offset": 149
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 6,
+     "offset": 182
+    }
+   ],
+   "key": [
+    222222222,
+    -1001111111111,
+    111
+   ],
+   "lang": "en",
+   "text": "📡 Chat Оренда Варна\n👤 Sender Иван · @ivan_petrov · 42\n🔗 Message https://t.me/varna_rent/111\n🕒 2026-09-20 09:51:00 +00:00 (UTC) · 1 h ago\n🔑 Rule казино (chat rule)\n\n<b>&amp;</b> казино",
+   "tz": "UTC"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:9"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 35,
+     "url": "https://t.me/varna_rent/111"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 42,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 57
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 73,
+     "url": "https://t.me/varna_rent/111"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 6,
+     "offset": 168
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 6,
+     "offset": 204
+    }
+   ],
+   "key": [
+    222222222,
+    -1001111111111,
+    111
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Оренда Варна\n👤 Отправитель Иван · @ivan_petrov · 42\n🔗 Сообщение https://t.me/varna_rent/111\n🕒 2026-09-20 12:51:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило казино (правило чата)\n\n<b>&amp;</b> казино",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:9"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 34,
+     "url": "https://t.me/varna_rent/111"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 41,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 56
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 75,
+     "url": "https://t.me/varna_rent/111"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 6,
+     "offset": 176
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 6,
+     "offset": 212
+    }
+   ],
+   "key": [
+    222222222,
+    -1001111111111,
+    111
+   ],
+   "lang": "uk",
+   "text": "📡 Чат Оренда Варна\n👤 Відправник Иван · @ivan_petrov · 42\n🔗 Повідомлення https://t.me/varna_rent/111\n🕒 2026-09-20 05:51:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило казино (правило чату)\n\n<b>&amp;</b> казино",
+   "tz": "America/New_York"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:12"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 8,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 31,
+     "url": "https://t.me/varna_rent/112"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 38,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 53
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 67,
+     "url": "https://t.me/varna_rent/112"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 149
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 171
+    }
+   ],
+   "key": [
+    555555555,
+    -1001111111111,
+    112
+   ],
+   "lang": "en",
+   "text": "📡 Chat Оренда Варна\n👤 Sender Иван · @ivan_petrov · 42\n🔗 Message https://t.me/varna_rent/112\n🕒 2026-09-20 09:52:00 +00:00 (UTC) · 1 h ago\n🔑 Rule квартира (chat rule)\n\nквартира",
+   "tz": "UTC"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:12"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 35,
+     "url": "https://t.me/varna_rent/112"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 42,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 57
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 73,
+     "url": "https://t.me/varna_rent/112"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 168
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 193
+    }
+   ],
+   "key": [
+    555555555,
+    -1001111111111,
+    112
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Оренда Варна\n👤 Отправитель Иван · @ivan_petrov · 42\n🔗 Сообщение https://t.me/varna_rent/112\n🕒 2026-09-20 12:52:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило квартира (правило чата)\n\nквартира",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:42"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:12"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 34,
+     "url": "https://t.me/varna_rent/112"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 41,
+     "url": "https://t.me/ivan_petrov"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 56
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 75,
+     "url": "https://t.me/varna_rent/112"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 176
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 201
+    }
+   ],
+   "key": [
+    555555555,
+    -1001111111111,
+    112
+   ],
+   "lang": "uk",
+   "text": "📡 Чат Оренда Варна\n👤 Відправник Иван · @ivan_petrov · 42\n🔗 Повідомлення https://t.me/varna_rent/112\n🕒 2026-09-20 05:52:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило квартира (правило чату)\n\nквартира",
+   "tz": "America/New_York"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1005555555555:-1005555555555"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:8"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 7,
+     "offset": 8,
+     "url": "https://t.me/novosti_bg"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 7,
+     "offset": 26,
+     "url": "https://t.me/novosti_bg/505"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 11,
+     "offset": 36,
+     "url": "https://t.me/novosti_bg"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 14,
+     "offset": 50
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 76,
+     "url": "https://t.me/novosti_bg/505"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 4,
+     "offset": 158
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 4,
+     "offset": 176
+    }
+   ],
+   "key": [
+    111111111,
+    -1005555555555,
+    505
+   ],
+   "lang": "en",
+   "text": "📡 Chat Новости\n👤 Sender Новости · @novosti_bg · -1005555555555\n🔗 Message https://t.me/novosti_bg/505\n🕒 2026-09-20 09:25:00 +00:00 (UTC) · 1 h ago\n🔑 Rule курс (chat rule)\n\nКурс лева не изменился",
+   "tz": "UTC"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1005555555555:-1005555555555"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:8"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 7,
+     "offset": 7,
+     "url": "https://t.me/novosti_bg"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 7,
+     "offset": 30,
+     "url": "https://t.me/novosti_bg/505"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 11,
+     "offset": 40,
+     "url": "https://t.me/novosti_bg"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 14,
+     "offset": 54
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 82,
+     "url": "https://t.me/novosti_bg/505"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 4,
+     "offset": 177
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 4,
+     "offset": 198
+    }
+   ],
+   "key": [
+    111111111,
+    -1005555555555,
+    505
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Новости\n👤 Отправитель Новости · @novosti_bg · -1005555555555\n🔗 Сообщение https://t.me/novosti_bg/505\n🕒 2026-09-20 12:25:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило курс (правило чата)\n\nКурс лева не изменился",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1005555555555:-1005555555555"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:8"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 7,
+     "offset": 7,
+     "url": "https://t.me/novosti_bg"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 7,
+     "offset": 29,
+     "url": "https://t.me/novosti_bg/505"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 11,
+     "offset": 39,
+     "url": "https://t.me/novosti_bg"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 14,
+     "offset": 53
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 84,
+     "url": "https://t.me/novosti_bg/505"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 4,
+     "offset": 185
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 4,
+     "offset": 206
+    }
+   ],
+   "key": [
+    111111111,
+    -1005555555555,
+    505
+   ],
+   "lang": "uk",
+   "text": "📡 Чат Новости\n👤 Відправник Новости · @novosti_bg · -1005555555555\n🔗 Повідомлення https://t.me/novosti_bg/505\n🕒 2026-09-20 05:25:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило курс (правило чату)\n\nКурс лева не изменился",
+   "tz": "America/New_York"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:-1001111111111"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 8,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 31,
+     "url": "https://t.me/varna_rent/106"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 11,
+     "offset": 46,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 14,
+     "offset": 60
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 86,
+     "url": "https://t.me/varna_rent/106"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 168
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 214
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    106
+   ],
+   "lang": "en",
+   "text": "📡 Chat Оренда Варна\n👤 Sender Оренда Варна · @varna_rent · -1001111111111\n🔗 Message https://t.me/varna_rent/106\n🕒 2026-09-20 09:46:00 +00:00 (UTC) · 1 h ago\n🔑 Rule квартира (rule for all chats)\n\nАдминистрация: квартира сдана",
+   "tz": "UTC"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:-1001111111111"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 35,
+     "url": "https://t.me/varna_rent/106"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 11,
+     "offset": 50,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 14,
+     "offset": 64
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 92,
+     "url": "https://t.me/varna_rent/106"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 187
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 237
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    106
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Оренда Варна\n👤 Отправитель Оренда Варна · @varna_rent · -1001111111111\n🔗 Сообщение https://t.me/varna_rent/106\n🕒 2026-09-20 12:46:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило квартира (правило для всех чатов)\n\nАдминистрация: квартира сдана",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:-1001111111111"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 34,
+     "url": "https://t.me/varna_rent/106"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 11,
+     "offset": 49,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 14,
+     "offset": 63
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 94,
+     "url": "https://t.me/varna_rent/106"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 195
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 245
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    106
+   ],
+   "lang": "uk",
+   "text": "📡 Чат Оренда Варна\n👤 Відправник Оренда Варна · @varna_rent · -1001111111111\n🔗 Повідомлення https://t.me/varna_rent/106\n🕒 2026-09-20 05:46:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило квартира (правило для всіх чатів)\n\nАдминистрация: квартира сдана",
+   "tz": "America/New_York"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 8,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 14,
+     "offset": 31,
+     "url": "https://t.me/varna_rent/107"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 57,
+     "url": "https://t.me/varna_rent/107"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 139
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 170
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    107
+   ],
+   "lang": "en",
+   "text": "📡 Chat Оренда Варна\n👤 Sender Unknown sender\n🔗 Message https://t.me/varna_rent/107\n🕒 2026-09-20 09:47:00 +00:00 (UTC) · 1 h ago\n🔑 Rule квартира (rule for all chats)\n\nквартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира кварт…\n… [+2200 more characters]",
+   "tz": "UTC"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 23,
+     "offset": 35,
+     "url": "https://t.me/varna_rent/107"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 72,
+     "url": "https://t.me/varna_rent/107"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 167
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 202
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    107
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Оренда Варна\n👤 Отправитель Неизвестный отправитель\n🔗 Сообщение https://t.me/varna_rent/107\n🕒 2026-09-20 12:47:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило квартира (правило для всех чатов)\n\nквартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира кварт…\n… [+2200 символов]",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 12,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 20,
+     "offset": 34,
+     "url": "https://t.me/varna_rent/107"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 71,
+     "url": "https://t.me/varna_rent/107"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 8,
+     "offset": 172
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 8,
+     "offset": 207
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    107
+   ],
+   "lang": "uk",
+   "text": "📡 Чат Оренда Варна\n👤 Відправник Невідомий відправник\n🔗 Повідомлення https://t.me/varna_rent/107\n🕒 2026-09-20 05:47:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило квартира (правило для всіх чатів)\n\nквартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира кварт…\n… [+2200 символів]",
+   "tz": "America/New_York"
+  }
+ ],
+ "now": "2026-09-20T11:07:00+00:00"
+}
