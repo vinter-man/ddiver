@@ -22,6 +22,7 @@ from ddiver_core.formatter import (
     render_notification,
 )
 from ddiver_core.i18n import LANGS, t
+from ddiver_core.richtext import MAX_MESSAGE_UTF16, utf16_len
 from ddiver_core_testing import T0
 
 NOW = T0 + dt.timedelta(minutes=5)
@@ -341,6 +342,40 @@ class TestFacebookDigest:
     def test_without_a_group_link_the_heading_points_at_the_first_post(self):
         r = render_digest(digest_of(fb_payload(chat_url=None)), lang="en", tz="UTC", now=NOW)
         assert urls(r) == [POST_URL, POST_URL]
+
+    @pytest.mark.parametrize("lang", LANGS)
+    def test_private_groups_with_their_own_links_still_fit_one_message(self, lang):
+        """ddiver's per-line budget, with what a Facebook digest adds: the 🔒 after every
+        heading and a carried link on every line.
+
+        The chat count is swept, as in ddiver's own test: the overflow it guards against
+        lived at one specific shape.
+        """
+        worst = 0
+        for chats in range(1, 17):
+            entries = []
+            for i in range(200):
+                gid = GROUP + i % chats
+                entries.append(
+                    DigestEntry(
+                        fb_payload(
+                            chat_id=gid,
+                            chat_title="Ч" * 128,
+                            chat_private=True,
+                            chat_url=f"https://www.facebook.com/groups/{gid}/",
+                            msg_id=POST + i,
+                            url=f"https://www.facebook.com/groups/{gid}/posts/{POST + i}/",
+                            rule_pattern="re:(" + "|".join(f"слово{j}" for j in range(30)) + ")",
+                            sender_name="И" * 129,
+                            text="казино " * 40,
+                        ),
+                        (1, gid, POST + i),
+                    )
+                )
+            r = render_digest(entries, lang=lang, tz="UTC", now=NOW, overflow=999_999)
+            worst = max(worst, utf16_len(r.text))
+            assert all(e.offset + e.length <= utf16_len(r.text) for e in r.entities)
+        assert worst <= MAX_MESSAGE_UTF16
 
     def test_without_any_link_nothing_is_linked(self):
         r = render_digest(
