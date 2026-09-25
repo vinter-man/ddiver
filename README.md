@@ -201,6 +201,8 @@ than greppable: `{service="ddiver", level="ERROR"} | json | msg =~ ".*flood.*"`.
 agent at Grafana's MCP server (`grafana/mcp-grafana`) and "go find out why nothing arrived from
 that chat this morning" becomes a question it can answer by itself.
 
+Loggers of the modules that moved into ddiver-core are named `ddiver_core.*` (`ddiver_core.delivery`, `ddiver_core.storage`, …) from the first deploy that contains ddiver-core on, and were `ddiver.*` before it; `logger=~"ddiver(_core)?[.].+"` covers both.
+
 ## Privacy
 
 ddiver reads chats you are a member of, and the people in them have not agreed to anything.
@@ -239,16 +241,25 @@ not zero — consider a secondary account if that matters to you.
 
 ```bash
 uv sync
-uv run pytest -q          # ~470 offline tests, no Telegram connection needed
+uv run pytest -q          # ~1100 offline tests, no Telegram connection needed
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 ```
 
-The architecture, the invariants and the reasoning behind them are in [DESIGN.md](DESIGN.md).
-Telegram I/O is confined to `runtime.py`, `clients.py`, `login.py`, the CLI and the
-`telethon_history` adapter at the foot of `catchup.py`. Everything else takes its Telegram
-surface as an injected port — `BotPort`, `History`, `EntityResolver` — so matching, storage,
-delivery and formatting are exercised offline against fakes and a virtual clock.
+The code is a uv workspace of two packages and a third for tests:
+
+| Package | What is in it |
+|---|---|
+| `ddiver/` | the Telegram listener: the CLI (`__main__.py`), `config.py` (the core's settings plus the user session and catch-up), `login.py`, the user client (`clients.py`), `listener.py`, `catchup.py`, and `runtime.py`, which wires it all together and sends the weekly report |
+| `packages/ddiver-core/` | Telegram delivery and everything before it: `config` (shared settings), `process`, `app` (supervisor), `health`, `watchdog`, `metrics`, `botclient`, `botruntime`, `tgerrors`, `storage`, `rules`, `matcher`, `senders`, `links`, `richtext`, `formatter`, `delivery`, `portable`, `timeutil`, `i18n/`, `bot/`. Its [README](packages/ddiver-core/README.md) says what it is and is not |
+| `packages/ddiver-core-testing/` | the fakes both test suites share (`FakeClock`, `FakeBotClient`); a dev dependency, never in the image |
+
+The architecture, the invariants, where each of them lives, and the reasoning behind them are
+in [DESIGN.md](DESIGN.md). User-session I/O is confined to ddiver: `runtime.py`, `clients.py`,
+`login.py`, the CLI and the `telethon_history` adapter at the foot of `catchup.py`; the bot's
+Telethon calls are in the core's `botclient.py` and `botruntime.py`. Everything else takes its
+Telegram surface as an injected port — `BotPort`, `History`, `EntityResolver` — so matching,
+storage, delivery and formatting are exercised offline against fakes and a virtual clock.
 
 ## Credits
 

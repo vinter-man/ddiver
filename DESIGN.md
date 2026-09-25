@@ -47,6 +47,20 @@ Postgres, multiple listener accounts, matching on edits, homoglyph-normalised ma
    of kind group/supergroup/channel, and the fast path drops anything whose *marked* chat id is
    non-negative — a cheaper and surer test than `is_private`, since a user id is always positive.
 
+### Where each invariant lives
+
+Since the core extraction the code is two packages (see [Modules](#modules)): `ddiver_core`,
+Telegram delivery and everything before it, and `ddiver`, the Telegram listener on top of it.
+The decision, per invariant:
+
+| # | Lives in | Where, and what the other side owes |
+|---|---|---|
+| 1 | **ddiver** | The listener and its handlers (`listener.py`, `runtime.py`). The core has no listener and no user session; it keeps its half by construction: `SenderCache` without a resolver never calls anything, and the `EntityResolver` the delivery worker may use is a port ddiver backs, off the ingestion path. |
+| 2 | **core** | `bot/router.py` authorises every callback and command in `dispatch` (owner-only ones included, `Router.command(owner_only=True)` for an app's own commands), and every mutating `Storage` call takes the acting `user_id`. ddiver's side is one line: `runtime.py` builds `Incoming.user_id` from `event.sender_id`, and any app must do the same. |
+| 3 | **ddiver** | The ordering is the listener's: the outbox row is claimed before `CursorTracker` may pass the message. The core supplies the outbox (`Storage.claim_delivery`, `INSERT OR IGNORE`) and the replay (`Delivery.replay_pending`); an app with another source owes the same ordering against its own cursor. |
+| 4 | **core** | `delivery.py`: the worker loop and its catch-all, and `_queue_for` starting a new worker when the old one has ended. |
+| 5 | **ddiver** | The fast path in `listener.py` drops a non-negative marked id. The core holds the other half: `Storage.monitored_chat_ids` returns only group, supergroup and channel rows. |
+
 ## Process model
 
 One process, one asyncio loop, two Telethon clients:
@@ -68,9 +82,10 @@ One process, one asyncio loop, two Telethon clients:
                               SQLite (aiosqlite, WAL, one connection)
 ```
 
-`Application` (`runtime.py`) owns both clients and hands the listener coroutine to `Supervisor`
-(`app.py`), which returns an exit code rather than calling `sys.exit`, so the whole
-restart/degraded-mode policy is unit-testable with an injected clock, sleep and rng:
+`Application` (`ddiver/runtime.py`) owns both clients and hands the listener coroutine to
+`Supervisor` (`ddiver_core/app.py`), which returns an exit code rather than calling `sys.exit`,
+so the whole restart/degraded-mode policy is unit-testable with an injected clock, sleep and
+rng:
 
 - `connect_with_timeout`: `connect()` can hang (telethon#1536); on timeout `await disconnect()`
   before retrying so a half-open sender does not leak.
@@ -102,29 +117,48 @@ restart/degraded-mode policy is unit-testable with an injected clock, sleep and 
 
 ## Modules
 
+A uv workspace of three packages. `ddiver` depends on `ddiver-core`; nothing in `ddiver_core`
+imports `ddiver`. The split and what the core is *not* (it has no user-session I/O and is not
+transport-agnostic) are set out in [packages/ddiver-core/README.md](packages/ddiver-core/README.md).
+
 ```
-ddiver/
+ddiver/                     the Telegram listener: everything that uses the user session
   __main__.py      CLI: login | run | health | check-config (umask 0o077 first)
-  config.py        pydantic-settings
+  config.py        Settings: the core's, plus the user session, catch-up and IGNORE_OWN_MESSAGES
   login.py         TTY-free three-step sign-in (phone → code → 2FA password)
-  app.py           supervisor, restart policy, periodic tasks, degraded mode
-  clients.py       client factories, connect_with_timeout, is_fatal_auth_error, DdiverClient
-  storage.py       aiosqlite repo + migrations
+  clients.py       the user client (ListenerClient: reconnect tracking), make_user_client
+  listener.py      handler, should_consider, cursor tracker, chat metadata, access loss
+  catchup.py       newest-first backfill from cursors, bounded and labelled
+  runtime.py       composition root: builds both clients, registers handlers, owns the tasks,
+                   the weekly report and backup
+
+packages/ddiver-core/src/ddiver_core/    Telegram delivery and everything before it
+  config.py        base Settings every app has (bot token, api_id/api_hash, owner, data dir, …)
+  process.py       instance lock, 0700 data dir, JSON log formatter, config error messages
+  app.py           supervisor, restart policy, periodic tasks, degraded mode, boot-rate guard
+  health.py        heartbeat file
+  watchdog.py      dead-man's switch ping
+  metrics.py       Prometheus exposition
+  botclient.py     the bot's client factory, connect_with_timeout
+  botruntime.py    BotAdapter: router actions as Telethon calls; notification buttons
+  tgerrors.py      is_fatal_auth_error, is_session_file_error
+  storage.py       aiosqlite repo + migrations (user_version), app migration tracks
   rules.py         rule parsing/compilation, text cleaning, shadow text with offset map
   matcher.py       per-chat compiled rule sets for all active users, invalidation
   senders.py       SenderInfo from update entities + cached, rate-limited fallback resolver
   links.py         chat/message/user links (public, private, forum topic, basic group)
   richtext.py      text + MessageEntity building with UTF-16 offsets, windowing, entity caps
-  formatter.py     Notification and Digest rendering (at send time)
-  timeutil.py      tz resolution/format, relative time
-  i18n/            en/ru/uk catalogs + t()
-  listener.py      handler, should_consider, cursor tracker, chat metadata, access loss
-  catchup.py       newest-first backfill from cursors, bounded and labelled
+  formatter.py     Payload, Notification and Digest rendering (at send time), weekly report
   delivery.py      outbox consumption, queues, buckets, flood gate, digests, error taxonomy
-  bot/             router (authorisation, pending input), menus, handlers
-  health.py        heartbeat file
-  runtime.py       composition root: builds both clients, registers handlers, owns the tasks
-tests/            pytest + pytest-asyncio, offline Telethon fakes, virtual clock
+  portable.py      /export and /import, tagged with the app's format (ddiver.config)
+  timeutil.py      tz resolution/format, relative time
+  i18n/            en/ru/uk catalogs + t(), app overlays
+  bot/             router (authorisation, pending input), menus, handlers, UI hooks
+
+packages/ddiver-core-testing/   FakeClock, FakeBotClient, SentMessage, T0; dev only, never in
+                                the image
+tests/            pytest + pytest-asyncio, offline Telethon fakes, virtual clock; the core's own
+                  tests in tests/core, the upgrade from b25b311 in test_upgrade.py
 ```
 
 ## Storage (SQLite, WAL, `synchronous=NORMAL`, `busy_timeout=5000`, `foreign_keys=ON`)
@@ -157,6 +191,10 @@ outbox(user_id, chat_id, msg_id, rule_id, status TEXT CHECK(pending|sent|digeste
        attempts INTEGER, last_error TEXT, payload TEXT,     -- JSON snapshot, see below
        created_at, sent_at, PK(user_id, chat_id, msg_id));
 ```
+
+An app on the core keeps its own tables on a named migration track, recorded in
+`schema_tracks(track, version)` and applied after the core's migrations; `PRAGMA user_version`
+stays the core's. ddiver has no track, so its file never gets that table.
 
 **Ownership is computed, not stored:** `is_owner(uid) == uid == OWNER_ID`. The owner can never be
 locked out, and changing `OWNER_ID` takes effect on the next start without a migration.
@@ -359,11 +397,14 @@ TTL, is cleared only by `/start|/help|/test|/cancel|/status`, and is lost on res
 
 ## Packaging
 
-`uv`-managed `pyproject.toml`; runtime: telethon ≥1.45, cryptg, aiosqlite, regex,
-pydantic-settings, tzdata. Dockerfile: `python:3.12-slim`, multi-stage, non-root, exec-form CMD,
-`HEALTHCHECK`. Compose: one `./data` volume, `env_file`, `restart: unless-stopped`, `init: true`,
-`stop_grace_period: 30s`, log rotation. CI: ruff → mypy --strict → pytest with an 85 % gate,
-on Linux (so the case-sensitive timezone behaviour is what ships).
+A `uv` workspace: the root `pyproject.toml` (ddiver) and the members `packages/ddiver-core` and
+`packages/ddiver-core-testing` (dev group only); runtime: telethon ≥1.45, cryptg, aiosqlite,
+regex, pydantic-settings, tzdata. Dockerfile: `python:3.12-slim`, multi-stage, non-root,
+exec-form CMD, `HEALTHCHECK`, both packages installed with `--no-editable`. Compose: one
+`./data` volume, `env_file`, `restart: unless-stopped`, `init: true`, `stop_grace_period: 30s`,
+log rotation. CI: ruff → mypy --strict → pytest with an 85 % gate, on Linux (so the
+case-sensitive timezone behaviour is what ships); a second job builds the image and imports
+every module from it offline, and deploy waits for both.
 
 ## Edge cases the tests cover
 

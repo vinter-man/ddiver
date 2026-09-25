@@ -199,6 +199,8 @@ ALERT_TELEGRAM_CHAT_ID=ваш-числовой-id
 LLM-агента к MCP-серверу Grafana (`grafana/mcp-grafana`), и «сходи разберись, почему утром из
 того чата ничего не пришло» станет вопросом, на который он ответит сам.
 
+Логгеры модулей, переехавших в ddiver-core, называются `ddiver_core.*` (`ddiver_core.delivery`, `ddiver_core.storage`, …) начиная с первого деплоя, в котором есть ddiver-core, а до него назывались `ddiver.*`; оба периода покрывает `logger=~"ddiver(_core)?[.].+"`.
+
 ## Приватность
 
 ddiver читает чаты, в которых вы состоите, а люди в них ни на что не соглашались. Это стоит
@@ -237,16 +239,25 @@ ddiver читает чаты, в которых вы состоите, а люд
 
 ```bash
 uv sync
-uv run pytest -q          # ~470 офлайн-тестов, подключение к Telegram не нужно
+uv run pytest -q          # ~1100 офлайн-тестов, подключение к Telegram не нужно
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 ```
 
-Архитектура, инварианты и обоснования — в [DESIGN.md](DESIGN.md). Обращения к Telegram
-сосредоточены в `runtime.py`, `clients.py`, `login.py`, CLI и адаптере `telethon_history`
-в конце `catchup.py`. Всё остальное получает свою часть Telegram как внедрённый порт —
-`BotPort`, `History`, `EntityResolver`, — поэтому сопоставление, хранение, доставка и
-форматирование проверяются офлайн на фейках и виртуальных часах.
+Код — это uv workspace из двух пакетов и третьего, для тестов:
+
+| Пакет | Что в нём |
+|---|---|
+| `ddiver/` | слушатель Telegram: CLI (`__main__.py`), `config.py` (настройки ядра плюс пользовательская сессия и дочитывание пропущенного), `login.py`, пользовательский клиент (`clients.py`), `listener.py`, `catchup.py` и `runtime.py`, который всё это связывает и присылает итоги недели |
+| `packages/ddiver-core/` | доставка в Telegram и всё, что до неё: `config` (общие настройки), `process`, `app` (супервизор), `health`, `watchdog`, `metrics`, `botclient`, `botruntime`, `tgerrors`, `storage`, `rules`, `matcher`, `senders`, `links`, `richtext`, `formatter`, `delivery`, `portable`, `timeutil`, `i18n/`, `bot/`. Что это ядро такое и чем оно не является — в его [README](packages/ddiver-core/README.md) |
+| `packages/ddiver-core-testing/` | фейки, общие для обоих наборов тестов (`FakeClock`, `FakeBotClient`); dev-зависимость, в образ не попадает |
+
+Архитектура, инварианты, где теперь живёт каждый из них, и обоснования — в
+[DESIGN.md](DESIGN.md). Работа с пользовательской сессией сосредоточена в ddiver: `runtime.py`,
+`clients.py`, `login.py`, CLI и адаптер `telethon_history` в конце `catchup.py`; вызовы Telethon
+со стороны бота — в `botclient.py` и `botruntime.py` ядра. Всё остальное получает свою часть
+Telegram как внедрённый порт — `BotPort`, `History`, `EntityResolver`, — поэтому сопоставление,
+хранение, доставка и форматирование проверяются офлайн на фейках и виртуальных часах.
 
 ## Благодарности
 
