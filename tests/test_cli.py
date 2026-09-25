@@ -18,7 +18,7 @@ from ddiver.__main__ import (
 )
 from ddiver.app import EXIT_ERROR, EXIT_OK
 from ddiver.config import Settings
-from ddiver.health import write_heartbeat
+from ddiver_core.health import write_heartbeat
 from tests.fakes import T0
 
 ENV = {

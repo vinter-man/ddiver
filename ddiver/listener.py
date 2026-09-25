@@ -23,10 +23,10 @@ from telethon.tl import types as tl
 from ddiver.formatter import Payload
 from ddiver.links import ChatRef, topic_id_of
 from ddiver.matcher import Match, Matcher
-from ddiver.rules import PreparedText, prepare_text
 from ddiver.senders import SenderCache, SenderInfo, sender_of
 from ddiver.storage import Cursor, OutboxItem, Storage, safe_write
-from ddiver.timeutil import Clock, utcnow
+from ddiver_core.rules import PreparedText, prepare_text
+from ddiver_core.timeutil import Clock, utcnow
 
 log = logging.getLogger(__name__)
 

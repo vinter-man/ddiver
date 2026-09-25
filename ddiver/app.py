@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ddiver.clients import is_fatal_auth_error, is_session_file_error
-from ddiver.timeutil import Clock, utcnow
+from ddiver_core.timeutil import Clock, utcnow
 
 log = logging.getLogger(__name__)
 

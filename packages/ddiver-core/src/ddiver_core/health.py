@@ -13,7 +13,7 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from ddiver.timeutil import utcnow
+from ddiver_core.timeutil import utcnow
 
 MAX_AGE_SECONDS = 120
 MAX_PING_AGE_SECONDS = 180

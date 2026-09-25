@@ -9,7 +9,8 @@ from collections import Counter
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
-from ddiver.rules import (
+from ddiver.storage import ALL_CHATS, Rule, Storage
+from ddiver_core.rules import (
     CompiledRule,
     MatchMode,
     RuleError,
@@ -18,7 +19,6 @@ from ddiver.rules import (
     Span,
     compile_rule,
 )
-from ddiver.storage import ALL_CHATS, Rule, Storage
 
 log = logging.getLogger(__name__)
 

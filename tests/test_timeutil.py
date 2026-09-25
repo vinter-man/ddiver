@@ -2,7 +2,7 @@ import datetime as dt
 
 import pytest
 
-from ddiver.timeutil import (
+from ddiver_core.timeutil import (
     format_clock,
     format_local,
     relative,

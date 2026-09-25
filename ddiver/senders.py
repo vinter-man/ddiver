@@ -20,7 +20,7 @@ from telethon import utils
 from telethon.errors import RPCError
 from telethon.tl import types as tl
 
-from ddiver.timeutil import Clock, utcnow
+from ddiver_core.timeutil import Clock, utcnow
 
 log = logging.getLogger(__name__)
 

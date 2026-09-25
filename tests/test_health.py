@@ -1,6 +1,6 @@
 import datetime as dt
 
-from ddiver.health import (
+from ddiver_core.health import (
     Heartbeat,
     check,
     heartbeat_age,

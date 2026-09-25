@@ -20,8 +20,8 @@ from typing import Any
 import aiosqlite
 
 from ddiver.links import ChatRef
-from ddiver.rules import RuleKind, pattern_key
-from ddiver.timeutil import Clock, utcnow
+from ddiver_core.rules import RuleKind, pattern_key
+from ddiver_core.timeutil import Clock, utcnow
 
 log = logging.getLogger(__name__)
 

@@ -18,20 +18,20 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from ddiver.rules import (
-    MAX_IGNORED_PER_USER,
-    MAX_RULES_PER_CHAT,
-    MAX_RULES_PER_USER,
-    RuleError,
-    RuleKind,
-    compile_rule,
-)
 from ddiver.storage import (
     ALL_CHATS,
     SQLITE_INT_MAX,
     SQLITE_INT_MIN,
     DuplicateRuleError,
     Storage,
+)
+from ddiver_core.rules import (
+    MAX_IGNORED_PER_USER,
+    MAX_RULES_PER_CHAT,
+    MAX_RULES_PER_USER,
+    RuleError,
+    RuleKind,
+    compile_rule,
 )
 
 FORMAT = "ddiver.config"
@@ -56,7 +56,7 @@ our own export never carries more than the chats a rule mentions."""
 MAX_RULE_ENTRIES = MAX_RULES_PER_USER + MAX_RULES_PER_CHAT
 """How many rule entries an import will even look at.
 
-The caps in :mod:`ddiver.rules` bound what gets *stored*; this bounds the *work*. A rejected
+The caps in :mod:`ddiver_core.rules` bound what gets *stored*; this bounds the *work*. A rejected
 pattern never counts towards the stored caps, so those caps alone never end the loop, and a
 megabyte of JSON holds around 26,000 patterns. Validating one costs well under a millisecond
 in the cases measured — but the ceiling is ``regex_timeout`` per pattern, and choosing a

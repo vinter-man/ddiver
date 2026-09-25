@@ -11,8 +11,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from ddiver.i18n import LANG_NAMES, LANGS
 from ddiver.storage import ALL_CHATS, ChatRow, IgnoredSender, Rule
+from ddiver_core.i18n import LANG_NAMES, LANGS
 
 CHATS_PER_PAGE = 8
 RULES_PER_PAGE = 10

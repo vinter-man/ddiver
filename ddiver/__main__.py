@@ -23,9 +23,9 @@ from ddiver.app import (
     EXIT_OK,
 )
 from ddiver.config import Settings
-from ddiver.health import check as health_check
-from ddiver.health import heartbeat_age
 from ddiver.storage import DatabaseCorruptError, Storage
+from ddiver_core.health import check as health_check
+from ddiver_core.health import heartbeat_age
 
 log = logging.getLogger("ddiver")
 
@@ -141,7 +141,7 @@ async def cmd_login(settings: Settings, args: argparse.Namespace) -> int:
         sign_in_with_code,
         sign_in_with_password,
     )
-    from ddiver.timeutil import utcnow
+    from ddiver_core.timeutil import utcnow
 
     harden_data_dir(settings.data_dir)
     age = heartbeat_age(settings.heartbeat_path)

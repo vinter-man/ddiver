@@ -7,7 +7,7 @@ import urllib.request
 
 from ddiver.delivery import Metrics as DeliveryMetrics
 from ddiver.listener import ListenerMetrics
-from ddiver.metrics import MetricsServer, MetricsSource, _number
+from ddiver_core.metrics import MetricsServer, MetricsSource, _number
 
 
 class FakeListener:
@@ -196,7 +196,7 @@ class TestShutdownIsBounded:
     """stop() waits for handlers, so a handler that never finishes makes shutdown impossible."""
 
     async def test_an_idle_connection_does_not_park_stop_forever(self, monkeypatch):
-        monkeypatch.setattr("ddiver.metrics.REQUEST_TIMEOUT", 0.3)
+        monkeypatch.setattr("ddiver_core.metrics.REQUEST_TIMEOUT", 0.3)
         server = MetricsServer(source(), "127.0.0.1", 0)
         await server.start()
         _, writer = await asyncio.open_connection("127.0.0.1", server.port)
@@ -208,7 +208,7 @@ class TestShutdownIsBounded:
 
     async def test_a_request_line_with_no_newline_is_dropped(self, monkeypatch):
         """Without a limit this reads until memory runs out."""
-        monkeypatch.setattr("ddiver.metrics.REQUEST_TIMEOUT", 1.0)
+        monkeypatch.setattr("ddiver_core.metrics.REQUEST_TIMEOUT", 1.0)
         server = MetricsServer(source(), "127.0.0.1", 0)
         await server.start()
         try:

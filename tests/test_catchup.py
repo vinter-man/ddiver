@@ -8,9 +8,9 @@ from ddiver.catchup import Catchup
 from ddiver.links import ChatRef
 from ddiver.listener import Listener
 from ddiver.matcher import Matcher
-from ddiver.rules import RuleKind
 from ddiver.senders import SenderCache
 from ddiver.storage import ALL_CHATS, Cursor, Storage
+from ddiver_core.rules import RuleKind
 from tests.fakes import T0, make_channel, make_event
 
 OWNER = 1

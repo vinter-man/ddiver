@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ddiver.i18n import en, ru, uk
+from ddiver_core.i18n import en, ru, uk
 
 LANGS: tuple[str, ...] = ("uk", "ru", "en")
 DEFAULT_LANG = "en"

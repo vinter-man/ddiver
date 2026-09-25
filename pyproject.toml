@@ -90,7 +90,7 @@ ignore = [
   "S101", "PLR2004", "ARG", "SLF001", "INP001", "PLR0915", "FBT003",
   "DTZ001", "S105", "S106", "PLC0415",
 ]
-"ddiver/i18n/*.py" = ["E501"]
+"packages/ddiver-core/src/ddiver_core/i18n/*.py" = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["ddiver", "ddiver_core"]

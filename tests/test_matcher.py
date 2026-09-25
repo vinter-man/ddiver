@@ -6,8 +6,8 @@ import regex
 import ddiver.matcher as matcher_module
 from ddiver.links import ChatRef
 from ddiver.matcher import TIMEOUTS_BEFORE_DISABLE, Matcher
-from ddiver.rules import CompiledRule, MatchMode, RuleKind
 from ddiver.storage import ALL_CHATS, Role, Storage
+from ddiver_core.rules import CompiledRule, MatchMode, RuleKind
 
 CHAT_A = ChatRef(-1001, "Alpha", "alpha", "supergroup")
 CHAT_B = ChatRef(-1002, "Beta", None, "supergroup")

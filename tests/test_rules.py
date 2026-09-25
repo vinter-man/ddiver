@@ -3,7 +3,7 @@ import tracemalloc
 import pytest
 import regex
 
-from ddiver.rules import (
+from ddiver_core.rules import (
     MAX_COMPILED_BYTES,
     MAX_HIGHLIGHTS,
     MAX_PATTERN_LEN,

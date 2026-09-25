@@ -9,7 +9,7 @@ from typing import ClassVar
 
 import pytest
 
-from ddiver.watchdog import Watchdog, _is_success
+from ddiver_core.watchdog import Watchdog, _is_success
 from tests.fakes import FakeClock
 
 

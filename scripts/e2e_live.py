@@ -38,10 +38,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from ddiver.config import Settings
 from ddiver.formatter import Payload, render_notification
 from ddiver.links import message_link
-from ddiver.richtext import utf16_len
-from ddiver.rules import RuleKind
 from ddiver.storage import ALL_CHATS, ChatRow, DeliveryStatus, Storage
-from ddiver.timeutil import utcnow
+from ddiver_core.richtext import utf16_len
+from ddiver_core.rules import RuleKind
+from ddiver_core.timeutil import utcnow
 
 DELIVERY_TIMEOUT = 120.0
 POLL_INTERVAL = 2.0

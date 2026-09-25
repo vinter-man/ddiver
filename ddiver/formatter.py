@@ -15,11 +15,11 @@ from typing import Any
 
 from telethon.tl import types as tl
 
-from ddiver.i18n import t
 from ddiver.links import ChatRef, chat_link, message_link
-from ddiver.richtext import MAX_MESSAGE_UTF16, RichText, Span, window
-from ddiver.rules import RuleKind
-from ddiver.timeutil import format_local, relative
+from ddiver_core.i18n import t
+from ddiver_core.richtext import MAX_MESSAGE_UTF16, RichText, Span, window
+from ddiver_core.rules import RuleKind
+from ddiver_core.timeutil import format_local, relative
 
 TEXT_BUDGET = 3200
 """UTF-16 units left for the message body after the header lines."""

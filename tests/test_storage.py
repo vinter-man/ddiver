@@ -5,7 +5,6 @@ import pytest
 
 import ddiver.storage as storage_module
 from ddiver.links import ChatRef
-from ddiver.rules import RuleKind
 from ddiver.storage import (
     ALL_CHATS,
     DEFAULT_DIGEST_THRESHOLD,
@@ -17,6 +16,7 @@ from ddiver.storage import (
     Storage,
     safe_write,
 )
+from ddiver_core.rules import RuleKind
 from tests.fakes import T0
 
 OWNER = 1

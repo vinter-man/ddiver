@@ -25,7 +25,7 @@ import logging
 import ssl
 from urllib.parse import urlsplit
 
-from ddiver.timeutil import Clock, utcnow
+from ddiver_core.timeutil import Clock, utcnow
 
 log = logging.getLogger(__name__)
 

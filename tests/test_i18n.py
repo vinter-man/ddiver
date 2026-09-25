@@ -1,5 +1,5 @@
-from ddiver.i18n import LANGS, missing_keys, t
-from ddiver.i18n import en as en_catalog
+from ddiver_core.i18n import LANGS, missing_keys, t
+from ddiver_core.i18n import en as en_catalog
 
 
 def test_all_catalogs_have_every_english_key():
@@ -41,8 +41,8 @@ def test_html_strings_parse_and_nothing_else_carries_tags():
 
 
 def _catalog(lang):
-    from ddiver.i18n import en as en_mod
-    from ddiver.i18n import ru as ru_mod
-    from ddiver.i18n import uk as uk_mod
+    from ddiver_core.i18n import en as en_mod
+    from ddiver_core.i18n import ru as ru_mod
+    from ddiver_core.i18n import uk as uk_mod
 
     return {"en": en_mod, "ru": ru_mod, "uk": uk_mod}[lang].STRINGS

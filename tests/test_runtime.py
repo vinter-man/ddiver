@@ -14,7 +14,6 @@ from telethon.tl import types as tl
 from ddiver import portable
 from ddiver.bot import menus
 from ddiver.bot.router import Edit, Reply, Send, Toast
-from ddiver.i18n import t
 from ddiver.links import ChatRef
 from ddiver.runtime import (
     RECONCILE_SECONDS,
@@ -23,6 +22,7 @@ from ddiver.runtime import (
     refresh_dialogs,
 )
 from ddiver.storage import OutboxItem, Role, Storage
+from ddiver_core.i18n import t
 from tests.fakes import T0, make_channel, make_user
 
 PAYLOAD = {
@@ -572,7 +572,7 @@ class TestMigration:
     async def test_group_upgrade_moves_subscriptions_and_tells_subscribers(self, app):
         from telethon import utils
 
-        from ddiver.rules import RuleKind
+        from ddiver_core.rules import RuleKind
 
         old_ref = ChatRef(-555, "Старая группа", None, "group")
         await app.storage.upsert_chat(old_ref)
@@ -610,7 +610,7 @@ class TestMigration:
 
 class TestHeartbeatContents:
     async def test_carries_the_listener_state(self, app):
-        from ddiver.health import read_heartbeat
+        from ddiver_core.health import read_heartbeat
 
         await app._heartbeat()
         beat = read_heartbeat(app.settings.heartbeat_path)
@@ -870,7 +870,7 @@ class TestCommandList:
     """Telegram only offers a "/" menu for commands the bot has registered."""
 
     async def test_every_language_gets_the_command_list(self, app, monkeypatch):
-        from ddiver.i18n import LANGS
+        from ddiver_core.i18n import LANGS
 
         sent: list[Any] = []
 

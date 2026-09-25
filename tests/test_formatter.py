@@ -13,7 +13,7 @@ from ddiver.formatter import (
     render_notification,
     render_weekly,
 )
-from ddiver.richtext import MAX_MESSAGE_UTF16, utf16_len
+from ddiver_core.richtext import MAX_MESSAGE_UTF16, utf16_len
 from tests.fakes import T0
 
 NOW = T0 + dt.timedelta(seconds=12)

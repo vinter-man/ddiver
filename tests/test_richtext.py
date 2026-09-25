@@ -1,6 +1,6 @@
 from telethon.tl import types as tl
 
-from ddiver.richtext import MAX_ENTITIES, RichText, Span, truncate_utf16, utf16_len, window
+from ddiver_core.richtext import MAX_ENTITIES, RichText, Span, truncate_utf16, utf16_len, window
 
 
 def test_utf16_len_counts_astral_chars_twice():
