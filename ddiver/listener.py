@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import sqlite3
+from collections import Counter
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -44,6 +45,7 @@ class ListenerMetrics:
     skipped_bot: int = 0
     skipped_private: int = 0
     skipped_unmonitored: int = 0
+    skipped_no_text: int = 0
     skipped_own: int = 0
     unknown_sender: int = 0
 
@@ -156,15 +158,23 @@ def chat_ref_of(entity: Any) -> ChatRef | None:
     return None
 
 
-def should_consider(message: tl.Message, *, ignore_own: bool = True) -> bool:
-    """Shared by the live handler and catch-up so both paths filter identically."""
+def should_consider(
+    message: tl.Message, *, ignore_own: bool = True, allow_empty: bool = False
+) -> bool:
+    """Shared by the live handler and catch-up so both paths filter identically.
+
+    ``allow_empty`` keeps a message with no text — a photo, a sticker, a voice note. It used to
+    be dropped unconditionally here, which silently made `from:` rules a lie: the one thing a
+    watched sender does that a keyword cannot catch is post something with no words in it, and
+    the message never reached the matcher to be judged on who sent it.
+    """
     if not isinstance(message, tl.Message):  # MessageService / MessageEmpty
         return False
     if getattr(message, "action", None) is not None:
         return False
     if ignore_own and getattr(message, "out", False):
         return False
-    return bool(message.message)
+    return bool(message.message) or allow_empty
 
 
 class Listener:
@@ -186,6 +196,10 @@ class Listener:
         self._ignore_own = ignore_own
         self.cursors = CursorTracker(storage)
         self.metrics = ListenerMetrics()
+        # (user, UTC day, chat, rule) → matches, for the weekly report. Accumulated here and
+        # written by `flush_stats` on the same tick as the cursors, because one notification
+        # must not cost a database write of its own.
+        self._stats: Counter[tuple[int, str, int, int]] = Counter()
         self.last_update_at: dt.datetime | None = None
         self._chat_cache: dict[int, ChatRef] = {}
 
@@ -197,6 +211,34 @@ class Listener:
         except Exception:
             log.exception("listener failed on a message")
 
+    def _chat_to_match(self, message: tl.Message) -> int | None:
+        """The chat to match this message in, or None — with the counter that explains why.
+
+        Every one of these is counted rather than merely returned, because the difference
+        between `seen` and `considered` is otherwise a few hundred messages a minute going
+        somewhere unexplained.
+        """
+        # `allow_empty` here, and the real decision at the end: whether a text-less message is
+        # worth anything depends on the chat, and the chat is not known yet.
+        if not should_consider(message, ignore_own=self._ignore_own, allow_empty=True):
+            if getattr(message, "out", False):
+                self.metrics.skipped_own += 1
+            return None
+        chat_id = _chat_id_of(message)
+        if chat_id is None or chat_id >= 0:  # private chats are never monitored
+            self.metrics.skipped_private += 1
+            return None
+        if not self._matcher.is_monitored(chat_id):
+            # The handler is registered without `chats=`, so every message in every dialog the
+            # account is in arrives here and most of them are in chats nobody watches.
+            self.metrics.skipped_unmonitored += 1
+            return None
+        if not message.message and not self._matcher.watches_senders(chat_id):
+            # Nothing to match on: no text, and nobody in this chat is watching a sender.
+            self.metrics.skipped_no_text += 1
+            return None
+        return chat_id
+
     async def handle(
         self,
         message: tl.Message,
@@ -207,21 +249,8 @@ class Listener:
     ) -> list[OutboxItem]:
         self.metrics.seen += 1
         self.last_update_at = self._clock()
-        if not should_consider(message, ignore_own=self._ignore_own):
-            if getattr(message, "out", False):
-                self.metrics.skipped_own += 1
-            return []
-
-        chat_id = _chat_id_of(message)
-        if chat_id is None or chat_id >= 0:  # private chats are never monitored
-            self.metrics.skipped_private += 1
-            return []
-        if not self._matcher.is_monitored(chat_id):
-            # The handler is registered without `chats=`, so every message in every dialog
-            # the account is in arrives here and most of them are in chats nobody watches.
-            # Counting them is what makes `seen` legible: without this the difference between
-            # `seen` and `considered` is a few hundred messages going somewhere unexplained.
-            self.metrics.skipped_unmonitored += 1
+        chat_id = self._chat_to_match(message)
+        if chat_id is None:
             return []
 
         # From here on this message can await — on the chat cache, on the matcher's thread,
@@ -234,13 +263,23 @@ class Listener:
         moment = message.date or self._clock()
         self.metrics.considered += 1
         prepared = prepare_text(message.message)
-        matches = await self._matcher.evaluate(chat_id, prepared.shadow, _sender_id_of(message))
+        # Before matching, not after: a `from:` rule is answered by who sent the message, and
+        # `sender_of` never makes a network call — it reads the entity the update carried, or
+        # the cache. What it cannot find stays unknown here, which is the invariant: no RPC on
+        # the listener session inside a handler.
+        sender = await sender_of(message, self._senders)
+        matches = await self._matcher.evaluate(
+            chat_id,
+            prepared.shadow,
+            _sender_id_of(message),
+            username=sender.username if sender else None,
+            display_name=sender.display_name if sender else "",
+        )
         if not matches:
             self.cursors.note(chat_id, message.id, moment)
             self.cursors.release(chat_id, message.id)
             return []
 
-        sender = await sender_of(message, self._senders)
         if sender is not None and sender.is_bot:
             # Bots are skipped unless a moderator opted in, so the decision is per match.
             matches = [m for m in matches if m.accepts_bots]
@@ -274,6 +313,7 @@ class Listener:
             )
             if item is not None:
                 claimed.append(item)
+                self._stats[(match.user_id, _day(moment), chat_id, match.rule.id)] += 1
         # The cursor may only advance once every match for this message is durable — and only
         # then is the hold released, so a message whose claim raised keeps the cursor behind
         # it rather than being lost under it.
@@ -282,6 +322,18 @@ class Listener:
         for item in claimed:
             await self._deliver(item)
         return claimed
+
+    def watches_senders(self, chat_id: int) -> bool:
+        """Whether a message with no text in this chat is worth looking at. See the matcher."""
+        return self._matcher.watches_senders(chat_id)
+
+    async def flush_stats(self) -> None:
+        """Write the weekly counters out. Swapped first, so a failed write loses one tick's
+        counts rather than blocking on a snapshot that keeps growing."""
+        if not self._stats:
+            return
+        counts, self._stats = dict(self._stats), Counter()
+        await self._storage.record_stats(counts)
 
     async def _claim(
         self,
@@ -364,6 +416,10 @@ def _chat_id_of(message: tl.Message) -> int | None:
         return int(utils.get_peer_id(peer))
     except (TypeError, ValueError):  # pragma: no cover - malformed update
         return None
+
+
+def _day(moment: dt.datetime) -> str:
+    return moment.astimezone(dt.UTC).date().isoformat()
 
 
 def _sender_id_of(message: tl.Message) -> int | None:

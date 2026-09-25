@@ -9,6 +9,7 @@ the right language, even if the user changed settings meanwhile.
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -271,6 +272,57 @@ def render_digest(
 
     text, entities = rt.build()
     return Rendered(text, entities)
+
+
+WEEKLY_ROWS = 5
+WEEKLY_LABEL = 40
+"""How much of a chat title or a rule fits on one line of the report."""
+
+
+def render_weekly(
+    *,
+    lang: str,
+    total: int,
+    previous: int,
+    chats: Sequence[tuple[int, str, int]],
+    rules: Sequence[tuple[str, int]],
+) -> Rendered:
+    """The week in one message: how much was caught, where, and by which rules.
+
+    The comparison with the week before is the part that earns the message — a number on its
+    own says nothing, and "quiet week" is exactly when somebody should check whether the
+    listener is still logged in rather than assume the chats went quiet.
+    """
+    rt = RichText().add(t(lang, "weekly.title"), bold=True).newline(2)
+    rt.add(t(lang, "weekly.total", n=total)).newline()
+    rt.add(_change_line(lang, previous, total)).newline()
+
+    if chats:
+        rt.newline().add(t(lang, "weekly.chats"), bold=True).newline()
+        for _chat_id, title, n in chats[:WEEKLY_ROWS]:
+            rt.add(f"  • {_cut(title or '—', WEEKLY_LABEL)} — {n}").newline()
+    if rules:
+        rt.newline().add(t(lang, "weekly.rules"), bold=True).newline()
+        for pattern, n in rules[:WEEKLY_ROWS]:
+            rt.add("  • ")
+            rt.add(_cut(pattern, WEEKLY_LABEL), code=True)
+            rt.add(f" — {n}").newline()
+    if total == 0:
+        rt.newline().add(t(lang, "weekly.nothing"))
+
+    text, entities = rt.build()
+    return Rendered(text, entities)
+
+
+def _change_line(lang: str, previous: int, total: int) -> str:
+    """How this week compares. A percentage of nothing is not a fact, so that case says so."""
+    if previous == 0:
+        return t(lang, "weekly.no_baseline")
+    delta = round((total - previous) / previous * 100)
+    if delta == 0:
+        return t(lang, "weekly.same", n=previous)
+    key = "weekly.up" if delta > 0 else "weekly.down"
+    return t(lang, key, pct=abs(delta), n=previous)
 
 
 def _digest_line(payload: Payload, lang: str) -> str:

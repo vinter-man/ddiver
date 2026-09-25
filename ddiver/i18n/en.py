@@ -11,6 +11,16 @@ STRINGS: dict[str, str] = {
     "rule.err.too_long": "Pattern is longer than {limit} characters.",
     "rule.err.invalid_regex": "Invalid regular expression: {detail}",
     "rule.err.matches_empty": "This regular expression matches empty text, so it would match every message.",
+    "rule.err.no_phone": (
+        "Telegram only shows a phone number for somebody already in your contacts, so a phone rule would match nothing. Use @username or the numeric id."
+    ),
+    "rule.err.bad_username": (
+        "That does not look like a username. A Telegram username is 3–32 characters: letters, digits and underscores."
+    ),
+    "rule.err.name_too_short": (
+        "A name is matched as a fragment, so it needs at least {limit} characters — otherwise it fires on half the chat."
+    ),
+    "rule.err.bad_sender_id": ("That number is too large to be a Telegram id."),
     "rule.err.too_slow": "This regular expression is too slow (catastrophic backtracking): {pattern}",
     # notification
     "notif.chat": "📡 Chat",
@@ -138,6 +148,11 @@ STRINGS.update(
             "<code>=taxi</code> — whole word only\n"
             "  ✅ “taxi!”, “taxi-service”\n"
             "  ❌ “taxidermy”, “taxis”\n\n"
+            "<code>from:@vasya</code> — watch the sender, not the text\n"
+            "  ✅ anything @vasya posts, even a photo with no caption\n"
+            '  ❌ somebody else\'s message that says "vasya"\n'
+            "  Also <code>from:123456789</code> (a numeric id, which they cannot change)\n"
+            "  and <code>from:John Smith</code> (part of a name, case-insensitive)\n\n"
             "<code>re:tax[iy]</code> — regular expression\n"
             "  ✅ “taxi”, “taxy”\n"
             "  ❌ “tax”, “taxes”\n\n"
@@ -156,6 +171,7 @@ STRINGS.update(
         "bot.rules.kind.substring": "🔤",
         "bot.rules.kind.word": "🔠",
         "bot.rules.kind.regex": "🧩",
+        "bot.rules.kind.sender": "👤",
         "bot.ignored.title": "Ignored senders",
         "bot.ignored.empty": "Nobody is ignored yet.",
         "bot.ignored.added": "🚫 Ignoring {sender} in {chat}.",
@@ -188,6 +204,13 @@ STRINGS.update(
         "bot.settings.bots_off": "🤖 Messages from bots: skipped",
         "bot.settings.bots_on_hint": "🤖 Your rules now run on bot messages too.",
         "bot.settings.bots_off_hint": "🤖 Bot messages are skipped again.",
+        "bot.settings.weekly_on": "📅 Weekly summary: on",
+        "bot.settings.weekly_off": "📅 Weekly summary: off",
+        "bot.settings.backup_on": "💾 Weekly backup: on",
+        "bot.settings.backup_off": "💾 Weekly backup: off",
+        "bot.settings.weekly_hint": "Every seven days, at ten in the morning your time.",
+        "bot.settings.backup_hint": "Your chats and rules as a file, with the weekly summary.",
+        "bot.settings.off_hint": "Turned off. Nothing else changes.",
         "bot.settings.saved": "Saved.",
         "bot.status.title": "📊 Status",
         "bot.status.listener": "Listener: {state}",
@@ -222,6 +245,7 @@ STRINGS.update(
         "bot.test.excluded": "🚫 {chat} — excluded by {rule}",
         "bot.test.too_slow": "⏱ {chat} — too many rules to check within the time budget.",
         "bot.test.nomatch": "— {chat} — no match",
+        "bot.test.sender_rules": "(plus {n} from: rules — those match on who sent a message, so a text test cannot answer for them)",
         "bot.test.no_chats": (
             "⚠️ You are not watching any chat yet, so no rule can notify you. Below is "
             "what your rules for all chats would have done."
@@ -264,11 +288,25 @@ STRINGS.update(
             "<code>re:tax[iy]</code> — regular expression\n"
             "  ✅ “taxi”, “taxy”\n"
             "  ❌ “tax”, “taxes”\n\n"
+            "<code>from:@vasya</code> — watch the sender\n"
+            "  ✅ anything they post; also by numeric id or part of a name\n"
+            "  ❌ a mention of @vasya in somebody else's text\n\n"
             "<b>Exclusions</b>\n"
             "Same syntax, and they win over keywords.\n\n"
             "<b>Commands</b>\n"
             "/menu · /test · /status · /cancel"
         ),
+        "weekly.title": "📅 Your week",
+        "weekly.total": "Caught: {n}",
+        "weekly.no_baseline": "Nothing to compare with — this is the first full week.",
+        "weekly.same": "The same as last week ({n}).",
+        "weekly.up": "{pct}% more than last week ({n}).",
+        "weekly.down": "{pct}% less than last week ({n}).",
+        "weekly.chats": "Busiest chats",
+        "weekly.rules": "Rules that fired",
+        "weekly.nothing": "Quiet week. If that is a surprise, /status says whether the listener is still logged in.",
+        "weekly.backup": "Your configuration, in case you ever need it back: {chats} chats, {rules} rules, {ignored} ignored. /import restores it.",
+        "weekly.backup_too_big": "Your configuration: {chats} chats, {rules} rules, {ignored} ignored. Keep the file — but it is larger than /import accepts, so restoring it means trimming the ignore list first.",
         "bot.cancelled": "Cancelled.",
     }
 )

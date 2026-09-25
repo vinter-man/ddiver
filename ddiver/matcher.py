@@ -9,8 +9,16 @@ from collections import Counter
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
-from ddiver.rules import CompiledRule, RuleError, RuleKind, RuleTimeout, Span, compile_rule
-from ddiver.storage import Rule, Storage
+from ddiver.rules import (
+    CompiledRule,
+    MatchMode,
+    RuleError,
+    RuleKind,
+    RuleTimeout,
+    Span,
+    compile_rule,
+)
+from ddiver.storage import ALL_CHATS, Rule, Storage
 
 log = logging.getLogger(__name__)
 
@@ -55,6 +63,11 @@ class _UserRules:
     user_id: int
     includes: list[tuple[Rule, CompiledRule]] = field(default_factory=list)
     excludes: list[tuple[Rule, CompiledRule]] = field(default_factory=list)
+    # `from:` rules are kept apart because they are answered by comparing who sent the
+    # message, never by searching the text — so they cost nothing per rule and they work on a
+    # message that has no text at all, which is exactly how somebody posts a photo of a scam.
+    sender_includes: list[tuple[Rule, CompiledRule]] = field(default_factory=list)
+    sender_excludes: list[tuple[Rule, CompiledRule]] = field(default_factory=list)
     ignored: set[int] = field(default_factory=set)
     accepts_bots: bool = False
 
@@ -67,6 +80,24 @@ class _ChatRuleSet:
     @property
     def rule_count(self) -> int:
         return sum(len(u.includes) + len(u.excludes) for u in self.users)
+
+    @property
+    def has_sender_rules(self) -> bool:
+        return any(u.sender_includes or u.sender_excludes for u in self.users)
+
+
+def _sender_hit(
+    rules: list[tuple[Rule, CompiledRule]],
+    sender_id: int | None,
+    username: str | None,
+    display_name: str,
+) -> Rule | None:
+    """First ``from:`` rule that recognises this sender. No text, no timeout, no budget."""
+    for rule, compiled in rules:
+        target = compiled.target
+        if target is not None and target.matches(sender_id, username, display_name):
+            return rule
+    return None
 
 
 class Matcher:
@@ -87,6 +118,7 @@ class Matcher:
         self._timeout = timeout
         self._on_rule_disabled = on_rule_disabled
         self._monitored: set[int] = set()
+        self._sender_chats: set[int] = set()
         self._cache: dict[int, _ChatRuleSet] = {}
         # Bumped by anything that makes the cache wrong. `_load` reads it before it awaits and
         # checks it again before it stores, so a rule edited while a chat's rules are being
@@ -116,6 +148,14 @@ class Matcher:
     def monitored(self) -> frozenset[int]:
         return frozenset(self._monitored)
 
+    def watches_senders(self, chat_id: int) -> bool:
+        """Whether a message with no text in this chat is worth looking at.
+
+        Answered from a set refreshed with the monitored one, not from the chat's compiled rule
+        set: loading that for every photo in every chat is the cost this avoids.
+        """
+        return ALL_CHATS in self._sender_chats or chat_id in self._sender_chats
+
     def is_monitored(self, chat_id: int) -> bool:
         return chat_id in self._monitored
 
@@ -123,6 +163,7 @@ class Matcher:
         """Reload the monitored set from storage and drop every cached rule set."""
         self._generation += 1
         self._monitored = await self._storage.monitored_chat_ids()
+        self._sender_chats = await self._storage.sender_rule_chats()
         self._cache.clear()
 
     async def invalidate(self, chat_id: int | None = None) -> None:
@@ -133,26 +174,45 @@ class Matcher:
         else:
             self._cache.pop(chat_id, None)
         self._monitored = await self._storage.monitored_chat_ids()
+        self._sender_chats = await self._storage.sender_rule_chats()
 
     # -- evaluation ------------------------------------------------------------------------
 
-    async def evaluate(self, chat_id: int, text: str, sender_id: int | None) -> list[Match]:
-        """Return at most one :class:`Match` per subscribed user for ``text`` in ``chat_id``.
+    async def evaluate(
+        self,
+        chat_id: int,
+        text: str,
+        sender_id: int | None,
+        *,
+        username: str | None = None,
+        display_name: str = "",
+    ) -> list[Match]:
+        """Return at most one :class:`Match` per subscribed user for a message in ``chat_id``.
 
         Per user: ignored sender → no match; any exclusion hit → no match; otherwise the first
         include rule (chat-specific before global) that matches. A rule that times out counts
         as "no match" and is disabled after :data:`TIMEOUTS_BEFORE_DISABLE` timeouts.
+
+        ``username`` and ``display_name`` are whatever the update carried — this is the
+        listener's hot path, where an RPC to find out more is forbidden — and they are only
+        read by ``from:`` rules.
         """
-        if not text or chat_id not in self._monitored:
+        if chat_id not in self._monitored:
+            return []
+        ruleset = await self._get(chat_id)
+        if not text and not ruleset.has_sender_rules:
+            # A message with no text can still be "that person posted something", and that is
+            # the whole point of watching a sender. Anything else empty is not worth a scan.
             return []
         self.stats_evaluated += 1
-        ruleset = await self._get(chat_id)
         if ruleset.rule_count > OFFLOAD_ABOVE_RULES:
             matches, timed_out = await asyncio.to_thread(
-                self._evaluate_sync, ruleset, text, sender_id
+                self._evaluate_sync, ruleset, text, sender_id, username, display_name
             )
         else:
-            matches, timed_out = self._evaluate_sync(ruleset, text, sender_id)
+            matches, timed_out = self._evaluate_sync(
+                ruleset, text, sender_id, username, display_name
+            )
         for rule in timed_out:
             await self._note_timeout(rule)
         if matches:
@@ -160,7 +220,12 @@ class Matcher:
         return matches
 
     def _evaluate_sync(
-        self, ruleset: _ChatRuleSet, text: str, sender_id: int | None
+        self,
+        ruleset: _ChatRuleSet,
+        text: str,
+        sender_id: int | None,
+        username: str | None = None,
+        display_name: str = "",
     ) -> tuple[list[Match], list[Rule]]:
         """The pure matching work, safe to run in a worker thread."""
         matches: list[Match] = []
@@ -168,13 +233,21 @@ class Matcher:
         for user in ruleset.users:
             if sender_id is not None and sender_id in user.ignored:
                 continue
-            deadline = time.monotonic() + MESSAGE_BUDGET
-            if self._first_hit(user.excludes, text, deadline, timed_out) is not None:
+            if _sender_hit(user.sender_excludes, sender_id, username, display_name):
                 continue
-            hit = self._first_hit(user.includes, text, deadline, timed_out)
+            deadline = time.monotonic() + MESSAGE_BUDGET
+            if text and self._first_hit(user.excludes, text, deadline, timed_out) is not None:
+                continue
+            hit = self._first_hit(user.includes, text, deadline, timed_out) if text else None
             if hit is not None:
                 rule, spans = hit
                 matches.append(Match(user.user_id, rule, spans, user.accepts_bots))
+                continue
+            # Only when nothing in the text matched: a keyword hit says *why* and highlights
+            # the words, which is more use than "this person spoke".
+            watched = _sender_hit(user.sender_includes, sender_id, username, display_name)
+            if watched is not None:
+                matches.append(Match(user.user_id, watched, [], user.accepts_bots))
         return matches, timed_out
 
     def _first_hit(
@@ -289,8 +362,12 @@ class Matcher:
                 # Disabling touches the database, so it happens back on the loop.
                 await self._disable(rule, f"{DISABLED_INVALID}:{result.key}")
                 continue
-            target = bucket.includes if rule.kind is RuleKind.INCLUDE else bucket.excludes
-            target.append((rule, result))
+            include = rule.kind is RuleKind.INCLUDE
+            if result.mode is MatchMode.SENDER:
+                where = bucket.sender_includes if include else bucket.sender_excludes
+            else:
+                where = bucket.includes if include else bucket.excludes
+            where.append((rule, result))
         for user_id, senders in ignored.items():
             if user_id in by_user:
                 by_user[user_id].ignored = set(senders)

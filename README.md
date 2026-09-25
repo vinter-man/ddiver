@@ -28,6 +28,9 @@ version of this README is in [README.ru.md](README.ru.md).*
   their own chats, rules, ignore list, language and timezone.
 - **Survives restarts.** Matches are written to an outbox before they are sent, and the bot
   backfills what it missed while it was offline (labelled "missed while offline").
+- **A week in one message.** Every seven days, at ten in the morning your time: how much was
+  caught, in which chats, by which rules, and how that compares with the week before — plus
+  your chats and rules as a file, so a reinstall costs nothing. Both can be switched off.
 - **Built for load.** Designed against a target of 50+ chats and 100k+ messages a day: bounded
   queues, one shared flood gate, digests when a burst arrives, automatic disabling of
   catastrophic regexes. The longest measured run so far is 1301 messages over five hours.
@@ -79,7 +82,7 @@ other projects — see [deploy/README.md](deploy/README.md).
 | 📡 Chats | pick which chats to monitor (moderators see only the chats the owner shared) |
 | 🔑 Rules | keywords and exclusions, per chat or for all your chats |
 | 🚫 Ignored | senders you never want to hear about |
-| ⚙️ Settings | language, timezone, digest threshold, whether bot messages count |
+| ⚙️ Settings | language, timezone, digest threshold, bot messages, weekly summary, weekly backup |
 | 📊 Status | listener state, uptime, counters, queue length |
 | 🗂 Shared chats | *(owner)* which of your chats moderators may see |
 | 👥 Users | *(owner)* approve, deny or revoke moderators |
@@ -96,11 +99,20 @@ per chat, whether that text would notify you.
 | `taxi` | any message containing "taxi", ignoring case — including "taxidermy" |
 | `=taxi` | the whole word only, so not "taxidermy"; punctuation is a boundary, so `=c++` and `taxi-service` both work |
 | `re:tax[iy]` | a regular expression (case-insensitive; opt out with `(?-i:…)`) |
+| `from:@vasya` | the **sender**, not the text: everything that person posts, including a photo with no caption |
+| `from:123456789` | the same, by numeric id — a username can be changed, an id cannot |
+| `from:John Smith` | part of a display name, case-insensitive; names are decoration, so "John" finds "John 🚀" |
 | `#promo` | a hashtag is an ordinary keyword — there is no comment syntax |
 
 Rules are matched against text with invisible characters removed and Unicode normalised, so
 `ta<zero-width space>xi` still matches `taxi`. Latin/Cyrillic look-alikes (`тaкси` with a
 Latin "a") are **not** normalised — use a regex if you need them.
+
+`from:` is spelled out rather than taken from a bare `@name`, because `@name` already means
+"the text mentions @name" — a different and equally useful rule. A phone number is refused:
+Telegram only shows one for somebody already in your contacts, so such a rule would quietly
+match nothing. Exclusions take `from:` too, which is how you silence one person without
+knowing their numeric id.
 
 A regular expression that takes too long is skipped, and after three timeouts it is disabled
 automatically and you are told which one.

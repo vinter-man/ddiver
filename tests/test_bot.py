@@ -665,6 +665,39 @@ class TestBotMessagesSetting:
         assert (await store.get_user(OWNER)).include_bots is False
         assert t("ru", "bot.settings.bots_no") in off[-1].key_or_text
 
+    @pytest.mark.parametrize(
+        ("what", "field"),
+        [("weekly", "weekly_report"), ("backup", "auto_backup")],
+    )
+    async def test_the_weekly_switches_flip_and_show_it(self, router, store, what, field):
+        assert getattr(await store.get_user(OWNER), field) is True  # on by default
+        off = await cb(router, OWNER, f"set:{what}")
+        assert getattr(await store.get_user(OWNER), field) is False
+        assert f"set:{what}" in callbacks(off)
+        await cb(router, OWNER, f"set:{what}")
+        assert getattr(await store.get_user(OWNER), field) is True
+
+    async def test_one_switch_does_not_move_the_other(self, router, store):
+        await cb(router, OWNER, "set:weekly")
+        user = await store.get_user(OWNER)
+        assert user.weekly_report is False
+        assert user.auto_backup is True
+
+    async def test_a_sender_rule_can_be_added_through_the_rules_screen(self, router, store):
+        """It goes in where keywords go in, which is the whole point of the syntax."""
+        await store.subscribe(OWNER, CHAT_A.id)
+        await cb(router, OWNER, f"radd:{CHAT_A.id}:include")
+        await msg(router, OWNER, "from:@vasya_spam")
+        rules = await store.rules_for_chat(CHAT_A.id)
+        assert [r.pattern for r in rules] == ["from:@vasya_spam"]
+
+    async def test_a_phone_number_is_refused_with_a_reason(self, router, store):
+        await store.subscribe(OWNER, CHAT_A.id)
+        await cb(router, OWNER, f"radd:{CHAT_A.id}:include")
+        actions = await msg(router, OWNER, "from:+380671234567")
+        assert await store.rules_for_chat(CHAT_A.id) == []
+        assert "контакт" in texts(actions)[0]  # says why, not just "invalid"
+
     async def test_the_matcher_is_told_about_the_change(self, router, store, matcher):
         """The preference lives in the per-chat rule cache, so it has to be invalidated."""
         await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "такси")

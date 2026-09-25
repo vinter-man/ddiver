@@ -13,6 +13,7 @@ from ddiver.rules import (
     MatchMode,
     RuleError,
     RuleTimeout,
+    SenderField,
     Span,
     _unroll_cost,
     clean_text,
@@ -272,6 +273,90 @@ class TestCompiledSizeGuard:
 
     def test_a_plain_keyword_costs_almost_nothing(self):
         assert compile_rule("такси", timeout=T).cost_bytes < 32 * 1024
+
+
+class TestSenderRules:
+    """`from:` watches who sent a message, which the other three modes cannot do."""
+
+    @pytest.mark.parametrize(
+        ("raw", "field", "value"),
+        [
+            ("from:@vasya_spam", SenderField.USERNAME, "vasya_spam"),
+            ("from:@VasyaSpam", SenderField.USERNAME, "vasyaspam"),  # exact, but not cased
+            ("FROM:@vasya_spam", SenderField.USERNAME, "vasya_spam"),  # the prefix is not cased
+            ("from:123456789", SenderField.ID, "123456789"),
+            ("from:-1001234567890", SenderField.ID, "-1001234567890"),  # a channel writing
+            ("from:Вася Пупкин", SenderField.NAME, "вася пупкин"),
+            ("from:  Вася   Пупкин  ", SenderField.NAME, "вася пупкин"),  # whitespace folded
+        ],
+    )
+    def test_what_each_shape_parses_to(self, raw, field, value):
+        rule = compile_rule(raw, timeout=T)
+        assert rule.mode is MatchMode.SENDER
+        assert rule.target is not None
+        assert rule.target.field is field
+        assert rule.target.value == value
+
+    @pytest.mark.parametrize(
+        ("raw", "key"),
+        [
+            ("from:+380671234567", "rule.err.no_phone"),
+            ("from:+1 555 0100", "rule.err.no_phone"),
+            ("from:@ab", "rule.err.bad_username"),
+            ("from:@" + "x" * 33, "rule.err.bad_username"),
+            ("from:@вася", "rule.err.bad_username"),  # Telegram usernames are ASCII
+            ("from:ан", "rule.err.name_too_short"),
+            ("from:", "rule.err.empty"),
+            ("from:   ", "rule.err.empty"),
+            (f"from:{2**64}", "rule.err.bad_sender_id"),
+        ],
+    )
+    def test_what_is_refused_and_why(self, raw, key):
+        with pytest.raises(RuleError) as ei:
+            compile_rule(raw, timeout=T)
+        assert ei.value.key == key
+
+    def test_a_sender_rule_never_searches_text(self):
+        """It holds no compiled pattern at all, so it costs nothing per message."""
+        rule = compile_rule("from:@vasya", timeout=T)
+        assert rule.compiled is None
+        assert rule.cost_bytes == 0
+        assert rule.search_all("vasya wrote this", 0.2) == []
+
+    @pytest.mark.parametrize(
+        ("raw", "sender", "expected"),
+        [
+            ("from:@vasya", (1, "vasya", "Вася"), True),
+            ("from:@vasya", (1, "VASYA", "Вася"), True),  # case-insensitive
+            ("from:@vasya", (1, "vasya2", "Вася"), False),  # exact, not a prefix
+            ("from:@vasya", (1, None, "vasya"), False),  # a username is not a name
+            ("from:123", (123, None, ""), True),
+            ("from:123", (1234, None, ""), False),  # exact, not a prefix
+            ("from:123", (None, None, ""), False),  # unknown sender matches nothing
+            ("from:Вася", (1, None, "Вася Пупкин"), True),  # a name is a fragment
+            ("from:Вася", (1, None, "вася 🚀"), True),  # people decorate their names
+            ("from:Вася Пупкин", (1, None, "Вася"), False),
+            ("from:Пупкин", (1, None, "Вася\u200b Пупкин"), True),  # zero-width junk removed
+        ],
+    )
+    def test_who_it_recognises(self, raw, sender, expected):
+        target = compile_rule(raw, timeout=T).target
+        assert target is not None
+        assert target.matches(*sender) is expected
+
+    def test_at_prefix_still_means_a_mention_in_the_text(self):
+        """Changing that would silently repurpose every rule anybody already wrote."""
+        rule = compile_rule("@vasya", timeout=T)
+        assert rule.mode is MatchMode.SUBSTRING
+        assert rule.search("посмотрите на @vasya", T) is not None
+
+    def test_the_same_username_twice_is_one_rule(self):
+        assert pattern_key("from:@Vasya") == pattern_key("from:@vasya")
+
+    def test_a_username_and_a_name_are_not_the_same_rule(self):
+        """`from:@vasya` watches a username; `from:vasya` watches a name fragment. Folding them
+        together refused the second as a duplicate of the first."""
+        assert pattern_key("from:@vasya") != pattern_key("from:vasya")
 
 
 def test_parse_rule_lines_keeps_every_non_blank_line():

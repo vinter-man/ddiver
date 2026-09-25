@@ -12,7 +12,7 @@ import enum
 import json
 import logging
 import sqlite3
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -80,6 +80,9 @@ class User:
     pause_reason: str | None
     notified_owner_at: dt.datetime | None
     include_bots: bool = False
+    weekly_report: bool = True
+    auto_backup: bool = True
+    weekly_sent_at: dt.datetime | None = None
     is_owner: bool = False
 
     @property
@@ -234,7 +237,28 @@ _MIGRATIONS: list[str] = [
     """
     ALTER TABLE users ADD COLUMN include_bots INTEGER NOT NULL DEFAULT 0;
     """,
+    # v3: the weekly report and the backup that goes with it
+    """
+    ALTER TABLE users ADD COLUMN weekly_report INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE users ADD COLUMN auto_backup INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE users ADD COLUMN weekly_sent_at TEXT;
+    CREATE TABLE stats_daily (
+      user_id INTEGER NOT NULL,
+      day TEXT NOT NULL,
+      chat_id INTEGER NOT NULL,
+      rule_id INTEGER NOT NULL,
+      n INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, day, chat_id, rule_id)
+    ) WITHOUT ROWID;
+    CREATE INDEX idx_stats_day ON stats_daily(day);
+    """,
 ]
+
+
+def _day(moment: dt.datetime) -> str:
+    """The UTC day a match is counted under. One boundary for everybody, stated in the report:
+    a weekly window does not get more honest by being cut in each person's own midnight."""
+    return moment.astimezone(dt.UTC).date().isoformat()
 
 
 def _iso(moment: dt.datetime) -> str:
@@ -346,6 +370,9 @@ class Storage:
             tz=row["tz"],
             role=Role(row["role"]),
             digest_threshold=row["digest_threshold"],
+            weekly_report=bool(row["weekly_report"]),
+            auto_backup=bool(row["auto_backup"]),
+            weekly_sent_at=_parse(row["weekly_sent_at"]),
             delivery_paused_at=_parse(row["delivery_paused_at"]),
             pause_reason=row["pause_reason"],
             notified_owner_at=_parse(row["notified_owner_at"]),
@@ -392,6 +419,9 @@ class Storage:
             "pause_reason",
             "notified_owner_at",
             "include_bots",
+            "weekly_report",
+            "auto_backup",
+            "weekly_sent_at",
         }
         unknown = set(fields) - allowed
         if unknown:
@@ -665,6 +695,11 @@ class Storage:
                 (user_id, chat_id, kind.value, pattern, pattern_key(pattern), self._now()),
             )
         except aiosqlite.IntegrityError as exc:
+            # Only a UNIQUE violation is a duplicate. A foreign-key failure — no such user —
+            # used to be reported as "you already have this rule", which sends whoever is
+            # reading it looking for a rule that does not exist.
+            if "UNIQUE" not in str(exc):
+                raise
             raise DuplicateRuleError(pattern) from exc
         rule = await self.get_rule(int(cur.lastrowid or 0), user_id)
         if rule is None:  # pragma: no cover - impossible after the insert
@@ -708,6 +743,22 @@ class Storage:
         sql += " ORDER BY (chat_id=0) DESC, chat_id, kind DESC, id"
         cur = await self.db.execute(sql, params)
         return [self._rule(r) for r in await cur.fetchall()]
+
+    async def sender_rule_chats(self) -> set[int]:
+        """Chats where at least one live ``from:`` rule exists; ``ALL_CHATS`` means everywhere.
+
+        The listener needs this before it looks at a message, because a message with no text is
+        worth matching only when somebody is watching a sender — and asking the rule set would
+        mean loading it for every photo in every chat.
+
+        `pattern_key` is canonical and the parser claims the ``from:`` prefix, so a key that
+        starts with it is a sender rule and nothing else can be.
+        """
+        cur = await self.db.execute(
+            "SELECT DISTINCT chat_id FROM rules "
+            "WHERE pattern_key LIKE 'from:%' AND disabled_reason IS NULL"
+        )
+        return {int(row["chat_id"]) for row in await cur.fetchall()}
 
     async def rules_for_chat(self, chat_id: int) -> list[Rule]:
         """Enabled rules applying to ``chat_id``: chat-specific ones plus the global rules of
@@ -961,6 +1012,65 @@ class Storage:
             (_iso(since),),
         )
         return {str(r["status"]): int(r["n"]) for r in await cur.fetchall()}
+
+    async def record_stats(self, counts: Mapping[tuple[int, str, int, int], int]) -> None:
+        """Add to the per-day counters the weekly report reads.
+
+        Keyed by (user, UTC day, chat, rule) and accumulated in memory first, the same way
+        rule hits are: one notification must not cost a write of its own.
+        """
+        if not counts:
+            return
+        await self.db.executemany(
+            """INSERT INTO stats_daily (user_id, day, chat_id, rule_id, n) VALUES (?,?,?,?,?)
+               ON CONFLICT(user_id, day, chat_id, rule_id)
+               DO UPDATE SET n = n + excluded.n""",
+            [
+                (user_id, day, chat_id, rule_id, n)
+                for (user_id, day, chat_id, rule_id), n in counts.items()
+            ],
+        )
+
+    async def count_stats(self, user_id: int, since: dt.datetime, until: dt.datetime) -> int:
+        cur = await self.db.execute(
+            "SELECT COALESCE(SUM(n), 0) AS n FROM stats_daily "
+            "WHERE user_id=? AND day >= ? AND day < ?",
+            (user_id, _day(since), _day(until)),
+        )
+        row = await cur.fetchone()
+        return int(row["n"]) if row else 0
+
+    async def top_chats(
+        self, user_id: int, since: dt.datetime, until: dt.datetime, limit: int = 5
+    ) -> list[tuple[int, str, int]]:
+        """(chat id, title, matches), busiest first. The title is whatever we last cached."""
+        cur = await self.db.execute(
+            """SELECT s.chat_id AS chat_id, COALESCE(c.title, '') AS title, SUM(s.n) AS n
+               FROM stats_daily s LEFT JOIN chats c ON c.id = s.chat_id
+               WHERE s.user_id=? AND s.day >= ? AND s.day < ?
+               GROUP BY s.chat_id ORDER BY n DESC, s.chat_id LIMIT ?""",
+            (user_id, _day(since), _day(until), limit),
+        )
+        return [(int(r["chat_id"]), str(r["title"]), int(r["n"])) for r in await cur.fetchall()]
+
+    async def top_rules(
+        self, user_id: int, since: dt.datetime, until: dt.datetime, limit: int = 5
+    ) -> list[tuple[str, int]]:
+        """(pattern, matches) for rules that still exist; a deleted rule is not worth naming."""
+        cur = await self.db.execute(
+            """SELECT r.pattern AS pattern, SUM(s.n) AS n
+               FROM stats_daily s JOIN rules r ON r.id = s.rule_id
+               WHERE s.user_id=? AND s.day >= ? AND s.day < ?
+               GROUP BY s.rule_id ORDER BY n DESC, r.id LIMIT ?""",
+            (user_id, _day(since), _day(until), limit),
+        )
+        return [(str(r["pattern"]), int(r["n"])) for r in await cur.fetchall()]
+
+    async def prune_stats(self, older_than: dt.timedelta = dt.timedelta(days=70)) -> int:
+        """Ten weeks: enough for a report to compare against the week before it, and no more."""
+        cutoff = _day(self._clock() - older_than)
+        cur = await self.db.execute("DELETE FROM stats_daily WHERE day < ?", (cutoff,))
+        return cur.rowcount or 0
 
     async def prune_outbox(self, older_than: dt.timedelta = dt.timedelta(days=7)) -> int:
         """Drop old rows, including pending ones.

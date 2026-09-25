@@ -11,6 +11,7 @@ from ddiver.formatter import (
     Rendered,
     render_digest,
     render_notification,
+    render_weekly,
 )
 from ddiver.richtext import MAX_MESSAGE_UTF16, utf16_len
 from tests.fakes import T0
@@ -174,6 +175,33 @@ class TestNotification:
         assert "12 сек назад" in ru.text
         assert "5 хв тому" in uk.text
         assert "(UTC)" in uk.text
+
+
+class TestWeekly:
+    """The weekly report. It goes out unprompted, so it has to be right without a reader."""
+
+    def test_it_says_what_changed(self):
+        r = render_weekly(lang="ru", total=42, previous=30, chats=[], rules=[])
+        assert "42" in r.text
+        assert "40%" in r.text  # 30 → 42
+
+    def test_a_first_week_does_not_invent_a_percentage(self):
+        """A percentage of nothing is not a fact."""
+        r = render_weekly(lang="en", total=5, previous=0, chats=[], rules=[])
+        assert "%" not in r.text
+
+    def test_a_quiet_week_points_at_the_thing_that_breaks_silently(self):
+        r = render_weekly(lang="ru", total=0, previous=9, chats=[], rules=[])
+        assert "/status" in r.text
+
+    @pytest.mark.parametrize("lang", ["ru", "en", "uk"])
+    def test_it_fits_in_one_message_with_hostile_names(self, lang):
+        """A chat title and a rule are both somebody's free text."""
+        chats = [(-100 - i, "Ч" * 300, 10**i) for i in range(9)]
+        rules = [("re:(" + "|".join(f"слово{j}" for j in range(30)) + ")", 10**i) for i in range(9)]
+        r = render_weekly(lang=lang, total=10**9, previous=1, chats=chats, rules=rules)
+        assert utf16_len(r.text) <= MAX_MESSAGE_UTF16
+        assert all(e.offset + e.length <= utf16_len(r.text) for e in r.entities)
 
 
 class TestDigest:

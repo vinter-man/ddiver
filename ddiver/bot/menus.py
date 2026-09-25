@@ -206,12 +206,17 @@ def ignored_menu(entries: Sequence[IgnoredSender], page_index: int) -> Keyboard:
     return rows
 
 
-def settings_menu(*, include_bots: bool = False) -> Keyboard:
+def settings_menu(
+    *, include_bots: bool = False, weekly_report: bool = True, auto_backup: bool = True
+) -> Keyboard:
     bots = "bot.settings.bots_on" if include_bots else "bot.settings.bots_off"
+    weekly = "bot.settings.weekly_on" if weekly_report else "bot.settings.weekly_off"
+    backup = "bot.settings.backup_on" if auto_backup else "bot.settings.backup_off"
     return [
         [("bot.settings.language", "set:lang"), ("bot.settings.timezone", "set:tz")],
         [("bot.settings.digest", "set:digest")],
         [(bots, "set:bots")],
+        [(weekly, "set:weekly"), (backup, "set:backup")],
         [("bot.btn.back", "menu")],
     ]
 

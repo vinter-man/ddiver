@@ -69,6 +69,7 @@ KIND_ICONS = {
     MatchMode.SUBSTRING: "bot.rules.kind.substring",
     MatchMode.WORD: "bot.rules.kind.word",
     MatchMode.REGEX: "bot.rules.kind.regex",
+    MatchMode.SENDER: "bot.rules.kind.sender",
 }
 
 
@@ -674,7 +675,17 @@ def build_router(
             return [Reply("bot.settings.digest_prompt", {"n": ctx.user.digest_threshold})]
         user = ctx.user
         toast: list[Action] = []
-        if what == "bots":
+        if what == "weekly":
+            user = await storage.update_user(ctx.user_id, weekly_report=not user.weekly_report)
+            toast = [
+                Toast("bot.settings.weekly_hint" if user.weekly_report else "bot.settings.off_hint")
+            ]
+        elif what == "backup":
+            user = await storage.update_user(ctx.user_id, auto_backup=not user.auto_backup)
+            toast = [
+                Toast("bot.settings.backup_hint" if user.auto_backup else "bot.settings.off_hint")
+            ]
+        elif what == "bots":
             user = await storage.update_user(ctx.user_id, include_bots=not user.include_bots)
             await invalidate(None)  # the preference lives in the matcher's per-chat cache
             toast = [
@@ -696,7 +707,15 @@ def build_router(
         )
         return [
             *toast,
-            Edit(body, literal=True, buttons=menus.settings_menu(include_bots=user.include_bots)),
+            Edit(
+                body,
+                literal=True,
+                buttons=menus.settings_menu(
+                    include_bots=user.include_bots,
+                    weekly_report=user.weekly_report,
+                    auto_backup=user.auto_backup,
+                ),
+            ),
         ]
 
     @router.pending("digest")
@@ -918,6 +937,10 @@ def _evaluate_preview(
     Runs in a worker thread: it compiles and matches user-supplied patterns, which is exactly
     the work that must never happen on the event loop.
     """
+    # A `from:` rule is answered by who sent the message, and /test has no sender to offer it:
+    # whatever this said about such a rule would be made up. Counted and named instead.
+    watched = [r for r in rules if parse_pattern(r.pattern)[0] is MatchMode.SENDER]
+    rules = [r for r in rules if parse_pattern(r.pattern)[0] is not MatchMode.SENDER]
     excludes = [r for r in rules if r.kind is RuleKind.EXCLUDE]
     includes = [r for r in rules if r.kind is RuleKind.INCLUDE]
     # The live matcher stops after half a second per subscriber. This had no limit at all, so
@@ -953,7 +976,10 @@ def _evaluate_preview(
             original = prepared.to_original(span)
             fragment = prepared.original[original.start : original.end]
             return t(lang, "bot.test.match", chat=chat_title, rule=rule.pattern, fragment=fragment)
-    return t(lang, "bot.test.nomatch", chat=chat_title)
+    answer = t(lang, "bot.test.nomatch", chat=chat_title)
+    if watched:
+        answer += "\n" + t(lang, "bot.test.sender_rules", n=len(watched))
+    return answer
 
 
 def _preview_pattern(pattern: str) -> str:

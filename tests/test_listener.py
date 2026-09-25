@@ -57,6 +57,48 @@ async def listener(store, clock):
     return listener
 
 
+class TestTextlessMessages:
+    """A message with no words in it: a photo, a sticker, a voice note.
+
+    `should_consider` used to end with `return bool(message.message)`, which dropped these
+    before anything could ask who sent them — making `from:` rules a lie about the one thing
+    they can do that a keyword cannot. The real-Telegram run caught it; nothing offline had.
+    """
+
+    async def test_it_is_dropped_when_nobody_watches_a_sender(self, listener, store):
+        event = make_event("", chat=CHAT, sender=make_user(555), msg_id=900)
+        assert await listener.handle(event.message, chat=event.chat) == []
+        assert listener.metrics.skipped_no_text == 1
+        assert listener.metrics.considered == 0
+
+    async def test_it_reaches_the_watcher_of_its_sender(self, listener, store):
+        await store.add_rule(OWNER, CHAT_ID, RuleKind.INCLUDE, "from:555")
+        await listener._matcher.reload()
+        event = make_event("", chat=CHAT, sender=make_user(555), msg_id=901)
+        claimed = await listener.handle(event.message, chat=event.chat)
+        assert [item.msg_id for item in claimed] == [901]
+        assert listener.metrics.skipped_no_text == 0
+
+    async def test_a_global_sender_rule_opens_every_chat(self, listener, store):
+        await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "from:555")
+        await listener._matcher.reload()
+        event = make_event("", chat=CHAT, sender=make_user(555), msg_id=902)
+        assert len(await listener.handle(event.message, chat=event.chat)) == 1
+
+    async def test_a_disabled_sender_rule_does_not_open_the_gate(self, listener, store):
+        rule = await store.add_rule(OWNER, CHAT_ID, RuleKind.INCLUDE, "from:555")
+        await store.disable_rule(rule.id, "disabled:invalid:whatever")
+        await listener._matcher.reload()
+        event = make_event("", chat=CHAT, sender=make_user(555), msg_id=903)
+        assert await listener.handle(event.message, chat=event.chat) == []
+        assert listener.metrics.skipped_no_text == 1
+
+    async def test_somebody_elses_text_still_gets_through(self, listener, store):
+        """The change must not turn the ordinary path into a special case."""
+        event = make_event("казино", chat=CHAT, sender=make_user(555), msg_id=904)
+        assert len(await listener.handle(event.message, chat=event.chat)) == 1
+
+
 class TestShouldConsider:
     def test_plain_message(self):
         assert should_consider(make_event("казино").message)

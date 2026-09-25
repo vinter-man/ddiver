@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 import sqlite3
 from typing import Any
 
@@ -13,6 +14,7 @@ from telethon.tl import types as tl
 from ddiver import portable
 from ddiver.bot import menus
 from ddiver.bot.router import Edit, Reply, Send, Toast
+from ddiver.i18n import t
 from ddiver.links import ChatRef
 from ddiver.runtime import (
     RECONCILE_SECONDS,
@@ -20,7 +22,7 @@ from ddiver.runtime import (
     notification_buttons_factory,
     refresh_dialogs,
 )
-from ddiver.storage import OutboxItem, Storage
+from ddiver.storage import OutboxItem, Role, Storage
 from tests.fakes import T0, make_channel, make_user
 
 PAYLOAD = {
@@ -325,7 +327,7 @@ class FakeBotForApp(FakeBot):
 
 
 @pytest.fixture
-async def app(tmp_path, monkeypatch):
+async def app(tmp_path, monkeypatch, clock):
     """An Application wired to fakes, without connecting anything."""
     import ddiver.runtime as runtime_module
     from ddiver.config import Settings
@@ -340,10 +342,196 @@ async def app(tmp_path, monkeypatch):
         monkeypatch.setenv(key, value)
     monkeypatch.setattr(runtime_module, "make_user_client", lambda *a, **k: FakeStorageClient())
     monkeypatch.setattr(runtime_module, "make_bot_client", lambda *a, **k: FakeBotForApp())
-    built = runtime_module.Application(Settings.load(None))
+    built = runtime_module.Application(Settings.load(None), clock=clock)
     await built.setup()
     yield built
     await built.storage.close()
+
+
+class TestWeeklyReport:
+    """Once a week, at ten in the morning where the person actually is."""
+
+    @staticmethod
+    async def _ready(app, *, tz="Europe/Kyiv", **fields):
+        await app.storage.update_user(1, lang="ru", tz=tz, **fields)
+        return await app.storage.get_user(1)
+
+    async def test_the_first_tick_starts_the_clock_instead_of_reporting(self, app, clock):
+        """Otherwise the first report covers a week that nobody was counting."""
+        await self._ready(app)
+        clock.set(dt.datetime(2026, 9, 21, 7, 30, tzinfo=dt.UTC))  # 10:30 in Kyiv
+        sent = []
+
+        async def spy(*args, **kwargs):
+            sent.append(args)
+
+        app.bot.send = spy
+        app.bot.send_document = spy
+        await app._weekly()
+        assert sent == []
+        assert (await app.storage.get_user(1)).weekly_sent_at is not None
+
+    async def test_it_waits_for_the_local_morning(self, app, clock):
+        await self._ready(app)
+        await app.storage.update_user(1, weekly_sent_at=dt.datetime(2026, 9, 1, tzinfo=dt.UTC))
+        sent = []
+
+        async def spy(*args, **kwargs):
+            sent.append(args)
+
+        app.bot.send = spy
+        app.bot.send_document = spy
+        clock.set(dt.datetime(2026, 9, 21, 1, 0, tzinfo=dt.UTC))  # 04:00 in Kyiv
+        await app._weekly()
+        assert sent == [], "a report at four in the morning"
+        clock.set(dt.datetime(2026, 9, 21, 7, 0, tzinfo=dt.UTC))  # 10:00 in Kyiv
+        await app._weekly()
+        assert len(sent) == 2  # the report, and the backup
+
+    async def test_it_does_not_report_twice_in_one_week(self, app, clock):
+        await self._ready(app, auto_backup=False)
+        await app.storage.update_user(1, weekly_sent_at=dt.datetime(2026, 9, 1, tzinfo=dt.UTC))
+        sent = []
+
+        async def spy(*args, **kwargs):
+            sent.append(args)
+
+        app.bot.send = spy
+        clock.set(dt.datetime(2026, 9, 21, 7, 0, tzinfo=dt.UTC))
+        await app._weekly()
+        assert len(sent) == 1
+        clock.set(dt.datetime(2026, 9, 22, 7, 0, tzinfo=dt.UTC))  # the next morning
+        await app._weekly()
+        assert len(sent) == 1
+
+    async def test_a_failed_backup_does_not_re_send_the_report_tomorrow(self, app, clock):
+        """The report goes first and the attachment second.
+
+        Letting a failed upload abandon the tick meant the timestamp was never written, so the
+        identical summary went out again the next morning — and every morning after, for as
+        long as the upload kept failing. `auto_backup` is on by default, so that was the
+        default configuration.
+        """
+        await self._ready(app)
+        await app.storage.update_user(1, weekly_sent_at=dt.datetime(2026, 9, 1, tzinfo=dt.UTC))
+        reports: list[object] = []
+
+        async def send(*args, **kwargs):
+            reports.append(args)
+
+        async def upload(*args, **kwargs):
+            raise ConnectionError("upload failed")
+
+        app.bot.send = send
+        app.bot.send_document = upload
+
+        for day in (21, 22, 23):
+            clock.set(dt.datetime(2026, 9, day, 7, 0, tzinfo=dt.UTC))
+            await app._weekly()
+        assert len(reports) == 1, "the weekly summary turned into a daily one"
+
+    async def test_a_backup_too_large_to_import_says_so(self, app, clock, monkeypatch):
+        """At the stored caps an export is 1.3 MB and /import refuses anything over 1 MB.
+
+        The file still goes out — the data in it is the point — but the caption must not
+        promise a restore that would be rejected.
+        """
+        await self._ready(app, weekly_report=False)
+        await app.storage.update_user(1, weekly_sent_at=dt.datetime(2026, 9, 1, tzinfo=dt.UTC))
+        captions: list[str] = []
+
+        async def upload(_user_id, _filename, content, caption):
+            captions.append(caption)
+
+        app.bot.send_document = upload
+        clock.set(dt.datetime(2026, 9, 21, 7, 0, tzinfo=dt.UTC))
+        await app._weekly()
+        assert t("ru", "weekly.backup").split("{")[0] in captions[0]
+
+        monkeypatch.setattr(portable, "MAX_BYTES", 10)
+        await app.storage.update_user(1, weekly_sent_at=dt.datetime(2026, 9, 1, tzinfo=dt.UTC))
+        clock.set(dt.datetime(2026, 9, 28, 7, 0, tzinfo=dt.UTC))
+        await app._weekly()
+        assert "/import" in captions[1]
+        assert captions[1] != captions[0]
+
+    async def test_the_window_starts_where_the_last_report_stopped(self, app, clock):
+        """A tick that slips a day must not leave that day counted by no report at all."""
+        await self._ready(app, auto_backup=False)
+        last = dt.datetime(2026, 9, 13, 7, 0, tzinfo=dt.UTC)
+        await app.storage.update_user(1, weekly_sent_at=last)
+        # One match on each of the nine days since, including the two the slip skipped.
+        for day in range(13, 22):
+            await app.storage.record_stats({(1, f"2026-09-{day:02d}", -100, 1): 1})
+        sent: list[str] = []
+
+        async def send(_user_id, text, **kwargs):
+            sent.append(text)
+
+        app.bot.send = send
+        clock.set(dt.datetime(2026, 9, 22, 7, 0, tzinfo=dt.UTC))  # two days late
+        await app._weekly()
+        assert "Поймано: 9" in sent[0]
+
+    async def test_both_switches_off_means_nothing_is_sent_or_recorded(self, app, clock):
+        await self._ready(app, weekly_report=False, auto_backup=False)
+        await app.storage.update_user(1, weekly_sent_at=dt.datetime(2026, 9, 1, tzinfo=dt.UTC))
+        sent = []
+
+        async def spy(*args, **kwargs):
+            sent.append(args)
+
+        app.bot.send = spy
+        app.bot.send_document = spy
+        clock.set(dt.datetime(2026, 9, 21, 7, 0, tzinfo=dt.UTC))
+        await app._weekly()
+        assert sent == []
+        # and the clock is left alone, so turning it back on does not owe a stale report
+        assert (await app.storage.get_user(1)).weekly_sent_at == dt.datetime(
+            2026, 9, 1, tzinfo=dt.UTC
+        )
+
+    async def test_an_unreadable_timezone_falls_back_to_utc(self, app, clock):
+        """One bad row must not stop everybody else's report."""
+        await self._ready(app, tz="Mars/Olympus", auto_backup=False)
+        await app.storage.update_user(1, weekly_sent_at=dt.datetime(2026, 9, 1, tzinfo=dt.UTC))
+        sent = []
+
+        async def spy(*args, **kwargs):
+            sent.append(args)
+
+        app.bot.send = spy
+        clock.set(dt.datetime(2026, 9, 21, 10, 0, tzinfo=dt.UTC))
+        await app._weekly()
+        assert len(sent) == 1
+
+    async def test_a_failure_for_one_person_does_not_stop_the_next(self, app, clock, caplog):
+        await app.storage.ensure_user(2)
+        await app.storage.update_user(2, role=Role.ALLOWED, lang="en", tz="UTC")
+        for user_id in (1, 2):
+            await app.storage.update_user(
+                user_id,
+                lang="ru",
+                tz="UTC",
+                auto_backup=False,
+                weekly_sent_at=dt.datetime(2026, 9, 1, tzinfo=dt.UTC),
+            )
+        sent = []
+
+        async def spy(user_id, *args, **kwargs):
+            if user_id == 1:
+                raise ConnectionError("blocked")
+            sent.append(user_id)
+
+        app.bot.send = spy
+        clock.set(dt.datetime(2026, 9, 21, 10, 0, tzinfo=dt.UTC))
+        await app._weekly()
+        assert sent == [2]
+        assert "weekly report failed" in caplog.text
+        # the one that failed keeps its old timestamp, so it is tried again tomorrow
+        assert (await app.storage.get_user(1)).weekly_sent_at == dt.datetime(
+            2026, 9, 1, tzinfo=dt.UTC
+        )
 
 
 class TestShutdownIsolation:
@@ -527,6 +715,7 @@ class TestListenerLifetimes:
             "prune",
             "reprobe",
             "outbox-rescan",
+            "weekly",
         }
         for task in app._tasks:
             await task.stop()

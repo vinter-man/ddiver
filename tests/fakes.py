@@ -26,6 +26,10 @@ class FakeClock:
     def tick(self, seconds: float) -> None:
         self.now += dt.timedelta(seconds=seconds)
 
+    def set(self, moment: dt.datetime) -> None:
+        """Jump to a wall-clock time, for the tests that care which hour it is somewhere."""
+        self.now = moment
+
 
 class _MbCache:
     def get(self, _bare_id: int) -> None:

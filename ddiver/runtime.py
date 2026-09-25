@@ -32,6 +32,7 @@ from ddiver.catchup import Catchup, telethon_history
 from ddiver.clients import connect_with_timeout, make_bot_client, make_user_client
 from ddiver.config import Settings
 from ddiver.delivery import ButtonFactory, Delivery
+from ddiver.formatter import render_weekly
 from ddiver.health import Heartbeat, write_heartbeat
 from ddiver.i18n import DEFAULT_LANG, LANGS, t
 from ddiver.links import ChatRef
@@ -39,8 +40,8 @@ from ddiver.listener import CURSOR_FLUSH_SECONDS, Listener, chat_ref_of
 from ddiver.matcher import Matcher
 from ddiver.metrics import MetricsServer, MetricsSource
 from ddiver.senders import SenderCache
-from ddiver.storage import OutboxItem, Rule, Storage, safe_write
-from ddiver.timeutil import Clock, utcnow
+from ddiver.storage import OutboxItem, Rule, Storage, User, safe_write
+from ddiver.timeutil import Clock, to_zone, utcnow
 from ddiver.watchdog import Watchdog
 
 log = logging.getLogger(__name__)
@@ -53,8 +54,31 @@ SUMMARY_SECONDS = 60.0
 PRUNE_SECONDS = 24 * 3600
 REPROBE_SECONDS = 6 * 3600
 RESCAN_SECONDS = 300
+WEEKLY_SECONDS = 3600
+"""How often to look for somebody whose week is up. The report itself is weekly; this is the
+resolution at which "ten in the morning, their time" can be honoured."""
+
+WEEKLY_HOUR = 10
+"""Local hour to send at. Not a weekday: a box that was down on Monday morning would then owe
+the report until the following Monday, and the point of it is that it arrives."""
+
+WEEKLY_WINDOW = dt.timedelta(days=7)
+WEEKLY_MAX_WINDOW = dt.timedelta(days=14)
+"""How far back one report may reach when the last one was long ago. `stats_daily` is pruned at
+ten weeks, so a wider window would start reporting on rows that are no longer all there."""
 SILENCE_WARN = dt.timedelta(minutes=10)
 SILENCE_RETRY = dt.timedelta(minutes=30)
+
+
+def _local_time(moment: dt.datetime, tz: str | None) -> dt.datetime:
+    """The moment where this person is. A tz we cannot read falls back to UTC rather than
+    raising: one bad row must not stop everybody else's report."""
+    if not tz:
+        return moment.astimezone(dt.UTC)
+    try:
+        return to_zone(moment, tz)
+    except Exception:  # noqa: BLE001 - zoneinfo raises several unrelated types
+        return moment.astimezone(dt.UTC)
 
 
 class BotAdapter:
@@ -144,6 +168,15 @@ class BotAdapter:
     @staticmethod
     async def _peer(event: Any) -> int:
         return int(event.sender_id)
+
+    async def send_document(self, user_id: int, filename: str, content: bytes, caption: str) -> Any:
+        return await self._client.send_file(
+            user_id,
+            io.BytesIO(content),
+            attributes=[tl.DocumentAttributeFilename(filename)],
+            caption=caption,
+            parse_mode=None,
+        )
 
     async def send(
         self,
@@ -327,6 +360,9 @@ class Application:
         if self.listener is not None:
             with contextlib.suppress(Exception):
                 await self.listener.cursors.flush()
+        if self.listener is not None:
+            with contextlib.suppress(Exception):
+                await self.listener.flush_stats()
         if self.matcher is not None:
             try:
                 await self.matcher.flush_hits()
@@ -647,6 +683,7 @@ class Application:
             PeriodicTask("prune", self._prune, PRUNE_SECONDS),
             PeriodicTask("reprobe", self._reprobe, REPROBE_SECONDS),
             PeriodicTask("outbox-rescan", self._rescan_outbox, RESCAN_SECONDS),
+            PeriodicTask("weekly", self._weekly, WEEKLY_SECONDS, first_delay=WEEKLY_SECONDS),
         ]
         for task in self._tasks:
             task.start()
@@ -654,6 +691,7 @@ class Application:
     async def _flush_state(self) -> None:
         if self.listener is not None:
             await self.listener.cursors.flush()
+            await safe_write(self.listener.flush_stats(), "weekly counters")
         if self.matcher is not None:
             await safe_write(self.matcher.flush_hits(), "rule hits")
 
@@ -768,8 +806,83 @@ class Application:
         if self.delivery is not None:
             await self.delivery.replay_pending(quiet=True)
 
+    async def _weekly(self) -> None:
+        """Send each moderator their week, at ten in the morning where they are.
+
+        Runs hourly and asks the question per user rather than firing on a global schedule,
+        because everybody here is in a different timezone and a report that lands at four in
+        the morning is a reason to turn the bot off.
+        """
+        now = self.clock()
+        for user_id in sorted(await self.storage.active_user_ids()):
+            user = await self.storage.get_user(user_id)
+            if user is None or user.paused:
+                continue
+            if not (user.weekly_report or user.auto_backup):
+                continue
+            local = _local_time(now, user.tz)
+            if local.hour != WEEKLY_HOUR:
+                continue
+            if user.weekly_sent_at is None:
+                # First sight of this person: start the clock rather than report on a week
+                # that was half over before anything was being counted.
+                await self.storage.update_user(user_id, weekly_sent_at=now)
+                continue
+            if now - user.weekly_sent_at < WEEKLY_WINDOW:
+                continue
+            try:
+                await self._send_weekly(user, now)
+            except Exception:
+                log.exception("weekly report failed for %s", user_id)
+                continue
+            await self.storage.update_user(user_id, weekly_sent_at=now)
+
+    async def _send_weekly(self, user: User, now: dt.datetime) -> None:
+        lang = user.lang or DEFAULT_LANG
+        if user.weekly_report:
+            # From the last report rather than a flat seven days back: the tick is hourly and
+            # the hour is local, so a restart or a slow morning shifts it — and a window
+            # measured from *now* would leave the day in between counted by no report at all.
+            # Clamped, because after a long outage "your week" should not silently mean a month.
+            since = max(user.weekly_sent_at or now - WEEKLY_WINDOW, now - WEEKLY_MAX_WINDOW)
+            span = now - since
+            report = render_weekly(
+                lang=lang,
+                total=await self.storage.count_stats(user.id, since, now),
+                previous=await self.storage.count_stats(user.id, since - span, since),
+                chats=await self.storage.top_chats(user.id, since, now),
+                rules=await self.storage.top_rules(user.id, since, now),
+            )
+            await self.bot.send(user.id, report.text, formatting_entities=report.entities)
+        if user.auto_backup:
+            # Its own guard: the report above has already been delivered by now, and letting a
+            # failed *attachment* abandon the whole tick meant the timestamp was never written
+            # and the identical report went out again the next morning, and every morning after.
+            # A backup that misses one week is a backup `/export` still hands over on demand.
+            try:
+                await self._send_backup(user, now, lang)
+            except Exception:
+                log.exception("weekly backup was not sent to %s", user.id)
+
+    async def _send_backup(self, user: User, now: dt.datetime, lang: str) -> None:
+        config = await portable.export_config(self.storage, user.id, now=now)
+        body = portable.dumps(config).encode()
+        # At the stored caps an export is 1.3 MB and `/import` refuses anything over 1 MB, so
+        # the caption cannot promise a restore it cannot deliver. The file still goes out —
+        # the data in it is the point — but it says which of the two it is.
+        key = "weekly.backup" if len(body) <= portable.MAX_BYTES else "weekly.backup_too_big"
+        caption = t(
+            lang,
+            key,
+            chats=len(config["chats"]),
+            rules=len(config["rules"]),
+            ignored=len(config["ignored"]),
+        )
+        await self.bot.send_document(user.id, f"ddiver-{now:%Y-%m-%d}.json", body, caption)
+
     async def _prune(self) -> None:
         removed = await self.storage.prune_outbox()
+        await self.storage.prune_stats()
         if removed:
             log.info("pruned %d old outbox rows", removed)
 

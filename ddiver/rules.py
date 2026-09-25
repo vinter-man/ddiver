@@ -26,6 +26,9 @@ MAX_PATTERN_LEN = 300
 MAX_HIGHLIGHTS = 10
 RE_PREFIX = "re:"
 WORD_PREFIX = "="
+FROM_PREFIX = "from:"
+
+USERNAME_RE = regex.compile(r"^[A-Za-z0-9_]{3,32}$")
 
 # Inputs that make naive catastrophic patterns blow up; used only at validation time.
 _PROBE_INPUTS = (
@@ -64,6 +67,7 @@ class MatchMode(enum.StrEnum):
     SUBSTRING = "substring"
     WORD = "word"
     REGEX = "regex"
+    SENDER = "sender"
 
 
 class RuleError(ValueError):
@@ -85,13 +89,48 @@ class Span:
     end: int
 
 
+class SenderField(enum.StrEnum):
+    ID = "id"
+    USERNAME = "username"
+    NAME = "name"
+
+
+@dataclass(frozen=True, slots=True)
+class SenderTarget:
+    """Who a ``from:`` rule watches.
+
+    Three shapes, and they behave differently on purpose. An id is exact and cannot be
+    changed by its owner, so it is the one to use for somebody who keeps coming back. A
+    username is exact but they can change it tomorrow. A name is a substring, because a
+    display name is decoration — people pad them with emoji, and "Вася" should still find
+    "Вася 🚀".
+    """
+
+    field: SenderField
+    value: str
+    number: int = 0
+
+    def matches(self, sender_id: int | None, username: str | None, display_name: str) -> bool:
+        if self.field is SenderField.ID:
+            return sender_id == self.number
+        if self.field is SenderField.USERNAME:
+            return username is not None and username.casefold() == self.value
+        return self.value in _fold_name(display_name)
+
+
+def _fold_name(name: str) -> str:
+    return " ".join(clean_text(name)[0].split()).casefold()
+
+
 @dataclass(frozen=True, slots=True)
 class CompiledRule:
     """A parsed and compiled rule. ``pattern`` is the text exactly as the user typed it."""
 
     pattern: str
     mode: MatchMode
-    compiled: regex.Pattern[str]
+    compiled: regex.Pattern[str] | None = None
+    """None for a ``from:`` rule, which is answered by ``target`` and never touches the text."""
+    target: SenderTarget | None = None
     cost_bytes: int = 0
     """What compiling this pattern allocated. See :data:`MAX_COMPILED_BYTES`."""
 
@@ -107,6 +146,8 @@ class CompiledRule:
     def search_all(self, text: str, timeout: float, limit: int = MAX_HIGHLIGHTS) -> list[Span]:
         """Up to ``limit`` non-empty, non-overlapping match spans in order."""
         out: list[Span] = []
+        if self.compiled is None:  # a sender rule; the matcher never asks it about text
+            return out
         try:
             for m in self.compiled.finditer(text, timeout=timeout):
                 if m.end() > m.start():
@@ -123,6 +164,8 @@ def parse_pattern(raw: str) -> tuple[MatchMode, str]:
     text = raw.strip()
     if text.startswith(RE_PREFIX):
         return MatchMode.REGEX, text[len(RE_PREFIX) :].strip()
+    if text.lower().startswith(FROM_PREFIX):
+        return MatchMode.SENDER, text[len(FROM_PREFIX) :].strip()
     if text.startswith(WORD_PREFIX):
         return MatchMode.WORD, text[len(WORD_PREFIX) :].strip()
     return MatchMode.SUBSTRING, text
@@ -144,18 +187,25 @@ def normalize_pattern(raw: str) -> str:
     mode, payload = parse_pattern(clean_text(raw)[0])
     if mode is MatchMode.REGEX:
         return f"{RE_PREFIX}{payload}"
+    if mode is MatchMode.SENDER:
+        return f"{FROM_PREFIX}{payload}"
     if mode is MatchMode.WORD:
         return f"{WORD_PREFIX}{payload}"
     return payload
 
 
 def pattern_key(pattern: str) -> str:
-    """Uniqueness key: case-folded for substring/word rules (they match case-insensitively
-    anyway), verbatim for regexes."""
+    """Uniqueness key: case-folded for substring/word/sender rules (they match
+    case-insensitively anyway), verbatim for regexes."""
     mode, payload = parse_pattern(pattern)
     if mode is MatchMode.REGEX:
         return f"{RE_PREFIX}{payload}"
     folded = payload.casefold()
+    if mode is MatchMode.SENDER:
+        # The `@` stays: `from:@vasya` watches a username and `from:vasya` watches a name
+        # fragment, so folding them together made the second one a duplicate of the first and
+        # refused it — two different rules about two possibly different people.
+        return f"{FROM_PREFIX}{folded}"
     return f"{WORD_PREFIX}{folded}" if mode is MatchMode.WORD else folded
 
 
@@ -233,6 +283,9 @@ def compile_rule(raw: str, *, timeout: float) -> CompiledRule:
     if len(pattern) > MAX_PATTERN_LEN:
         raise RuleError("rule.err.too_long", limit=MAX_PATTERN_LEN)
 
+    if mode is MatchMode.SENDER:
+        return CompiledRule(pattern=pattern, mode=mode, target=_sender_target(payload))
+
     # Before compiling, not after: the length cap bounds the pattern, not what compiling it
     # costs. `re:a{2000000}` is thirteen characters and allocates about half a gigabyte while
     # the module unrolls it — measured: a{200000} is 55 MB — which on a container with a memory
@@ -284,6 +337,40 @@ word with a gap either side) with a sentence about memory that was untrue of the
 front of the moderator — and, worse, auto-disabled such rules already stored, with that same
 reason, the next time their chat was loaded.
 """
+
+MIN_SENDER_NAME = 3
+"""Shortest name a ``from:`` rule may watch, because a name is a substring match.
+
+``from:ан`` would fire on half a chat. The limit does not apply to a username or an id: those
+are exact, and a two-character username cannot exist anyway.
+"""
+
+
+def _sender_target(payload: str) -> SenderTarget:
+    """Read ``@username`` / ``123456789`` / ``Имя Фамилия`` out of a ``from:`` rule."""
+    if payload.startswith("+"):
+        # Telegram hands out a phone number only for somebody already in your contacts, so a
+        # phone rule would quietly match nothing for everyone else. Saying so beats shipping a
+        # setting that looks like it works.
+        raise RuleError("rule.err.no_phone")
+    if payload.startswith("@"):
+        name = payload[1:]
+        if not USERNAME_RE.match(name):
+            raise RuleError("rule.err.bad_username")
+        return SenderTarget(SenderField.USERNAME, name.casefold())
+    stripped = payload.removeprefix("-")
+    if stripped.isascii() and stripped.isdigit():
+        number = int(payload)
+        # The column is a SQLite signed 64-bit integer, and Python's ints are not. A rule
+        # nobody can store is better refused here, where there is somewhere to say why.
+        if not -(2**63) <= number < 2**63:
+            raise RuleError("rule.err.bad_sender_id")
+        return SenderTarget(SenderField.ID, payload, number)
+    folded = _fold_name(payload)
+    if len(folded) < MIN_SENDER_NAME:
+        raise RuleError("rule.err.name_too_short", limit=MIN_SENDER_NAME)
+    return SenderTarget(SenderField.NAME, folded)
+
 
 MAX_COMPILED_BYTES = 512 * 1024
 r"""Largest compiled program one rule may hold.

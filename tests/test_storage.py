@@ -49,6 +49,72 @@ async def seeded(store):
     return store
 
 
+class TestWeeklyCounters:
+    """What the weekly report is built from."""
+
+    async def test_counts_accumulate_across_flushes(self, store):
+        day = "2026-09-20"
+        await store.record_stats({(OWNER, day, -100, 1): 3})
+        await store.record_stats({(OWNER, day, -100, 1): 2, (OWNER, day, -101, 2): 1})
+        since = dt.datetime(2026, 9, 20, tzinfo=dt.UTC)
+        until = dt.datetime(2026, 9, 21, tzinfo=dt.UTC)
+        assert await store.count_stats(OWNER, since, until) == 6
+
+    async def test_the_window_excludes_its_upper_bound(self, store):
+        await store.record_stats({(OWNER, "2026-09-20", -100, 1): 1})
+        await store.record_stats({(OWNER, "2026-09-21", -100, 1): 1})
+        assert (
+            await store.count_stats(
+                OWNER,
+                dt.datetime(2026, 9, 20, tzinfo=dt.UTC),
+                dt.datetime(2026, 9, 21, tzinfo=dt.UTC),
+            )
+            == 1
+        )
+
+    async def test_one_persons_counts_are_not_anothers(self, store):
+        await store.record_stats({(OWNER, "2026-09-20", -100, 1): 5})
+        since = dt.datetime(2026, 9, 1, tzinfo=dt.UTC)
+        until = dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
+        assert await store.count_stats(MOD, since, until) == 0
+
+    async def test_top_chats_names_them_and_orders_by_volume(self, store):
+        await store.upsert_chat(ChatRef(-100, "Барахолка", None, "supergroup"))
+        await store.record_stats(
+            {(OWNER, "2026-09-20", -100, 1): 2, (OWNER, "2026-09-20", -101, 2): 9}
+        )
+        top = await store.top_chats(
+            OWNER, dt.datetime(2026, 9, 1, tzinfo=dt.UTC), dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
+        )
+        assert [(c, n) for c, _title, n in top] == [(-101, 9), (-100, 2)]
+        assert top[1][1] == "Барахолка"  # the title we cached, for a chat we know
+        assert top[0][1] == ""  # and nothing invented for one we do not
+
+    async def test_top_rules_skips_a_rule_that_was_deleted(self, store):
+        await store.ensure_user(OWNER)
+        rule = await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "казино")
+        await store.record_stats(
+            {(OWNER, "2026-09-20", -100, rule.id): 4, (OWNER, "2026-09-20", -100, 999): 7}
+        )
+        top = await store.top_rules(
+            OWNER, dt.datetime(2026, 9, 1, tzinfo=dt.UTC), dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
+        )
+        assert top == [("казино", 4)]
+
+    async def test_old_counts_are_pruned(self, store, clock):
+        await store.record_stats({(OWNER, "2026-01-01", -100, 1): 1})
+        await store.record_stats({(OWNER, clock().date().isoformat(), -100, 1): 1})
+        assert await store.prune_stats() == 1
+        assert (
+            await store.count_stats(
+                OWNER,
+                dt.datetime(2020, 1, 1, tzinfo=dt.UTC),
+                dt.datetime(2030, 1, 1, tzinfo=dt.UTC),
+            )
+            == 1
+        )
+
+
 class TestConfiguredDigestThreshold:
     """DIGEST_THRESHOLD was wired from .env through three layers and read by nobody.
 

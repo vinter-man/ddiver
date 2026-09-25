@@ -263,6 +263,7 @@ class Catchup:
     ) -> tuple[list[tl.Message], bool, tuple[int, dt.datetime] | None]:
         buffered: list[tl.Message] = []
         newest: tuple[int, dt.datetime] | None = None
+        watches_senders = self._listener.watches_senders(chat.id)
         fetched = 0
         async for message in self._history(chat, min_id, self._per_chat):
             fetched += 1
@@ -272,7 +273,10 @@ class Catchup:
                 newest = (message.id, date)
             if date < cutoff:
                 return buffered, False, newest
-            if should_consider(message, ignore_own=True):
+            # The same question the live path asks, with the same answer: a text-less message
+            # is worth replaying only where somebody is watching a sender. Buffering every
+            # photo in a five-hundred-message round would cost memory for nothing.
+            if should_consider(message, ignore_own=True, allow_empty=watches_senders):
                 buffered.append(message)
             if fetched % YIELD_EVERY == 0:
                 await asyncio.sleep(0)

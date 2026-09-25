@@ -60,6 +60,62 @@ async def test_one_match_per_user_chat_specific_before_global(store, matcher):
     assert matcher.stats_matched == 2
 
 
+class TestSenderRules:
+    """Watching a person rather than a word."""
+
+    async def test_it_fires_on_a_message_with_no_text_at_all(self, store, matcher):
+        """Which is the point: a photo of a scam has no words to match."""
+        rule = await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "from:@vasya")
+        await matcher.invalidate()
+        matches = await matcher.evaluate(CHAT_A.id, "", 10, username="vasya")
+        assert [(m.user_id, m.rule.id, m.spans) for m in matches] == [(1, rule.id, [])]
+
+    async def test_an_empty_message_is_still_free_when_nobody_watches_a_sender(
+        self, store, matcher
+    ):
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "казино")
+        await matcher.invalidate()
+        assert await matcher.evaluate(CHAT_A.id, "", 10, username="vasya") == []
+        assert matcher.stats_evaluated == 0
+
+    async def test_a_keyword_hit_is_reported_in_preference_to_the_sender(self, store, matcher):
+        """Both are true; the keyword says *why* and highlights the words."""
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "from:@vasya")
+        word = await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "казино")
+        await matcher.invalidate()
+        matches = await matcher.evaluate(CHAT_A.id, "тут казино", 10, username="vasya")
+        assert [m.rule.id for m in matches] == [word.id]
+        assert matches[0].spans
+
+    async def test_a_sender_exclusion_silences_a_keyword(self, store, matcher):
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "казино")
+        await store.add_rule(1, ALL_CHATS, RuleKind.EXCLUDE, "from:@vasya")
+        await matcher.invalidate()
+        assert await matcher.evaluate(CHAT_A.id, "казино", 10, username="vasya") == []
+        assert len(await matcher.evaluate(CHAT_A.id, "казино", 10, username="petya")) == 1
+
+    async def test_the_ignore_list_still_wins(self, store, matcher):
+        """Ignoring somebody must beat a rule that says to watch them, or unignoring is a lie."""
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "from:@vasya")
+        await store.add_ignored(1, CHAT_A.id, 77)
+        await matcher.invalidate()
+        assert await matcher.evaluate(CHAT_A.id, "что угодно", 77, username="vasya") == []
+
+    async def test_it_watches_by_id_when_the_name_and_username_are_gone(self, store, matcher):
+        """A deleted account has neither, and it is still the same person's messages."""
+        rule = await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "from:77")
+        await matcher.invalidate()
+        matches = await matcher.evaluate(CHAT_A.id, "", 77)
+        assert [m.rule.id for m in matches] == [rule.id]
+
+    async def test_other_users_rules_are_unaffected(self, store, matcher):
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "from:@vasya")
+        await store.add_rule(2, CHAT_A.id, RuleKind.INCLUDE, "казино")
+        await matcher.invalidate()
+        matches = await matcher.evaluate(CHAT_A.id, "казино", 10, username="vasya")
+        assert {m.user_id for m in matches} == {1, 2}
+
+
 async def test_exclusion_beats_inclusion(store, matcher):
     await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "казино")
     await store.add_rule(1, ALL_CHATS, RuleKind.EXCLUDE, "re:тест")

@@ -17,7 +17,7 @@ earns its keep.
 | D2 | Delivery + config UI = separate Bot API bot (BotFather token), driven through Telethon in the same process and event loop. |
 | D3 | Multi-user with one shared listener: owner (`OWNER_ID`) + allow-listed moderators, each with own language, timezone, chat subscriptions, rules, ignore lists. |
 | D4 | Target load: 50+ chats, 100k+ messages/day (≈1.2 msg/s average, bursts of 50+/s). |
-| D5 | Rule syntax: `word` = case-insensitive substring; `=word` = whole word; `re:pattern` = regex. Same syntax for exclusions. Per-user ignore list of senders. The listener's own messages are always ignored. |
+| D5 | Rule syntax: `word` = case-insensitive substring; `=word` = whole word; `re:pattern` = regex; `from:who` = the sender (`@username`, numeric id, or part of a display name). Same syntax for exclusions. Per-user ignore list of senders. The listener's own messages are always ignored. |
 | D6 | Matched: new messages and media captions, forwarded messages (sender = forwarder). Not matched: edits, service messages. Bot senders are skipped unless a moderator turns them on in Settings, which is a per-user decision applied after matching. |
 | D7 | Notification = chat title (link) / sender (link) / message link / date in user tz + "N s ago" / full text with the match in bold + the rule that fired. Inline buttons: ignore sender, remove the rule that fired. |
 | D8 | Flood: each match is its own message; above a threshold pending items collapse into one digest. |
