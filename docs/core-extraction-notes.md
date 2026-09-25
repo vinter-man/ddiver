@@ -14,8 +14,10 @@ Branch `core-extraction-v2`, on main at b25b311. Twenty-four commits:
   CI rebuilds the b25b311 fixtures instead of skipping that test, and these notes, with a
   rollback that deploy.sh actually allows. See [Review findings](#review-findings).
 
-`tools/extract_core.py` stays until the branches cut before the extraction are rebased onto
-this one; it is deleted in a follow-up commit then.
+The move was made by a script, `tools/extract_core.py`, which also rebased branches cut before
+the extraction onto it. There were none left to rebase, so the script and its tests were deleted
+in a follow-up commit; `git log -- tools/extract_core.py` is where to read it if the split ever
+has to be understood or repeated.
 
 ## Before the first deploy: back up the database
 

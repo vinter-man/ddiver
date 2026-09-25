@@ -23,7 +23,6 @@ tests/
 deploy/
 docs/
 scripts/
-tools/
 # The shared test fakes are a dev dependency: uv reads their pyproject
 # with the rest of the workspace, and their code stays out of the image.
 packages/ddiver-core-testing/src/

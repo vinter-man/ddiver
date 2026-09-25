@@ -109,7 +109,7 @@ disallow_any_generics = true
 no_implicit_reexport = true
 show_error_codes = true
 pretty = true
-files = ["ddiver", "packages/ddiver-core/src", "packages/ddiver-core-testing/src", "tests", "tools"]
+files = ["ddiver", "packages/ddiver-core/src", "packages/ddiver-core-testing/src", "tests"]
 
 [[tool.mypy.overrides]]
 module = ["telethon", "telethon.*", "cryptg", "cryptg.*"]

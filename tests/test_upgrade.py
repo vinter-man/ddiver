@@ -342,8 +342,16 @@ def _need_b25b311(*, reachable: bool, in_ci: bool) -> None:
     if reachable:
         return
     if in_ci:
-        pytest.fail("b25b311 is not in this clone; the check job must check out with fetch-depth 0")
-    pytest.skip("b25b311 is not in this clone")
+        pytest.fail(
+            "b25b311 is not in this clone, so the fixtures cannot be rebuilt from it. The "
+            "fixtures themselves are committed under tests/fixtures/b25b311 and every other "
+            "test here reads them as they are — only this one needs the history. Fix the "
+            "checkout (fetch-depth: 0); there is nothing wrong with the fixtures."
+        )
+    pytest.skip(
+        "b25b311 is not in this clone, so only the rebuild is skipped; the committed fixtures "
+        "under tests/fixtures/b25b311 are still what every other test here reads"
+    )
 
 
 def test_the_fixtures_are_still_exactly_what_b25b311_writes(tmp_path):
@@ -374,8 +382,15 @@ class TestWhereB25b311IsMissing:
         _need_b25b311(reachable=True, in_ci=False)
 
     def test_ci_fails_rather_than_skips(self):
-        with pytest.raises(pytest.fail.Exception, match="fetch-depth 0"):
+        with pytest.raises(pytest.fail.Exception, match="fetch-depth: 0"):
             _need_b25b311(reachable=False, in_ci=True)
+
+    def test_it_says_the_fixtures_are_not_the_problem(self):
+        """Whoever reads this failure will otherwise go looking for missing fixture files."""
+        for in_ci, raises in ((True, pytest.fail.Exception), (False, pytest.skip.Exception)):
+            with pytest.raises(raises) as caught:
+                _need_b25b311(reachable=False, in_ci=in_ci)
+            assert "tests/fixtures/b25b311" in str(caught.value)
 
     def test_a_copy_without_the_history_skips(self):
         with pytest.raises(pytest.skip.Exception):
