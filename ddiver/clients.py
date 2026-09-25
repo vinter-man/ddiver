@@ -1,23 +1,27 @@
-"""Telethon client construction, connection handling and fatal-error classification."""
+"""The listener's Telethon user client: construction and reconnect tracking.
+
+The bot client, ``connect_with_timeout`` and the fatal-error classifiers live in ddiver-core
+(``ddiver_core.botclient``, ``ddiver_core.tgerrors``).
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import sqlite3
 from pathlib import Path
 from typing import Any
 
-from telethon import TelegramClient, errors
-from telethon.errors import common as common_errors
+from telethon import TelegramClient
 
 from ddiver.config import Settings
 
+# Kept as a name in this module rather than imported from ddiver-core where it is used: the CLI
+# and the runtime read make_bot_client from here, and test_cli patches it here.
+from ddiver_core.botclient import make_bot_client as make_bot_client  # noqa: PLC0414
+
 log = logging.getLogger(__name__)
 
-CONNECT_TIMEOUT = 30.0
 USER_FLOOD_THRESHOLD = 60  # catch-up wants Telethon's transparent sleep-and-retry
-BOT_FLOOD_THRESHOLD = 0  # delivery owns the retry policy, so it must see the error
 ENTITY_CACHE_LIMIT = 20_000
 
 
@@ -45,46 +49,6 @@ class ListenerClient(TelegramClient):  # type: ignore[misc]
         log.info("listener reconnected (%d since start); scheduling a catch-up", self.reconnects)
 
 
-def is_fatal_auth_error(exc: BaseException) -> bool:
-    """Errors that mean the session is dead and only ``ddiver login`` can fix it.
-
-    Classified by base class rather than by a list of names: ``UnauthorizedError`` (401) covers
-    session revoked/expired and auth key unregistered, ``AuthKeyError`` (406) covers the
-    duplicated key you get when two processes share one session file, and ``AuthKeyNotFound``
-    is a plain ``Exception`` raised by the transport, not an ``RPCError``.
-    """
-    if isinstance(exc, errors.SessionPasswordNeededError):
-        return False  # 401, but it only means "2FA password required" during login
-    return isinstance(
-        exc,
-        (
-            errors.UnauthorizedError,
-            errors.AuthKeyError,
-            common_errors.AuthKeyNotFound,
-            errors.PhoneNumberBannedError,
-        ),
-    )
-
-
-def is_session_file_error(exc: BaseException) -> bool:
-    """A locked or corrupt Telethon session file — usually a second instance."""
-    return isinstance(exc, sqlite3.OperationalError | sqlite3.DatabaseError)
-
-
-async def connect_with_timeout(client: TelegramClient, timeout: float = CONNECT_TIMEOUT) -> None:
-    """``connect()`` can hang forever (telethon#1536); on timeout tear the half-open sender down."""
-    try:
-        async with asyncio.timeout(timeout):
-            await client.connect()
-    except TimeoutError:
-        log.warning("connect() timed out after %.0fs; disconnecting before retrying", timeout)
-        try:
-            await client.disconnect()
-        except Exception:
-            log.debug("disconnect after a failed connect also failed", exc_info=True)
-        raise
-
-
 def make_user_client(settings: Settings, *, session: str | Path | None = None) -> ListenerClient:
     return ListenerClient(
         str(session or settings.user_session),
@@ -99,19 +63,4 @@ def make_user_client(settings: Settings, *, session: str | Path | None = None) -
         receive_updates=True,
         entity_cache_limit=ENTITY_CACHE_LIMIT,
         request_retries=5,
-    )
-
-
-def make_bot_client(settings: Settings, *, session: str | Path | None = None) -> TelegramClient:
-    return TelegramClient(
-        str(session or settings.bot_session),
-        settings.api_id,
-        settings.api_hash.get_secret_value(),
-        flood_sleep_threshold=BOT_FLOOD_THRESHOLD,
-        raise_last_call_error=True,
-        request_retries=3,
-        connection_retries=None,
-        retry_delay=5,
-        auto_reconnect=True,
-        receive_updates=True,
     )

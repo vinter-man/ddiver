@@ -15,14 +15,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from ddiver.app import (
+from ddiver.config import Settings
+from ddiver_core.app import (
     EXIT_DB_CORRUPT,
     EXIT_ERROR,
     EXIT_LOCKED,
     EXIT_NOT_AUTHORIZED,
     EXIT_OK,
 )
-from ddiver.config import Settings
 from ddiver_core.health import check as health_check
 from ddiver_core.health import heartbeat_age
 from ddiver_core.storage import DatabaseCorruptError, Storage

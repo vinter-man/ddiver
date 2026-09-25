@@ -23,15 +23,16 @@ from telethon.tl import types as tl
 from telethon.tl.functions.bots import SetBotCommandsRequest
 from telethon.tl.functions.updates import GetStateRequest
 
-from ddiver.app import PeriodicTask, Supervisor, boot_delay, format_uptime
 from ddiver.catchup import Catchup, telethon_history
-from ddiver.clients import connect_with_timeout, make_bot_client, make_user_client
+from ddiver.clients import make_bot_client, make_user_client
 from ddiver.config import Settings
 from ddiver.listener import CURSOR_FLUSH_SECONDS, Listener, chat_ref_of
 from ddiver_core import portable
+from ddiver_core.app import PeriodicTask, Supervisor, boot_delay, format_uptime
 from ddiver_core.bot import menus
 from ddiver_core.bot.handlers import StatusInfo, build_router
 from ddiver_core.bot.router import Edit, Incoming, Reply, Router, Send, SendDocument, Toast
+from ddiver_core.botclient import connect_with_timeout
 from ddiver_core.delivery import ButtonFactory, Delivery
 from ddiver_core.formatter import render_weekly
 from ddiver_core.health import Heartbeat, write_heartbeat

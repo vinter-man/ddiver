@@ -16,7 +16,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from ddiver.clients import is_fatal_auth_error, is_session_file_error
+from ddiver_core.tgerrors import is_fatal_auth_error, is_session_file_error
 from ddiver_core.timeutil import Clock, utcnow
 
 log = logging.getLogger(__name__)

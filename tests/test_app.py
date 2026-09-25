@@ -7,7 +7,7 @@ import pytest
 from telethon import errors
 from telethon.errors import common as common_errors
 
-from ddiver.app import (
+from ddiver_core.app import (
     BOOT_STORM_DELAY,
     DEGRADED_TICK,
     EXIT_ERROR,
@@ -18,7 +18,7 @@ from ddiver.app import (
     boot_delay,
     format_uptime,
 )
-from ddiver.clients import is_fatal_auth_error, is_session_file_error
+from ddiver_core.tgerrors import is_fatal_auth_error, is_session_file_error
 from tests.fakes import T0, FakeClock
 
 
