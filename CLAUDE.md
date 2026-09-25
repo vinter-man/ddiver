@@ -75,6 +75,13 @@ change to it therefore takes effect on the deploy *after* the one that ships it.
   whether the suggested fix is safe — several have been wrong where they were specific.
 - **`tests/test_packaging.py` stays in this package and keeps reading the real `deploy/` files.**
   Every assertion in it is an outage that already happened.
+- **Keep this file true, in the same commit that makes it false.** A module that moves, a
+  package that appears, a gate command that changes — this file is where somebody reads about it
+  first, and a brief that lies is worse than no brief. `tests/test_docs.py` enforces the parts a
+  machine can check: the module list for `ddiver/` matches what is there exactly, every
+  workspace member is named, every module and link any document mentions exists, and the
+  documented gate is the one CI runs. It cannot check whether the *reasoning* is still true —
+  that part is on whoever changes the behaviour.
 - **The account matters more than the code.** No writes to monitored chats, no RPC on the
   listener session inside a message handler (Invariant 1), and nothing that makes the session
   look like a bot farm.

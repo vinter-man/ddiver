@@ -267,7 +267,7 @@ within a 3500-character budget. Digested rows are marked in one `executemany`.
 - Bot client: `flood_sleep_threshold=0`, `raise_last_call_error=True`, `request_retries=3` — so
   the worker owns the retry policy. With Telethon's defaults a FloodWait ≤60 s is slept inside
   the call (invisible), and after 5 attempts it raises a plain `ValueError`, not an `RPCError`
-  (verified in `client/users.py`).
+  (verified in Telethon's own `telethon/client/users.py`).
 - Telethon gates flood waits per request constructor and per client, so a FloodWait on
   `SendMessageRequest` for one moderator applies to all of them. The design accepts this and
   makes it explicit: one shared `flood_until` that every worker awaits, logged once at WARNING.
@@ -319,7 +319,7 @@ within a 3500-character budget. Digested rows are marked in one `executemany`.
   reconcile event. This is necessary because Telethon requests `getChannelDifference` with
   limit 100 for user accounts and, on `ChannelDifferenceTooLong`, jumps `pts` and returns **no**
   updates — at 100k msgs/day a busy chat loses everything beyond 100 messages per gap with no
-  signal (verified in `_updates/messagebox.py`). A periodic reconciliation (every 15 min)
+  signal (verified in Telethon's own `telethon/_updates/messagebox.py`). A periodic reconciliation (every 15 min)
   compares each chat's head id with the cursor and backfills the difference.
 - Access loss is detected live: `events.Raw(UpdateChannel)` (primary) and `events.ChatAction`
   for self kick/leave (matched against *every* affected user id, not just the first) →
