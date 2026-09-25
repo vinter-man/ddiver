@@ -100,11 +100,33 @@ def _placeholders(template: str) -> set[str] | None:
     site was written against it.
     """
     try:
-        parsed = list(string.Formatter().parse(template))
+        return _fields(template, nested=False)
     except ValueError:
         return None
-    if any(conversion not in _CONVERSIONS for _, _, _, conversion in parsed):
-        return None  # parse() lets "{n!z}" through; format() then raises
-    return {
-        field.split(".", 1)[0].split("[", 1)[0] for _, field, _, _ in parsed if field is not None
-    }
+
+
+def _fields(template: str, *, nested: bool) -> set[str]:
+    """Every field name in *template*, including those nested in a format spec (``{n:{w}}``).
+
+    Raises ``ValueError`` for anything ``t()`` could not fill: a malformed template, an unknown
+    conversion (``parse()`` lets ``{n!z}`` through; ``format()`` then raises), a positional
+    field (``t()`` passes keywords only) or nesting deeper than ``format()`` allows.
+    """
+    names: set[str] = set()
+    for _, field, spec, conversion in string.Formatter().parse(template):
+        if field is None:
+            continue
+        if conversion not in _CONVERSIONS:
+            msg = f"unknown conversion {conversion!r}"
+            raise ValueError(msg)
+        name = field.split(".", 1)[0].split("[", 1)[0]
+        if not name or name.isdigit():
+            msg = "positional field"
+            raise ValueError(msg)
+        names.add(name)
+        if spec:
+            if nested:
+                msg = "format spec nested too deeply"
+                raise ValueError(msg)
+            names |= _fields(spec, nested=True)
+    return names

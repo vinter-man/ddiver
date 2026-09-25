@@ -86,9 +86,24 @@ class TestValidation:
         with pytest.raises(ValueError, match="count"):
             register_overlay("en", {"bot.chats.title": "Groups ({count})"})
 
-    def test_a_positional_placeholder_is_refused_where_the_code_passes_names(self):
+    @pytest.mark.parametrize("text", ["Группы ({})", "Группы ({0})", "Группы ({n:{}})"])
+    def test_a_positional_placeholder_is_refused_since_t_passes_names_only(self, text):
+        with pytest.raises(ValueError, match="not a valid template"):
+            register_overlay("ru", {"bot.chats.title": text})
+
+    @pytest.mark.parametrize("text", ["Groups ({n:{width}})", "Groups ({n:.{precision}f})"])
+    def test_a_name_nested_in_a_format_spec_is_checked_too(self, text):
+        # parse() reports only the outer field; the inner one would reach the user as braces.
         with pytest.raises(ValueError, match="never passes"):
-            register_overlay("ru", {"bot.chats.title": "Группы ({})"})
+            register_overlay("en", {"bot.chats.title": text})
+
+    def test_a_nested_name_the_code_passes_is_fine(self):
+        register_overlay("en", {"bot.chats.title": "Groups ({n:{n}})"})
+        assert t("en", "bot.chats.title", n=3) == "Groups (  3)"
+
+    def test_nesting_deeper_than_format_allows_is_refused(self):
+        with pytest.raises(ValueError, match="not a valid template"):
+            register_overlay("en", {"bot.chats.title": "Groups ({n:{n:{n}}})"})
 
     def test_fewer_placeholders_than_the_base_are_fine(self):
         register_overlay("en", {"bot.chats.title": "Your groups"})
