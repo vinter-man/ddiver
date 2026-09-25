@@ -255,7 +255,9 @@ The code is a uv workspace of two packages and a third for tests:
 | `packages/ddiver-core-testing/` | the fakes both test suites share (`FakeClock`, `FakeBotClient`); a dev dependency, never in the image |
 
 The architecture, the invariants, where each of them lives, and the reasoning behind them are
-in [DESIGN.md](DESIGN.md). User-session I/O is confined to ddiver: `runtime.py`, `clients.py`,
+in [DESIGN.md](DESIGN.md), and [CLAUDE.md](CLAUDE.md) is the short orientation for a coding agent:
+which package a change belongs in, how to run the gate the way CI does, the three ways a green
+suite or a green CI has been wrong here, and the decisions reviewers keep re-proposing. User-session I/O is confined to ddiver: `runtime.py`, `clients.py`,
 `login.py`, the CLI and the `telethon_history` adapter at the foot of `catchup.py`; the bot's
 Telethon calls are in the core's `botclient.py` and `botruntime.py`. Everything else takes its
 Telegram surface as an injected port — `BotPort`, `History`, `EntityResolver` — so matching,
