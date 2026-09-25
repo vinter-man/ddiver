@@ -15,6 +15,25 @@
   "templating": {
     "list": [
       {
+        "name": "level",
+        "label": "Level",
+        "type": "custom",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "query": "DEBUG,INFO,WARNING,ERROR,CRITICAL",
+        "options": [],
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ],
+          "selected": true
+        }
+      },
+      {
         "name": "search",
         "label": "Search logs",
         "type": "textbox",
@@ -906,7 +925,7 @@
       },
       "targets": [
         {
-          "expr": "{service=~\"ddiver.*\"} |~ \"$search\"",
+          "expr": "{service=~\"ddiver.*\", level=~\"$level\"} |~ \"$search\"",
           "refId": "A",
           "datasource": {
             "type": "loki",

@@ -422,9 +422,17 @@ class TestRecoveryFromStrandedRows:
 
         bot.release()
         await settle(delivery)
-        # What the rescan is for: the rows nobody was holding are picked up and sent.
-        assert await delivery.replay_pending() == delivery.metrics.dropped_overflow
-        await settle(delivery)
+        # What the rescan is for: the rows nobody was holding are picked up and sent. Driven to
+        # completion rather than asserted in one pass — the queue is two items deep here, so a
+        # slow worker makes the rescan overflow again, which is the behaviour under test and
+        # not a failure. The first version compared the requeued count against
+        # `dropped_overflow`, two numbers that agree only when that does not happen: one run in
+        # six failed on a loaded machine.
+        for _ in range(10):
+            await delivery.replay_pending()
+            await settle(delivery)
+            if not await store.pending_deliveries():
+                break
         sent = {(await store.get_delivery(*i.key)).status for i in items}
         assert sent == {DeliveryStatus.SENT}
         assert len(bot.sent) == len(items)

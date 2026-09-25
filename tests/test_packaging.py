@@ -310,6 +310,21 @@ class TestObservabilityConfig:
                 used.update(re.findall(r"\bddiver_[a-z_]+\b", target.get("expr", "")))
         assert used - self.emitted_names() == set()
 
+    def test_a_dashboard_variable_the_panels_name_actually_exists(self):
+        """A panel titled "filter with the Level variable" and no Level variable is a lie the
+        reader only discovers after looking for the dropdown."""
+        import json
+
+        dashboard = json.loads(
+            (ROOT / "deploy/grafana/provisioning/dashboards/ddiver.json").read_text("utf-8")
+        )
+        declared = {v["name"] for v in dashboard["templating"]["list"]}
+        used = set()
+        for panel in dashboard["panels"]:
+            for target in panel.get("targets", []):
+                used.update(re.findall(r"\$([a-z_]+)", target.get("expr", "")))
+        assert used - declared == set()
+
     def test_every_metric_the_alerts_use_is_emitted(self):
         rules = yaml_load(ROOT / "deploy/grafana/alerting/rules.yml")
         used = set()
