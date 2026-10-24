@@ -64,7 +64,7 @@
     {
       "chat_id": -1003333333333,
       "kind": "include",
-      "pattern": "from:@vasya"
+      "pattern": "from:@ostap"
     },
     {
       "chat_id": -1002222222222,

@@ -73,8 +73,8 @@ def tg_payload(**overrides: object) -> Payload:
         "rule_kind": "include",
         "rule_is_global": False,
         "sender_id": 42,
-        "sender_name": "Иван",
-        "sender_username": "ivan",
+        "sender_name": "Тарас",
+        "sender_username": "taras",
     }
     return Payload(**{**base, **overrides})
 
@@ -304,7 +304,7 @@ class TestTelegramPayloadWithLinks:
         r = render_notification(tg_payload(url=own), lang="en", tz="UTC", now=NOW)
         assert "https://t.me/c/1234567890/77" not in urls(r)
         assert urls(r).count(own) == 3  # chat title (no username), sender name, link line
-        assert "https://t.me/ivan" in urls(r)  # the username is still a Telegram profile
+        assert "https://t.me/taras" in urls(r)  # the username is still a Telegram profile
 
     def test_a_carried_chat_link_wins_over_the_derived_one(self):
         own = "https://example.org/chat"
@@ -318,7 +318,7 @@ class TestTelegramPayloadWithLinks:
         r = render_notification(
             tg_payload(sender_url="https://example.org/u/42"), lang="en", tz="UTC", now=NOW
         )
-        assert linked(r)["Иван"] == "https://example.org/u/42"
+        assert linked(r)["Тарас"] == "https://example.org/u/42"
 
 
 def digest_of(*payloads: Payload) -> list[DigestEntry]:

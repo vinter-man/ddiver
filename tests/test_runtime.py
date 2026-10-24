@@ -631,14 +631,14 @@ class TestSenderResolution:
 
         async def get_participants(chat_id):
             calls.append(f"get_participants({chat_id})")
-            known[4242] = make_user(4242, "Сергей", "serge", min_=False)
+            known[4242] = make_user(4242, "Богдан", "bohdan", min_=False)
             return list(known.values())
 
         app.user_client.get_entity = get_entity
         app.user_client.get_participants = get_participants
 
         entity = await app._resolve_entity(4242, -555)
-        assert entity.first_name == "Сергей"
+        assert entity.first_name == "Богдан"
         assert calls == ["get_entity(4242)", "get_participants(-555)", "get_entity(4242)"]
 
         # the member list is loaded once per chat, not per message

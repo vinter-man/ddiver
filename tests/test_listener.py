@@ -135,8 +135,8 @@ class TestHandle:
         assert item.user_id == OWNER
         assert item.payload["chat_title"] == "Чат модерации"
         assert item.payload["spans"] == [[9, 15]]
-        assert item.payload["sender_name"] == "Иван"
-        assert item.payload["sender_username"] == "ivan"
+        assert item.payload["sender_name"] == "Тарас"
+        assert item.payload["sender_username"] == "taras"
         assert item.payload["catchup"] is False
         assert listener.delivered == items
         # the cursor only advances after the row exists

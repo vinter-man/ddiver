@@ -281,13 +281,13 @@ class TestSenderRules:
     @pytest.mark.parametrize(
         ("raw", "field", "value"),
         [
-            ("from:@vasya_spam", SenderField.USERNAME, "vasya_spam"),
-            ("from:@VasyaSpam", SenderField.USERNAME, "vasyaspam"),  # exact, but not cased
-            ("FROM:@vasya_spam", SenderField.USERNAME, "vasya_spam"),  # the prefix is not cased
+            ("from:@ostap_spam", SenderField.USERNAME, "ostap_spam"),
+            ("from:@OstapSpam", SenderField.USERNAME, "ostapspam"),  # exact, but not cased
+            ("FROM:@ostap_spam", SenderField.USERNAME, "ostap_spam"),  # the prefix is not cased
             ("from:123456789", SenderField.ID, "123456789"),
             ("from:-1001234567890", SenderField.ID, "-1001234567890"),  # a channel writing
-            ("from:Вася Пупкин", SenderField.NAME, "вася пупкин"),
-            ("from:  Вася   Пупкин  ", SenderField.NAME, "вася пупкин"),  # whitespace folded
+            ("from:Остап Мельник", SenderField.NAME, "остап мельник"),
+            ("from:  Остап   Мельник  ", SenderField.NAME, "остап мельник"),  # whitespace folded
         ],
     )
     def test_what_each_shape_parses_to(self, raw, field, value):
@@ -304,7 +304,7 @@ class TestSenderRules:
             ("from:+1 555 0100", "rule.err.no_phone"),
             ("from:@ab", "rule.err.bad_username"),
             ("from:@" + "x" * 33, "rule.err.bad_username"),
-            ("from:@вася", "rule.err.bad_username"),  # Telegram usernames are ASCII
+            ("from:@остап", "rule.err.bad_username"),  # Telegram usernames are ASCII
             ("from:ан", "rule.err.name_too_short"),
             ("from:", "rule.err.empty"),
             ("from:   ", "rule.err.empty"),
@@ -318,25 +318,25 @@ class TestSenderRules:
 
     def test_a_sender_rule_never_searches_text(self):
         """It holds no compiled pattern at all, so it costs nothing per message."""
-        rule = compile_rule("from:@vasya", timeout=T)
+        rule = compile_rule("from:@ostap", timeout=T)
         assert rule.compiled is None
         assert rule.cost_bytes == 0
-        assert rule.search_all("vasya wrote this", 0.2) == []
+        assert rule.search_all("ostap wrote this", 0.2) == []
 
     @pytest.mark.parametrize(
         ("raw", "sender", "expected"),
         [
-            ("from:@vasya", (1, "vasya", "Вася"), True),
-            ("from:@vasya", (1, "VASYA", "Вася"), True),  # case-insensitive
-            ("from:@vasya", (1, "vasya2", "Вася"), False),  # exact, not a prefix
-            ("from:@vasya", (1, None, "vasya"), False),  # a username is not a name
+            ("from:@ostap", (1, "ostap", "Остап"), True),
+            ("from:@ostap", (1, "OSTAP", "Остап"), True),  # case-insensitive
+            ("from:@ostap", (1, "ostap2", "Остап"), False),  # exact, not a prefix
+            ("from:@ostap", (1, None, "ostap"), False),  # a username is not a name
             ("from:123", (123, None, ""), True),
             ("from:123", (1234, None, ""), False),  # exact, not a prefix
             ("from:123", (None, None, ""), False),  # unknown sender matches nothing
-            ("from:Вася", (1, None, "Вася Пупкин"), True),  # a name is a fragment
-            ("from:Вася", (1, None, "вася 🚀"), True),  # people decorate their names
-            ("from:Вася Пупкин", (1, None, "Вася"), False),
-            ("from:Пупкин", (1, None, "Вася\u200b Пупкин"), True),  # zero-width junk removed
+            ("from:Остап", (1, None, "Остап Мельник"), True),  # a name is a fragment
+            ("from:Остап", (1, None, "остап 🚀"), True),  # people decorate their names
+            ("from:Остап Мельник", (1, None, "Остап"), False),
+            ("from:Мельник", (1, None, "Остап\u200b Мельник"), True),  # zero-width junk removed
         ],
     )
     def test_who_it_recognises(self, raw, sender, expected):
@@ -346,17 +346,17 @@ class TestSenderRules:
 
     def test_at_prefix_still_means_a_mention_in_the_text(self):
         """Changing that would silently repurpose every rule anybody already wrote."""
-        rule = compile_rule("@vasya", timeout=T)
+        rule = compile_rule("@ostap", timeout=T)
         assert rule.mode is MatchMode.SUBSTRING
-        assert rule.search("посмотрите на @vasya", T) is not None
+        assert rule.search("посмотрите на @ostap", T) is not None
 
     def test_the_same_username_twice_is_one_rule(self):
-        assert pattern_key("from:@Vasya") == pattern_key("from:@vasya")
+        assert pattern_key("from:@Ostap") == pattern_key("from:@ostap")
 
     def test_a_username_and_a_name_are_not_the_same_rule(self):
-        """`from:@vasya` watches a username; `from:vasya` watches a name fragment. Folding them
+        """`from:@ostap` watches a username; `from:ostap` watches a name fragment. Folding them
         together refused the second as a duplicate of the first."""
-        assert pattern_key("from:@vasya") != pattern_key("from:vasya")
+        assert pattern_key("from:@ostap") != pattern_key("from:ostap")
 
 
 def test_parse_rule_lines_keeps_every_non_blank_line():

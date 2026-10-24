@@ -102,8 +102,8 @@ class SenderTarget:
     Three shapes, and they behave differently on purpose. An id is exact and cannot be
     changed by its owner, so it is the one to use for somebody who keeps coming back. A
     username is exact but they can change it tomorrow. A name is a substring, because a
-    display name is decoration — people pad them with emoji, and "Вася" should still find
-    "Вася 🚀".
+    display name is decoration — people pad them with emoji, and "Остап" should still find
+    "Остап 🚀".
     """
 
     field: SenderField
@@ -202,7 +202,7 @@ def pattern_key(pattern: str) -> str:
         return f"{RE_PREFIX}{payload}"
     folded = payload.casefold()
     if mode is MatchMode.SENDER:
-        # The `@` stays: `from:@vasya` watches a username and `from:vasya` watches a name
+        # The `@` stays: `from:@ostap` watches a username and `from:ostap` watches a name
         # fragment, so folding them together made the second one a duplicate of the first and
         # refused it — two different rules about two possibly different people.
         return f"{FROM_PREFIX}{folded}"

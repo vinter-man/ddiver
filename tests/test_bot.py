@@ -687,9 +687,9 @@ class TestBotMessagesSetting:
         """It goes in where keywords go in, which is the whole point of the syntax."""
         await store.subscribe(OWNER, CHAT_A.id)
         await cb(router, OWNER, f"radd:{CHAT_A.id}:include")
-        await msg(router, OWNER, "from:@vasya_spam")
+        await msg(router, OWNER, "from:@ostap_spam")
         rules = await store.rules_for_chat(CHAT_A.id)
-        assert [r.pattern for r in rules] == ["from:@vasya_spam"]
+        assert [r.pattern for r in rules] == ["from:@ostap_spam"]
 
     async def test_a_phone_number_is_refused_with_a_reason(self, router, store):
         await store.subscribe(OWNER, CHAT_A.id)

@@ -26,8 +26,8 @@ BASE_PAYLOAD = {
     "rule_kind": "include",
     "rule_is_global": False,
     "sender_id": 42,
-    "sender_name": "Иван",
-    "sender_username": "ivan",
+    "sender_name": "Тарас",
+    "sender_username": "taras",
 }
 
 
@@ -547,7 +547,7 @@ class TestSenderEnrichment:
 
         async def resolver(peer_id, chat_id=None):
             resolved.append(peer_id)
-            return make_user(peer_id, "Сергей", "serge", min_=False)
+            return make_user(peer_id, "Богдан", "bohdan", min_=False)
 
         delivery = Delivery(
             bot,
@@ -561,7 +561,7 @@ class TestSenderEnrichment:
         await delivery.enqueue(item)
         await settle(delivery)
         assert resolved == [4242]
-        assert "Сергей" in bot.sent[0].text
+        assert "Богдан" in bot.sent[0].text
         assert "Неизвестный" not in bot.sent[0].text
 
     async def test_a_known_name_is_not_resolved_again(self, bot, store, clock, sleeps):
@@ -640,7 +640,7 @@ class TestRescanDoesNotDuplicate:
         from tests.fakes import make_user
 
         async def resolver(peer_id, chat_id=None):
-            return make_user(peer_id, "Сергей", "serge", min_=False)
+            return make_user(peer_id, "Богдан", "bohdan", min_=False)
 
         delivery = Delivery(
             bot,
@@ -654,8 +654,8 @@ class TestRescanDoesNotDuplicate:
         await delivery.enqueue(item)
         await settle(delivery)
         stored = await store.get_delivery(*item.key)
-        assert stored.payload["sender_name"] == "Сергей"
-        assert stored.payload["sender_username"] == "serge"
+        assert stored.payload["sender_name"] == "Богдан"
+        assert stored.payload["sender_username"] == "bohdan"
 
 
 class TestDigestStranding:

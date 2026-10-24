@@ -34,8 +34,8 @@ def payload(**overrides: object) -> Payload:
         "rule_kind": "include",
         "rule_is_global": False,
         "sender_id": 42,
-        "sender_name": "Иван",
-        "sender_username": "ivan",
+        "sender_name": "Тарас",
+        "sender_username": "taras",
     }
     return Payload(**{**base, **overrides})
 
@@ -75,7 +75,7 @@ class TestNotification:
         assert "правило чата" in r.text
         assert "Заходи в казино прямо сейчас" in r.text
         assert urls(r).count(link) == 3  # chat title, sender name, message link
-        assert "https://t.me/ivan" in urls(r)
+        assert "https://t.me/taras" in urls(r)
         assert codes(r) == ["42", "казино"]
         assert bolds(r) == ["казино"]
 
@@ -90,7 +90,7 @@ class TestNotification:
         r = render_notification(
             payload(chat_id=-555, chat_kind="group"), lang="en", tz="UTC", now=NOW
         )
-        assert urls(r) == ["https://t.me/ivan"]
+        assert urls(r) == ["https://t.me/taras"]
         assert "42" in codes(r)
 
     @pytest.mark.parametrize(

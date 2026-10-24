@@ -150,14 +150,14 @@ async def populate(old: Legacy, storage: Any, clock: Clock) -> None:
 
     flat = await storage.add_rule(OWNER, all_chats, include, "квартира")
     urgent = await storage.add_rule(OWNER, private.id, include, r"re:(?i)срочно\s+продам")
-    vasya = await storage.add_rule(OWNER, forum.id, include, "from:@vasya")
+    ostap = await storage.add_rule(OWNER, forum.id, include, "from:@ostap")
     await storage.add_rule(OWNER, private.id, include, "from:123456789")
     await storage.add_rule(OWNER, public.id, exclude, "реклама")
     taxi = await storage.add_rule(OWNER, all_chats, include, "=такси")
     await storage.add_rule(OWNER, old_basic.id, include, "#promo")
     news = await storage.add_rule(OWNER, channel.id, include, "курс")
     casino = await storage.add_rule(MOD, public.id, include, "казино")
-    ivan = await storage.add_rule(MOD, all_chats, include, "from:Иван Петров")
+    taras = await storage.add_rule(MOD, all_chats, include, "from:Тарас Коваленко")
     await storage.add_rule(MOD, forum.id, exclude, "from:@spam_bot")
     blocked_rule = await storage.add_rule(BLOCKED, public.id, include, "квартира")
     await storage.disable_rule(taxi.id, "timeout")
@@ -188,7 +188,7 @@ async def populate(old: Legacy, storage: Any, clock: Clock) -> None:
             (OWNER, "2026-09-19", public.id, flat.id): 7,
             (OWNER, "2026-09-20", private.id, urgent.id): 2,
             (MOD, "2026-09-18", public.id, casino.id): 11,
-            (MOD, "2026-09-19", forum.id, ivan.id): 1,
+            (MOD, "2026-09-19", forum.id, taras.id): 1,
         }
     )
 
@@ -201,10 +201,10 @@ async def populate(old: Legacy, storage: Any, clock: Clock) -> None:
         rules={
             "flat": flat,
             "urgent": urgent,
-            "vasya": vasya,
+            "ostap": ostap,
             "news": news,
             "casino": casino,
-            "ivan": ivan,
+            "taras": taras,
             "blocked": blocked_rule,
         },
     )
@@ -242,8 +242,8 @@ async def claim_outbox(
             "rule_kind": rule.kind.value,
             "rule_is_global": rule.chat_id == 0,
             "sender_id": 42,
-            "sender_name": "Иван",
-            "sender_username": "ivan_petrov",
+            "sender_name": "Тарас",
+            "sender_username": "taras_kovalenko",
         }
         return payload_type(**{**base, **kw})
 
@@ -265,24 +265,24 @@ async def claim_outbox(
                 "СРОЧНО продам велосипед <почти новый>",
                 "СРОЧНО продам",
                 sender_id=43,
-                sender_name="Ольга",
+                sender_name="Оксана",
                 sender_username=None,
                 is_forwarded=True,
             ),
         ),
         (
             OWNER,
-            rules["vasya"],
+            rules["ostap"],
             payload(
                 forum,
                 303,
-                rules["vasya"],
+                rules["ostap"],
                 "",
                 None,
                 topic_id=7,
                 sender_id=44,
-                sender_name="Вася",
-                sender_username="vasya",
+                sender_name="Остап",
+                sender_username="ostap",
             ),
         ),
         (
@@ -314,16 +314,16 @@ async def claim_outbox(
         ),
         (
             MOD,
-            rules["ivan"],
+            rules["taras"],
             payload(
                 forum,
                 310,
-                rules["ivan"],
+                rules["taras"],
                 "Всем привет",
                 None,
                 topic_id=1,
                 sender_id=46,
-                sender_name="Иван Петров",
+                sender_name="Тарас Коваленко",
                 sender_username=None,
             ),
         ),
