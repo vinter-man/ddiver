@@ -36,7 +36,7 @@ class FakeAuthClient:
         if self.sign_in_error is not None:
             error, self.sign_in_error = self.sign_in_error, None
             raise error
-        return type("User", (), {"id": 42, "first_name": "Тарас"})()
+        return type("User", (), {"id": 42, "first_name": "Alex"})()
 
 
 class TestState:

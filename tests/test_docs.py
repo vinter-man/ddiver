@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BRIEF = ROOT / "CLAUDE.md"
 WORKSPACE = ROOT / "pyproject.toml"
 CI = ROOT / ".github/workflows/ci.yml"
-DOCS = ("CLAUDE.md", "README.md", "README.ru.md", "DESIGN.md")
+DOCS = ("CLAUDE.md", "README.md", "DESIGN.md")
 
 
 def backticked(text: str, suffix: str) -> set[str]:
@@ -107,3 +107,53 @@ class TestEveryDocument:
         text = (ROOT / doc).read_text(encoding="utf-8")
         for target in re.findall(r"\]\(([^)#:]+)\)", text):
             assert (ROOT / target).exists(), f"{doc} links to {target}, which is not there"
+
+
+CYRILLIC = re.compile(r"[\u0400-\u04FF]")
+
+#: Where Cyrillic is the point rather than an accident. The bot speaks uk and ru, so its
+#: catalogues, the timezone aliases people type, and the one pattern in rules.py that exists to
+#: be Cyrillic all keep it. Everything else a stranger reads — the documents, the artwork, and
+#: the English catalogue — is English, and stays that way.
+CYRILLIC_IS_THE_POINT = {
+    "packages/ddiver-core/src/ddiver_core/i18n/ru.py",
+    "packages/ddiver-core/src/ddiver_core/i18n/uk.py",
+    "packages/ddiver-core/src/ddiver_core/i18n/__init__.py",
+    "packages/ddiver-core/src/ddiver_core/timeutil.py",
+    "packages/ddiver-core/src/ddiver_core/rules.py",
+}
+
+
+def shipped_sources() -> list[Path]:
+    return [
+        path
+        for package in (ROOT / "ddiver", *(ROOT / "packages").glob("*/src"))
+        for path in package.rglob("*.py")
+    ]
+
+
+class TestItReadsAsEnglish:
+    """The bot is multilingual; the repository is not.
+
+    Sample data written in Cyrillic — a chat title, a keyword, somebody's name — reads as the
+    author's language rather than as an example, and it keeps coming back one test file at a
+    time. These two assertions are the only thing that stops it.
+    """
+
+    ARTWORK = ("docs/remotion/src/shots.tsx", "docs/remotion/src/Workflow.tsx")
+
+    @pytest.mark.parametrize("doc", (*DOCS, *ARTWORK))
+    def test_nothing_a_stranger_reads_first_is_in_cyrillic(self, doc):
+        found = CYRILLIC.findall((ROOT / doc).read_text(encoding="utf-8"))
+        assert not found, f"{doc} has Cyrillic in it: {''.join(found)[:60]}"
+
+    def test_only_the_catalogues_carry_cyrillic_into_the_shipped_code(self):
+        carriers = {
+            str(path.relative_to(ROOT))
+            for path in shipped_sources()
+            if CYRILLIC.search(path.read_text(encoding="utf-8"))
+        }
+        assert carriers <= CYRILLIC_IS_THE_POINT, (
+            f"Cyrillic reached {sorted(carriers - CYRILLIC_IS_THE_POINT)}; "
+            "sample data in the code should be English."
+        )

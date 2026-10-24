@@ -79,7 +79,7 @@ class TestWeeklyCounters:
         assert await store.count_stats(MOD, since, until) == 0
 
     async def test_top_chats_names_them_and_orders_by_volume(self, store):
-        await store.upsert_chat(ChatRef(-100, "Барахолка", None, "supergroup"))
+        await store.upsert_chat(ChatRef(-100, "Flea market", None, "supergroup"))
         await store.record_stats(
             {(OWNER, "2026-09-20", -100, 1): 2, (OWNER, "2026-09-20", -101, 2): 9}
         )
@@ -87,19 +87,19 @@ class TestWeeklyCounters:
             OWNER, dt.datetime(2026, 9, 1, tzinfo=dt.UTC), dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
         )
         assert [(c, n) for c, _title, n in top] == [(-101, 9), (-100, 2)]
-        assert top[1][1] == "Барахолка"  # the title we cached, for a chat we know
+        assert top[1][1] == "Flea market"  # the title we cached, for a chat we know
         assert top[0][1] == ""  # and nothing invented for one we do not
 
     async def test_top_rules_skips_a_rule_that_was_deleted(self, store):
         await store.ensure_user(OWNER)
-        rule = await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "казино")
+        rule = await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "casino")
         await store.record_stats(
             {(OWNER, "2026-09-20", -100, rule.id): 4, (OWNER, "2026-09-20", -100, 999): 7}
         )
         top = await store.top_rules(
             OWNER, dt.datetime(2026, 9, 1, tzinfo=dt.UTC), dt.datetime(2026, 10, 1, tzinfo=dt.UTC)
         )
-        assert top == [("казино", 4)]
+        assert top == [("casino", 4)]
 
     async def test_old_counts_are_pruned(self, store, clock):
         await store.record_stats({(OWNER, "2026-01-01", -100, 1): 1})
@@ -184,8 +184,8 @@ class TestLifecycle:
         await old.db.execute(
             "INSERT INTO users (id, role, created_at, updated_at) VALUES (1,'allowed','t','t')"
         )
-        await old.upsert_chat(ChatRef(-1001, "Чат", None, "supergroup"))
-        await old.add_rule(1, ALL_CHATS, RuleKind.INCLUDE, "такси")
+        await old.upsert_chat(ChatRef(-1001, "Chat", None, "supergroup"))
+        await old.add_rule(1, ALL_CHATS, RuleKind.INCLUDE, "taxi")
         assert await old.schema_version() == 1
         await old.close()
 
@@ -194,7 +194,7 @@ class TestLifecycle:
         await upgraded.open()
         try:
             assert await upgraded.schema_version() == len(storage_module._MIGRATIONS)
-            assert [r.pattern for r in await upgraded.list_rules(1)] == ["такси"]
+            assert [r.pattern for r in await upgraded.list_rules(1)] == ["taxi"]
             user = await upgraded.get_user(1)
             assert user is not None
             assert user.include_bots is False  # the new column defaults to the old behaviour
@@ -366,7 +366,7 @@ class TestChatsAndSubscriptions:
         await seeded.upsert_chat(BASIC)
         await seeded.set_chat_shared(BASIC.id, True)
         await seeded.subscribe(MOD, BASIC.id)
-        rule = await seeded.add_rule(MOD, BASIC.id, RuleKind.INCLUDE, "казино")
+        rule = await seeded.add_rule(MOD, BASIC.id, RuleKind.INCLUDE, "casino")
         await seeded.add_ignored(MOD, BASIC.id, 500)
         await seeded.upsert_cursors([Cursor(BASIC.id, 10, T0)])
         new_ref = ChatRef(-1009999, "Old group", None, "supergroup")
@@ -383,8 +383,8 @@ class TestRules:
     async def test_crud_and_scoping(self, seeded):
         await seeded.subscribe(OWNER, CHAT_A.id)
         await seeded.subscribe(MOD, CHAT_A.id)
-        chat_rule = await seeded.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "казино")
-        global_rule = await seeded.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "=бан")
+        chat_rule = await seeded.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "casino")
+        global_rule = await seeded.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "=ban")
         mod_rule = await seeded.add_rule(MOD, ALL_CHATS, RuleKind.INCLUDE, "spam")
         assert global_rule.is_global and not chat_rule.is_global
         assert [r.id for r in await seeded.list_rules(OWNER)] == [global_rule.id, chat_rule.id]
@@ -394,12 +394,12 @@ class TestRules:
         assert await seeded.delete_rule(mod_rule.id, MOD) is True
 
     async def test_duplicates_are_case_folded(self, seeded):
-        await seeded.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "казино")
-        for dup in ("Казино", "КАЗИНО"):
+        await seeded.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "casino")
+        for dup in ("Casino", "CASINO"):
             with pytest.raises(DuplicateRuleError):
                 await seeded.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, dup)
-        await seeded.add_rule(OWNER, CHAT_A.id, RuleKind.EXCLUDE, "казино")
-        await seeded.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "казино")
+        await seeded.add_rule(OWNER, CHAT_A.id, RuleKind.EXCLUDE, "casino")
+        await seeded.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "casino")
         await seeded.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "re:Abc")
         await seeded.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "re:abc")
         assert await seeded.count_rules(OWNER) == 5
@@ -424,7 +424,7 @@ class TestRules:
 
     async def test_disable_and_enable(self, seeded):
         await seeded.subscribe(OWNER, CHAT_A.id)
-        rule = await seeded.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "казино")
+        rule = await seeded.add_rule(OWNER, CHAT_A.id, RuleKind.INCLUDE, "casino")
         await seeded.disable_rule(rule.id, "timeout")
         assert await seeded.rules_for_chat(CHAT_A.id) == []
         assert (await seeded.get_rule(rule.id, OWNER)).disabled_reason == "timeout"
@@ -505,7 +505,7 @@ class TestCursors:
         assert -1002 not in await store.get_cursors()
 
 
-PAYLOAD = {"text": "казино", "chat_title": "Alpha"}
+PAYLOAD = {"text": "casino", "chat_title": "Alpha"}
 
 
 class TestOutbox:

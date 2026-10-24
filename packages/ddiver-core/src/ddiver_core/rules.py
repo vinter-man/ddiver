@@ -102,8 +102,8 @@ class SenderTarget:
     Three shapes, and they behave differently on purpose. An id is exact and cannot be
     changed by its owner, so it is the one to use for somebody who keeps coming back. A
     username is exact but they can change it tomorrow. A name is a substring, because a
-    display name is decoration — people pad them with emoji, and "Остап" should still find
-    "Остап 🚀".
+    display name is decoration — people pad them with emoji, and "Mark" should still find
+    "Mark 🚀".
     """
 
     field: SenderField
@@ -330,7 +330,7 @@ MAX_UNROLL = 5_000
 r"""Largest number of atoms a whole pattern may unroll into.
 
 Nesting is what costs. Measured on the same machine: ``(\w{32}){300}`` is 9600 atoms, 2.7 MB
-and 29 ms, while ``.{50}такси.{50}`` is 106 atoms, 30 KB and 0.4 ms — both are three bounded
+and 29 ms, while ``.{50}taxi.{50}`` is 106 atoms, 30 KB and 0.4 ms — both are three bounded
 repeats in a row, and only one of them is a problem. The first version of this guard multiplied
 every repeat by every other, which rejected ordinary moderation patterns (an e-mail shape, a
 word with a gap either side) with a sentence about memory that was untrue of the pattern in
@@ -341,13 +341,13 @@ reason, the next time their chat was loaded.
 MIN_SENDER_NAME = 3
 """Shortest name a ``from:`` rule may watch, because a name is a substring match.
 
-``from:ан`` would fire on half a chat. The limit does not apply to a username or an id: those
+``from:al`` would fire on half a chat. The limit does not apply to a username or an id: those
 are exact, and a two-character username cannot exist anyway.
 """
 
 
 def _sender_target(payload: str) -> SenderTarget:
-    """Read ``@username`` / ``123456789`` / ``Имя Фамилия`` out of a ``from:`` rule."""
+    """Read ``@username`` / ``123456789`` / ``First Last`` out of a ``from:`` rule."""
     if payload.startswith("+"):
         # Telegram hands out a phone number only for somebody already in your contacts, so a
         # phone rule would quietly match nothing for everyone else. Saying so beats shipping a
@@ -502,6 +502,6 @@ def _matches_everything(compiled: regex.Pattern[str], timeout: float) -> bool:
 def parse_rule_lines(text: str) -> list[str]:
     """Split multi-line user input into candidate rules; blank lines dropped.
 
-    There is deliberately no comment syntax: ``#промо`` is a hashtag keyword, not a comment.
+    There is deliberately no comment syntax: ``#promo`` is a hashtag keyword, not a comment.
     """
     return [line.strip() for line in text.splitlines() if line.strip()]

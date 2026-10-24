@@ -138,7 +138,7 @@ async def main() -> int:
             return 0
 
         print("Now, from your OTHER account, post this in the chat:\n")
-        print(f"    {marker} тестовое сообщение\n")
+        print(f"    {marker} test message\n")
         print("ddiver must be running, and must have been started after this rule was added.")
         print(f"Waiting up to {DELIVERY_TIMEOUT:.0f}s for the notification…\n")
 

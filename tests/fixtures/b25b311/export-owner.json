@@ -10,9 +10,21 @@
       "subscribed": true
     },
     {
+      "id": -1005555555555,
+      "username": "novosti_bg",
+      "title": "News",
+      "subscribed": true
+    },
+    {
       "id": -1006666666666,
       "username": null,
       "title": "Old basic group",
+      "subscribed": true
+    },
+    {
+      "id": -1002222222222,
+      "username": null,
+      "title": "Private <chat> & co",
       "subscribed": true
     },
     {
@@ -22,21 +34,9 @@
       "subscribed": true
     },
     {
-      "id": -1002222222222,
-      "username": null,
-      "title": "Закрытый <чат> & co",
-      "subscribed": true
-    },
-    {
-      "id": -1005555555555,
-      "username": "novosti_bg",
-      "title": "Новости",
-      "subscribed": true
-    },
-    {
       "id": -1001111111111,
       "username": "varna_rent",
-      "title": "Оренда Варна",
+      "title": "Varna Rentals",
       "subscribed": true
     }
   ],
@@ -44,12 +44,12 @@
     {
       "chat_id": 0,
       "kind": "include",
-      "pattern": "квартира"
+      "pattern": "apartment"
     },
     {
       "chat_id": 0,
       "kind": "include",
-      "pattern": "=такси"
+      "pattern": "=taxi"
     },
     {
       "chat_id": -1006666666666,
@@ -59,7 +59,7 @@
     {
       "chat_id": -1005555555555,
       "kind": "include",
-      "pattern": "курс"
+      "pattern": "rate"
     },
     {
       "chat_id": -1003333333333,
@@ -69,7 +69,7 @@
     {
       "chat_id": -1002222222222,
       "kind": "include",
-      "pattern": "re:(?i)срочно\\s+продам"
+      "pattern": "re:(?i)urgent\\s+sale"
     },
     {
       "chat_id": -1002222222222,
@@ -79,7 +79,7 @@
     {
       "chat_id": -1001111111111,
       "kind": "exclude",
-      "pattern": "реклама"
+      "pattern": "ads"
     }
   ],
   "ignored": [
@@ -96,7 +96,7 @@
     {
       "chat_id": -1001111111111,
       "sender_id": 999000999,
-      "note": "спам"
+      "note": "spam"
     }
   ]
 }

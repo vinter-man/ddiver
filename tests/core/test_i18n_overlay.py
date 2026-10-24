@@ -152,7 +152,7 @@ class TestMissingKeys:
         assert missing_keys() == {"uk": [], "ru": []}
 
     def test_overriding_a_base_key_in_one_language_changes_nothing(self):
-        register_overlay("ru", {"notif.chat": "📡 Группа"})
+        register_overlay("ru", {"notif.chat": "📡 Group"})
         assert missing_keys() == {"uk": [], "ru": []}
 
 

@@ -7,16 +7,12 @@
 
 ## Short description
 
-I moderate chats I don't own. No admin rights, no way to put a bot in them, and a thousand
-messages a day I have to scroll through in case one of them is the one I was waiting for.
+Your own Telegram account sits in the chats you pick and reads everything. When a message
+matches a rule you wrote, a **separate bot** writes to you in private with the chat, the
+sender, a clickable link and the matched text.
 
-ddiver does the scrolling. Your own Telegram account sits in those chats and reads everything;
-when a message matches a rule you wrote, a **separate bot** writes to you in private with the
-chat, the sender, a clickable link and the matched text. Nothing is ever posted into the chat —
-the account only reads, and the bot never joins.
-
-It speaks uk, ru and en, and asks which one on the first `/start`.
-Русская версия этого файла — [README.ru.md](README.ru.md).
+The bot's interface comes in English, Ukrainian and Russian — it asks which one you want on
+the first `/start`.
 
 ![demo](docs/assets/workflow.gif)
 
@@ -50,7 +46,7 @@ on the list — groups, supergroups, forums, channels. Tick the ones worth watch
 
 ![chats](docs/assets/chats.png)
 
-You are not an admin of any of them and you don't need to be. There is no bot sitting in the
+There is no bot sitting in the
 chat that somebody could spot in the member list.
 
 > :suspect: Under the hood the listener is registered on *every* update rather than on a chat
@@ -70,13 +66,14 @@ chat that somebody could spot in the member list.
 
 ![rules](docs/assets/rules.png)
 
-Exclusions are the same syntax with a minus and they win over every keyword, so
-`квартира` plus `-реклама` is "flats, but not the adverts".
+Exclusions are the same syntax with a minus, and they beat every keyword, so `apartment`
+plus `-agency` means "flats, but not the agency adverts".
 
-> :godmode: Before matching, the text has invisible characters stripped and Unicode normalised,
-> so `кварти<zero-width space>ра` still matches `квартира`. Latin/Cyrillic look-alikes are
-> deliberately **not** folded — `тaкси` with a Latin "a" is a different word, and silently
-> treating it as the same one would surprise you more than it helps. Use a regex if you want it.
+> :godmode: Before matching, invisible characters are stripped and Unicode is normalised, so a
+> zero-width space glued into the middle of a word does not hide it. Look-alike letters from
+> different alphabets are deliberately **not** folded together: Cyrillic and Latin each have a
+> letter that renders as an identical *a*, and quietly treating the two as one would surprise
+> you more often than it would help. Write a regex if that is what you want.
 >
 > Regexes are compiled once, with a timeout and a measured size cap, and run through the
 > `regex` module rather than `re` — a pattern that would hang the process is refused at the
@@ -280,7 +277,7 @@ clock.
 
 ```bash
 uv sync
-uv run pytest -q          # 1019 tests, no Telegram connection needed
+uv run pytest -q          # 1023 tests, no Telegram connection needed
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 ```
@@ -292,8 +289,10 @@ uv run mypy
 >
 > The banner is drawn by hand; the gif and every screenshot above are a
 > [Remotion](https://www.remotion.dev/) project in [`docs/remotion`](docs/remotion), `npm run
-> build` to regenerate. They are mock-ups on purpose — a real screenshot of a real chat in a
-> public README publishes somebody else's name and message forever.
+> build` to regenerate. The chat window is Telegram Desktop's dark theme reproduced in React,
+> and the words in it are the bot's own, out of `i18n/en.py`. Only the chats, the people and
+> the messages are invented — a real screenshot of a real chat in a public README publishes
+> somebody else's name and message forever.
 
 ---
 ---

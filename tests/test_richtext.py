@@ -101,23 +101,23 @@ def test_window_recentres_a_match_sitting_near_the_end_of_the_head():
     with no text following it — which is exactly the part a moderator needs to judge a
     message. Relaxing the boundary to `first_start < len(head)` survives every other test.
     """
-    text = "a" * 250 + "казино" + "b" * 250
+    text = "a" * 250 + "casino" + "b" * 250
     limit, context = 300, 160
     w = window(text, [Span(250, 256)], limit, context=context)
 
     assert w.cut_before > 0, "the match sat too close to the end of the head to use it"
     shown_after = len(w.text) - (w.spans[0].end)
     assert shown_after >= context // 2  # there is context on the far side of the match
-    assert w.text[w.spans[0].start : w.spans[0].end] == "казино"
+    assert w.text[w.spans[0].start : w.spans[0].end] == "casino"
 
 
 def test_window_centres_on_late_match_and_rebases_spans():
-    text = "a" * 1000 + "казино" + "b" * 1000
+    text = "a" * 1000 + "casino" + "b" * 1000
     w = window(text, [Span(1000, 1006)], 300, context=100)
     assert w.cut_before == 900
-    assert w.text.startswith("a" * 100 + "казино")
+    assert w.text.startswith("a" * 100 + "casino")
     assert w.spans == [Span(100, 106)]
-    assert w.text[w.spans[0].start : w.spans[0].end] == "казино"
+    assert w.text[w.spans[0].start : w.spans[0].end] == "casino"
     assert utf16_len(w.text) <= 300
     assert w.cut_after == len(text) - 900 - len(w.text)
 

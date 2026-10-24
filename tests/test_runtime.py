@@ -24,12 +24,12 @@ from tests.fakes import make_channel, make_user
 
 PAYLOAD = {
     "chat_id": -1001,
-    "chat_title": "Чат",
+    "chat_title": "Chat",
     "msg_id": 7,
     "date": T0.isoformat(),
-    "text": "казино",
+    "text": "casino",
     "spans": [[0, 6]],
-    "rule_pattern": "казино",
+    "rule_pattern": "casino",
     "sender_id": 42,
 }
 
@@ -169,9 +169,9 @@ class TestBotAdapter:
 
     async def test_literal_button_labels_are_kept(self):
         bot, event = FakeBot(), FakeEvent()
-        actions = [Reply("x", literal=True, buttons=[[(menus.literal("Мой чат"), "sub:1:1")]])]
+        actions = [Reply("x", literal=True, buttons=[[(menus.literal("My chat"), "sub:1:1")]])]
         await BotAdapter(bot).perform(event, actions, "ru")
-        assert bot.sent[0]["buttons"][0][0].text == "Мой чат"
+        assert bot.sent[0]["buttons"][0][0].text == "My chat"
 
     async def test_late_callback_answers_are_ignored(self, caplog):
         bot, event = FakeBot(), FakeEvent()
@@ -251,13 +251,13 @@ class TestRefreshDialogs:
         storage = Storage(tmp_path / "db.sqlite3", owner_id=1)
         await storage.open()
         try:
-            channel = make_channel(-1001234567890, "Группа", username="grp")
+            channel = make_channel(-1001234567890, "Group", username="grp")
             channel.access_hash = 4242
-            client = FakeDialogClient([channel, make_user(5, "Человек", "human")])
+            client = FakeDialogClient([channel, make_user(5, "Person", "human")])
             assert await refresh_dialogs(client, storage) == 1
             row = await storage.get_chat(-1001234567890)
             assert row is not None
-            assert row.ref == ChatRef(-1001234567890, "Группа", "grp", "supergroup")
+            assert row.ref == ChatRef(-1001234567890, "Group", "grp", "supergroup")
             assert row.access_hash == 4242
             assert client.saved is True  # entities committed immediately, not in a minute
         finally:
@@ -571,12 +571,12 @@ class TestMigration:
 
         from ddiver_core.rules import RuleKind
 
-        old_ref = ChatRef(-555, "Старая группа", None, "group")
+        old_ref = ChatRef(-555, "Old group", None, "group")
         await app.storage.upsert_chat(old_ref)
         await app.storage.subscribe(1, -555)
-        rule = await app.storage.add_rule(1, -555, RuleKind.INCLUDE, "казино")
+        rule = await app.storage.add_rule(1, -555, RuleKind.INCLUDE, "casino")
 
-        new_channel = make_channel(-1001234567890, "Старая группа")
+        new_channel = make_channel(-1001234567890, "Old group")
         new_channel.access_hash = 77
         action = tl.MessageActionChatMigrateTo(channel_id=1234567890)
         service = tl.MessageService(id=9, peer_id=tl.PeerChat(555), date=T0, action=action)
@@ -619,7 +619,7 @@ class TestHeartbeatContents:
 class TestSenderResolution:
     async def test_a_basic_group_member_is_found_after_loading_the_member_list(self, app):
         """Basic-group updates carry no entities, so a bare get_entity cannot work."""
-        await app.storage.upsert_chat(ChatRef(-555, "Группа", None, "group"))
+        await app.storage.upsert_chat(ChatRef(-555, "Group", None, "group"))
         calls: list[str] = []
         known: dict[int, object] = {}
 
@@ -631,14 +631,14 @@ class TestSenderResolution:
 
         async def get_participants(chat_id):
             calls.append(f"get_participants({chat_id})")
-            known[4242] = make_user(4242, "Богдан", "bohdan", min_=False)
+            known[4242] = make_user(4242, "Brian", "bohdan", min_=False)
             return list(known.values())
 
         app.user_client.get_entity = get_entity
         app.user_client.get_participants = get_participants
 
         entity = await app._resolve_entity(4242, -555)
-        assert entity.first_name == "Богдан"
+        assert entity.first_name == "Brian"
         assert calls == ["get_entity(4242)", "get_participants(-555)", "get_entity(4242)"]
 
         # the member list is loaded once per chat, not per message
@@ -647,7 +647,7 @@ class TestSenderResolution:
         assert calls == ["get_entity(4242)"]
 
     async def test_a_supergroup_failure_is_not_retried_with_participants(self, app):
-        await app.storage.upsert_chat(ChatRef(-1001, "Супергруппа", None, "supergroup"))
+        await app.storage.upsert_chat(ChatRef(-1001, "Supergroup", None, "supergroup"))
 
         async def get_entity(peer_id):
             raise ValueError("Could not find the input entity")
@@ -753,7 +753,7 @@ class TestChatActionMembership:
     async def test_a_re_add_alongside_other_users_is_noticed(self, app):
         """Telegram reports the whole batch; user_id alone is just the first of them."""
         app.user_client._self_id = 999
-        await app.storage.upsert_chat(ChatRef(-555, "Группа", None, "group"))
+        await app.storage.upsert_chat(ChatRef(-555, "Group", None, "group"))
         await app.storage.set_chat_available(-555, False)
 
         event = self._service_event(
@@ -770,7 +770,7 @@ class TestChatActionMembership:
     async def test_a_kick_without_an_action_message_is_handled(self, app):
         """UpdateChannelParticipant carries no service message; only chat_id is available."""
         app.user_client._self_id = 999
-        await app.storage.upsert_chat(ChatRef(-1001234567890, "Чат", None, "supergroup"))
+        await app.storage.upsert_chat(ChatRef(-1001234567890, "Chat", None, "supergroup"))
         update = tl.UpdateChannelParticipant(
             channel_id=1234567890,
             date=T0,
@@ -790,7 +790,7 @@ class TestChatActionMembership:
 
     async def test_somebody_elses_membership_change_is_ignored(self, app):
         app.user_client._self_id = 999
-        await app.storage.upsert_chat(ChatRef(-555, "Группа", None, "group"))
+        await app.storage.upsert_chat(ChatRef(-555, "Group", None, "group"))
         event = self._service_event(
             tl.MessageActionChatDeleteUser(user_id=111), peer=tl.PeerChat(555), me=999
         )

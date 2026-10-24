@@ -18,7 +18,7 @@
     {
       "id": -1001111111111,
       "username": "varna_rent",
-      "title": "Оренда Варна",
+      "title": "Varna Rentals",
       "subscribed": true
     }
   ],
@@ -26,7 +26,7 @@
     {
       "chat_id": 0,
       "kind": "include",
-      "pattern": "from:Тарас Коваленко"
+      "pattern": "from:Alex Carter"
     },
     {
       "chat_id": -1003333333333,
@@ -36,14 +36,14 @@
     {
       "chat_id": -1001111111111,
       "kind": "include",
-      "pattern": "казино"
+      "pattern": "casino"
     }
   ],
   "ignored": [
     {
       "chat_id": -1003333333333,
       "sender_id": 888000888,
-      "note": "бот объявлений"
+      "note": "listings bot"
     }
   ]
 }

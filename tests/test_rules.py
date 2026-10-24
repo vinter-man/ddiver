@@ -31,9 +31,9 @@ T = 0.2
 @pytest.mark.parametrize(
     ("raw", "mode", "payload"),
     [
-        ("казино", MatchMode.SUBSTRING, "казино"),
+        ("casino", MatchMode.SUBSTRING, "casino"),
         ("  free money ", MatchMode.SUBSTRING, "free money"),
-        ("=бан", MatchMode.WORD, "бан"),
+        ("=ban", MatchMode.WORD, "ban"),
         ("= spaced ", MatchMode.WORD, "spaced"),
         ("re:\\d{3}", MatchMode.REGEX, "\\d{3}"),
         ("re: x ", MatchMode.REGEX, "x"),
@@ -57,15 +57,15 @@ class TestSubstring:
         assert rule.search("спа м", T) is None
 
     def test_substring_matches_inside_word(self):
-        rule = compile_rule("бан", timeout=T)
-        span = rule.search("его забанили", T)
+        rule = compile_rule("ban", timeout=T)
+        span = rule.search("they banned him", T)
         assert span is not None
-        assert "его забанили"[span.start : span.end] == "бан"
+        assert "they banned him"[span.start : span.end] == "ban"
 
     def test_regex_metachars_are_literal(self):
-        rule = compile_rule("24/7 (срочно)", timeout=T)
-        assert rule.search("работаем 24/7 (срочно)", T) is not None
-        assert rule.search("работаем 2447 срочно", T) is None
+        rule = compile_rule("24/7 (urgent)", timeout=T)
+        assert rule.search("we work 24/7 (urgent)", T) is not None
+        assert rule.search("we work 2447 urgent", T) is None
 
     def test_yo_and_ye_are_not_folded(self):
         rule = compile_rule("ещё", timeout=T)
@@ -75,11 +75,11 @@ class TestSubstring:
 
 class TestWord:
     def test_whole_word_only(self):
-        rule = compile_rule("=бан", timeout=T)
-        assert rule.search("дать бан всем", T) is not None
-        assert rule.search("Бан!", T) is not None
-        assert rule.search("забанили", T) is None
-        assert rule.search("банан", T) is None
+        rule = compile_rule("=ban", timeout=T)
+        assert rule.search("give him a ban", T) is not None
+        assert rule.search("Ban!", T) is not None
+        assert rule.search("banned", T) is None
+        assert rule.search("banana", T) is None
 
     def test_punctuation_words(self):
         assert compile_rule("=c++", timeout=T).search("learn c++ now", T) is not None
@@ -159,8 +159,8 @@ class TestRepeatGuard:
         "pattern",
         [
             r"\w{2,32}@\w{2,32}\.\w{2,8}",  # somebody sharing an e-mail address
-            r".{50}такси.{50}",  # a word with a gap either side
-            r"куплю.{0,40}аккаунт.{0,40}telegram",  # a resale ad
+            r".{50}taxi.{50}",  # a word with a gap either side
+            r"buying.{0,40}account.{0,40}telegram",  # a resale ad
             r"[a-z]{100}[0-9]{100}",  # two classes in a row
             r".{999}",  # flat, and right at the single-repeat limit
         ],
@@ -264,7 +264,7 @@ class TestCompiledSizeGuard:
 
     @pytest.mark.parametrize(
         "pattern",
-        [r".{999}", r".{50}такси.{50}", r"\w{2,32}@\w{2,32}\.\w{2,8}", r"[а-яё]{40}"],
+        [r".{999}", r".{50}taxi.{50}", r"\w{2,32}@\w{2,32}\.\w{2,8}", r"[а-яё]{40}"],
     )
     def test_ordinary_patterns_are_far_below_the_cap(self, pattern):
         """Measured: the largest of these is 119 KB against a 512 KB cap."""
@@ -272,7 +272,7 @@ class TestCompiledSizeGuard:
         assert 0 < rule.cost_bytes < MAX_COMPILED_BYTES
 
     def test_a_plain_keyword_costs_almost_nothing(self):
-        assert compile_rule("такси", timeout=T).cost_bytes < 32 * 1024
+        assert compile_rule("taxi", timeout=T).cost_bytes < 32 * 1024
 
 
 class TestSenderRules:
@@ -286,8 +286,8 @@ class TestSenderRules:
             ("FROM:@ostap_spam", SenderField.USERNAME, "ostap_spam"),  # the prefix is not cased
             ("from:123456789", SenderField.ID, "123456789"),
             ("from:-1001234567890", SenderField.ID, "-1001234567890"),  # a channel writing
-            ("from:Остап Мельник", SenderField.NAME, "остап мельник"),
-            ("from:  Остап   Мельник  ", SenderField.NAME, "остап мельник"),  # whitespace folded
+            ("from:Mark Doyle", SenderField.NAME, "mark doyle"),
+            ("from:  Mark   Doyle  ", SenderField.NAME, "mark doyle"),  # whitespace folded
         ],
     )
     def test_what_each_shape_parses_to(self, raw, field, value):
@@ -304,8 +304,8 @@ class TestSenderRules:
             ("from:+1 555 0100", "rule.err.no_phone"),
             ("from:@ab", "rule.err.bad_username"),
             ("from:@" + "x" * 33, "rule.err.bad_username"),
-            ("from:@остап", "rule.err.bad_username"),  # Telegram usernames are ASCII
-            ("from:ан", "rule.err.name_too_short"),
+            ("from:@марк", "rule.err.bad_username"),  # Telegram usernames are ASCII
+            ("from:al", "rule.err.name_too_short"),
             ("from:", "rule.err.empty"),
             ("from:   ", "rule.err.empty"),
             (f"from:{2**64}", "rule.err.bad_sender_id"),
@@ -326,17 +326,17 @@ class TestSenderRules:
     @pytest.mark.parametrize(
         ("raw", "sender", "expected"),
         [
-            ("from:@ostap", (1, "ostap", "Остап"), True),
-            ("from:@ostap", (1, "OSTAP", "Остап"), True),  # case-insensitive
-            ("from:@ostap", (1, "ostap2", "Остап"), False),  # exact, not a prefix
+            ("from:@ostap", (1, "ostap", "Mark"), True),
+            ("from:@ostap", (1, "OSTAP", "Mark"), True),  # case-insensitive
+            ("from:@ostap", (1, "ostap2", "Mark"), False),  # exact, not a prefix
             ("from:@ostap", (1, None, "ostap"), False),  # a username is not a name
             ("from:123", (123, None, ""), True),
             ("from:123", (1234, None, ""), False),  # exact, not a prefix
             ("from:123", (None, None, ""), False),  # unknown sender matches nothing
-            ("from:Остап", (1, None, "Остап Мельник"), True),  # a name is a fragment
-            ("from:Остап", (1, None, "остап 🚀"), True),  # people decorate their names
-            ("from:Остап Мельник", (1, None, "Остап"), False),
-            ("from:Мельник", (1, None, "Остап\u200b Мельник"), True),  # zero-width junk removed
+            ("from:Mark", (1, None, "Mark Doyle"), True),  # a name is a fragment
+            ("from:Mark", (1, None, "mark 🚀"), True),  # people decorate their names
+            ("from:Mark Doyle", (1, None, "Mark"), False),
+            ("from:Doyle", (1, None, "Mark\u200b Doyle"), True),  # zero-width junk removed
         ],
     )
     def test_who_it_recognises(self, raw, sender, expected):
@@ -348,7 +348,7 @@ class TestSenderRules:
         """Changing that would silently repurpose every rule anybody already wrote."""
         rule = compile_rule("@ostap", timeout=T)
         assert rule.mode is MatchMode.SUBSTRING
-        assert rule.search("посмотрите на @ostap", T) is not None
+        assert rule.search("take a look at @ostap", T) is not None
 
     def test_the_same_username_twice_is_one_rule(self):
         assert pattern_key("from:@Ostap") == pattern_key("from:@ostap")
@@ -360,8 +360,8 @@ class TestSenderRules:
 
 
 def test_parse_rule_lines_keeps_every_non_blank_line():
-    text = "казино\n\n#промо\n  =бан  \nre:\\d+\n   "
-    assert parse_rule_lines(text) == ["казино", "#промо", "=бан", "re:\\d+"]
+    text = "casino\n\n#promo\n  =ban  \nre:\\d+\n   "
+    assert parse_rule_lines(text) == ["casino", "#promo", "=ban", "re:\\d+"]
 
 
 class TestCleaningAndPreparedText:
@@ -375,14 +375,14 @@ class TestCleaningAndPreparedText:
         assert normalize_pattern("  =ка\u200bзино ") == "=казино"
 
     def test_pattern_key(self):
-        assert pattern_key("Казино") == pattern_key("казино") == "казино"
+        assert pattern_key("Casino") == pattern_key("casino") == "casino"
         assert pattern_key("=Бан") == "=бан"
         assert pattern_key("re:Abc") == "re:Abc"
         assert pattern_key("re:Abc") != pattern_key("re:abc")
 
     def test_prepare_text_identity_fast_path(self):
-        pt = prepare_text("plain казино")
-        assert pt.shadow == "plain казино"
+        pt = prepare_text("plain casino")
+        assert pt.shadow == "plain casino"
         assert pt.to_original(Span(6, 12)) == Span(6, 12)
 
     def test_prepare_text_maps_spans_through_zero_width_chars(self):
@@ -422,5 +422,5 @@ class TestCleaningAndPreparedText:
         assert len(rule.search_all("x" * 50, T)) == MAX_HIGHLIGHTS
 
     def test_hashtag_lines_are_rules_not_comments(self):
-        assert parse_rule_lines("#промо\r\n=#tag\r\n\r\n") == ["#промо", "=#tag"]
+        assert parse_rule_lines("#promo\r\n=#tag\r\n\r\n") == ["#promo", "=#tag"]
         assert compile_rule("#промо", timeout=T).search("see #ПРОМО now", T) is not None

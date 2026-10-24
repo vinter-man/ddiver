@@ -19,8 +19,8 @@ from ddiver_core.storage import ALL_CHATS, Storage
 
 OWNER = 1
 MOD = 2
-PUBLIC = ChatRef(-1001, "Публичный", "publicchat", "supergroup")
-PRIVATE = ChatRef(-1002, "Приватный", None, "supergroup")
+PUBLIC = ChatRef(-1001, "Public", "publicchat", "supergroup")
+PRIVATE = ChatRef(-1002, "Private", None, "supergroup")
 
 
 @pytest.fixture
@@ -38,10 +38,10 @@ async def store(tmp_path, clock):
 async def seed(store: Storage) -> None:
     await store.subscribe(OWNER, PUBLIC.id)
     await store.subscribe(OWNER, PRIVATE.id)
-    await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "такси")
-    await store.add_rule(OWNER, PUBLIC.id, RuleKind.INCLUDE, "=подвезу")
-    await store.add_rule(OWNER, PUBLIC.id, RuleKind.EXCLUDE, "реклама")
-    await store.add_ignored(OWNER, ALL_CHATS, 555, "спамер")
+    await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "taxi")
+    await store.add_rule(OWNER, PUBLIC.id, RuleKind.INCLUDE, "=lift offered")
+    await store.add_rule(OWNER, PUBLIC.id, RuleKind.EXCLUDE, "ads")
+    await store.add_ignored(OWNER, ALL_CHATS, 555, "spammer")
 
 
 class TestExport:
@@ -50,8 +50,8 @@ class TestExport:
         config = await portable.export_config(store, OWNER, now=clock())
         assert config["format"] == "ddiver.config"
         assert {c["username"] for c in config["chats"]} == {"publicchat", None}
-        assert {r["pattern"] for r in config["rules"]} == {"такси", "=подвезу", "реклама"}
-        assert config["ignored"] == [{"chat_id": 0, "sender_id": 555, "note": "спамер"}]
+        assert {r["pattern"] for r in config["rules"]} == {"taxi", "=lift offered", "ads"}
+        assert config["ignored"] == [{"chat_id": 0, "sender_id": 555, "note": "spammer"}]
 
     async def test_it_never_carries_a_session_or_a_token(self, store, clock):
         """A config backup that is also an account backup is a trap."""
@@ -64,20 +64,20 @@ class TestExport:
         """The outbox holds other people's words; a config file has no business with them."""
         await seed(store)
         await store.claim_delivery(
-            OWNER, PUBLIC.id, 7, 1, {"text": "подвезу недорого", "chat_title": "Публичный"}
+            OWNER, PUBLIC.id, 7, 1, {"text": "lift offered cheap", "chat_title": "Public"}
         )
         raw = portable.dumps(await portable.export_config(store, OWNER, now=clock()))
-        assert "подвезу недорого" not in raw
+        assert "lift offered cheap" not in raw
 
     async def test_one_users_export_holds_nothing_of_anothers(self, store, clock):
         await seed(store)
-        await store.add_rule(MOD, ALL_CHATS, RuleKind.INCLUDE, "секрет модератора")
+        await store.add_rule(MOD, ALL_CHATS, RuleKind.INCLUDE, "moderator secret")
         raw = portable.dumps(await portable.export_config(store, OWNER, now=clock()))
-        assert "секрет модератора" not in raw
+        assert "moderator secret" not in raw
 
     async def test_a_chat_named_only_by_a_rule_still_travels(self, store, clock):
         """A rule for a chat you unsubscribed from would otherwise import as 'chat not found'."""
-        await store.add_rule(OWNER, PRIVATE.id, RuleKind.INCLUDE, "такси")
+        await store.add_rule(OWNER, PRIVATE.id, RuleKind.INCLUDE, "taxi")
         config = await portable.export_config(store, OWNER, now=clock())
         assert [c["id"] for c in config["chats"]] == [PRIVATE.id]
         assert config["chats"][0]["subscribed"] is False
@@ -92,8 +92,8 @@ class TestRoundTrip:
         assert report.chats_subscribed == 0  # nothing is shared with MOD yet
         assert report.rules_added == 1  # only the rule for all chats, which needs no chat
         assert report.rules_invalid == [
-            "=подвезу: chat not found or not available to you",
-            "реклама: chat not found or not available to you",
+            "=lift offered: chat not found or not available to you",
+            "ads: chat not found or not available to you",
         ]
 
         for ref in (PUBLIC, PRIVATE):
@@ -103,9 +103,9 @@ class TestRoundTrip:
         assert report.rules_added == 2  # the global one was already taken on the first pass
         assert report.ignored_added == 1
         assert {r.pattern for r in await store.list_rules(MOD)} == {
-            "такси",
-            "=подвезу",
-            "реклама",
+            "taxi",
+            "=lift offered",
+            "ads",
         }
 
     async def test_importing_twice_adds_nothing_the_second_time(self, store, clock):
@@ -120,9 +120,9 @@ class TestRoundTrip:
         """One mistaken tap must not cost somebody every rule they wrote."""
         await seed(store)
         config = await portable.export_config(store, OWNER, now=clock())
-        await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "написано после экспорта")
+        await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "written after export")
         await portable.import_config(store, OWNER, config, regex_timeout=0.2, is_owner=True)
-        assert "написано после экспорта" in {r.pattern for r in await store.list_rules(OWNER)}
+        assert "written after export" in {r.pattern for r in await store.list_rules(OWNER)}
 
     async def test_a_public_chat_is_found_by_username_when_the_id_changed(self, store, clock):
         """Ids differ between accounts for private chats; a @username is the stable handle."""
@@ -137,8 +137,8 @@ class TestRoundTrip:
         await store.set_chat_shared(PUBLIC.id, True)
         report = await portable.import_config(store, MOD, config, regex_timeout=0.2, is_owner=False)
         assert report.chats_subscribed == 1  # the public one, matched by @publicchat
-        assert "Приватный" in " ".join(report.chats_missing)
-        assert "=подвезу" in {r.pattern for r in await store.list_rules(MOD)}
+        assert "Private" in " ".join(report.chats_missing)
+        assert "=lift offered" in {r.pattern for r in await store.list_rules(MOD)}
 
     async def test_the_import_flag_cannot_override_what_storage_decides(self, store, clock):
         """`is_owner=True` shapes the report; `Storage.subscribe` still re-checks sharing."""
@@ -177,13 +177,13 @@ class TestBadInput:
             "format": portable.FORMAT,
             "version": 1,
             "chats": [{"id": PRIVATE.id, "username": None, "title": "x", "subscribed": True}],
-            "rules": [{"chat_id": PRIVATE.id, "kind": "include", "pattern": "такси"}],
+            "rules": [{"chat_id": PRIVATE.id, "kind": "include", "pattern": "taxi"}],
         }
         report = await portable.import_config(store, MOD, config, regex_timeout=0.2, is_owner=False)
         assert report.chats_subscribed == 0
         assert await store.list_subscriptions(MOD) == []
         assert await store.list_rules(MOD) == []
-        assert report.rules_invalid == ["такси: chat not found or not available to you"]
+        assert report.rules_invalid == ["taxi: chat not found or not available to you"]
 
     async def test_a_broken_rule_is_reported_and_the_rest_still_load(self, store):
         config = {
@@ -191,7 +191,7 @@ class TestBadInput:
             "version": 1,
             "rules": [
                 {"chat_id": 0, "kind": "include", "pattern": "re:[unclosed"},
-                {"chat_id": 0, "kind": "include", "pattern": "такси"},
+                {"chat_id": 0, "kind": "include", "pattern": "taxi"},
             ],
         }
         report = await portable.import_config(
@@ -220,8 +220,8 @@ class TestBadInput:
 
 def test_dumps_is_readable_utf8():
     """A person should be able to open the backup and see their own words."""
-    raw = portable.dumps({"format": portable.FORMAT, "rules": [{"pattern": "такси"}]})
-    assert "такси" in raw and "\\u0442" not in raw
+    raw = portable.dumps({"format": portable.FORMAT, "rules": [{"pattern": "taxi"}]})
+    assert "taxi" in raw and "\\u0442" not in raw
     assert raw.count("\n") > 1  # indented, not one long line
 
 
@@ -293,7 +293,7 @@ class TestNoChatOracle:
             "chats": [
                 {"id": PUBLIC.id, "username": "publicchat", "title": "x", "subscribed": True}
             ],
-            "rules": [{"chat_id": PUBLIC.id, "kind": "include", "pattern": "такси"}],
+            "rules": [{"chat_id": PUBLIC.id, "kind": "include", "pattern": "taxi"}],
         }
         report = await portable.import_config(store, MOD, config, regex_timeout=0.2, is_owner=False)
         assert report.rules_added == 1
@@ -310,7 +310,7 @@ class TestImportLimits:
             "format": portable.FORMAT,
             "version": 1,
             "rules": [
-                {"chat_id": PUBLIC.id, "kind": "include", "pattern": f"слово{i}"}
+                {"chat_id": PUBLIC.id, "kind": "include", "pattern": f"word{i}"}
                 for i in range(MAX_RULES_PER_CHAT + 25)
             ],
         }
@@ -324,7 +324,7 @@ class TestImportLimits:
             "format": portable.FORMAT,
             "version": 1,
             "rules": [
-                {"chat_id": 0, "kind": "include", "pattern": f"слово{i}"}
+                {"chat_id": 0, "kind": "include", "pattern": f"word{i}"}
                 for i in range(MAX_RULES_PER_USER + 10)
             ],
         }
@@ -340,7 +340,7 @@ class TestImportLimits:
         held = MAX_RULES_PER_USER - 2
         for i in range(held):
             chat = (ALL_CHATS, PUBLIC.id, PRIVATE.id)[i % 3]
-            await store.add_rule(OWNER, chat, RuleKind.INCLUDE, f"есть{i}")
+            await store.add_rule(OWNER, chat, RuleKind.INCLUDE, f"rule{i}")
         assert await store.count_rules(OWNER) == held
         assert await store.count_rules(OWNER, PRIVATE.id) < MAX_RULES_PER_CHAT
 
@@ -348,8 +348,7 @@ class TestImportLimits:
             "format": portable.FORMAT,
             "version": 1,
             "rules": [
-                {"chat_id": PRIVATE.id, "kind": "include", "pattern": f"новое{i}"}
-                for i in range(10)
+                {"chat_id": PRIVATE.id, "kind": "include", "pattern": f"new{i}"} for i in range(10)
             ],
         }
         report = await portable.import_config(
@@ -365,7 +364,7 @@ class TestImportLimits:
             "format": portable.FORMAT,
             "version": 1,
             "rules": [
-                {"chat_id": 0, "kind": "include", "pattern": f"глоб{i}"}
+                {"chat_id": 0, "kind": "include", "pattern": f"glob{i}"}
                 for i in range(MAX_RULES_PER_CHAT + 5)
             ],
         }
@@ -463,7 +462,7 @@ class TestImportLimits:
         config = {
             "format": portable.FORMAT,
             "version": 1,
-            "rules": [{"chat_id": 0, "kind": "include", "pattern": "такси"}],
+            "rules": [{"chat_id": 0, "kind": "include", "pattern": "taxi"}],
         }
         await portable.import_config(store, OWNER, config, regex_timeout=0.2, is_owner=True)
         assert offloaded == ["compile_rule"]

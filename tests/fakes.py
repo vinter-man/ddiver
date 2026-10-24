@@ -65,7 +65,7 @@ def make_channel(
 
 def make_user(
     user_id: int = 42,
-    first_name: str | None = "Тарас",
+    first_name: str | None = "Alex",
     username: str | None = "taras",
     *,
     bot: bool = False,

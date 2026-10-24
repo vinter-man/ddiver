@@ -14,19 +14,19 @@ MOD = 2
 
 BASE_PAYLOAD = {
     "chat_id": -1001234567890,
-    "chat_title": "Чат",
+    "chat_title": "Chat",
     "chat_username": None,
     "chat_kind": "supergroup",
     "msg_id": 1,
     "topic_id": None,
     "date": T0.isoformat(),
-    "text": "казино",
+    "text": "casino",
     "spans": [[0, 6]],
-    "rule_pattern": "казино",
+    "rule_pattern": "casino",
     "rule_kind": "include",
     "rule_is_global": False,
     "sender_id": 42,
-    "sender_name": "Тарас",
+    "sender_name": "Alex",
     "sender_username": "taras",
 }
 
@@ -104,7 +104,7 @@ class TestHappyPath:
         assert len(bot.sent) == 1
         sent = bot.sent[0]
         assert sent.user_id == MOD
-        assert "казино" in sent.text
+        assert "casino" in sent.text
         assert "12 сек назад" in sent.text  # rendered at send time, in the user's language
         assert sent.link_preview is False
         assert any(isinstance(e, tl.MessageEntityBold) for e in sent.entities)
@@ -547,7 +547,7 @@ class TestSenderEnrichment:
 
         async def resolver(peer_id, chat_id=None):
             resolved.append(peer_id)
-            return make_user(peer_id, "Богдан", "bohdan", min_=False)
+            return make_user(peer_id, "Brian", "bohdan", min_=False)
 
         delivery = Delivery(
             bot,
@@ -561,7 +561,7 @@ class TestSenderEnrichment:
         await delivery.enqueue(item)
         await settle(delivery)
         assert resolved == [4242]
-        assert "Богдан" in bot.sent[0].text
+        assert "Brian" in bot.sent[0].text
         assert "Неизвестный" not in bot.sent[0].text
 
     async def test_a_known_name_is_not_resolved_again(self, bot, store, clock, sleeps):
@@ -640,7 +640,7 @@ class TestRescanDoesNotDuplicate:
         from tests.fakes import make_user
 
         async def resolver(peer_id, chat_id=None):
-            return make_user(peer_id, "Богдан", "bohdan", min_=False)
+            return make_user(peer_id, "Brian", "bohdan", min_=False)
 
         delivery = Delivery(
             bot,
@@ -654,7 +654,7 @@ class TestRescanDoesNotDuplicate:
         await delivery.enqueue(item)
         await settle(delivery)
         stored = await store.get_delivery(*item.key)
-        assert stored.payload["sender_name"] == "Богдан"
+        assert stored.payload["sender_name"] == "Brian"
         assert stored.payload["sender_username"] == "bohdan"
 
 

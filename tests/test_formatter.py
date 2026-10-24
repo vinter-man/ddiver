@@ -22,20 +22,20 @@ NOW = T0 + dt.timedelta(seconds=12)
 def payload(**overrides: object) -> Payload:
     base = {
         "chat_id": -1001234567890,
-        "chat_title": "Чат <&> модерации",
+        "chat_title": "Chat <&> moderation",
         "chat_username": None,
         "chat_kind": "supergroup",
         "msg_id": 77,
         "topic_id": None,
         "date": T0,
-        "text": "Заходи в казино прямо сейчас",
-        "spans": [(9, 15)],
-        "rule_pattern": "казино",
+        "text": "Come play at the casino right now",
+        "spans": [(17, 23)],
+        "rule_pattern": "casino",
         "rule_kind": "include",
         "rule_is_global": False,
         "sender_id": 42,
-        "sender_name": "Тарас",
-        "sender_username": "taras",
+        "sender_name": "Alex",
+        "sender_username": "alex",
     }
     return Payload(**{**base, **overrides})
 
@@ -69,15 +69,15 @@ class TestNotification:
     def test_private_supergroup_layout(self):
         r = render_notification(payload(), lang="ru", tz="Europe/Kyiv", now=NOW)
         link = "https://t.me/c/1234567890/77"
-        assert "Чат <&> модерации" in r.text
+        assert "Chat <&> moderation" in r.text
         assert "2026-09-22 15:00:00 +03:00 (Europe/Kyiv)" in r.text
         assert "12 сек назад" in r.text
         assert "правило чата" in r.text
-        assert "Заходи в казино прямо сейчас" in r.text
+        assert "Come play at the casino right now" in r.text
         assert urls(r).count(link) == 3  # chat title, sender name, message link
-        assert "https://t.me/taras" in urls(r)
-        assert codes(r) == ["42", "казино"]
-        assert bolds(r) == ["казино"]
+        assert "https://t.me/alex" in urls(r)
+        assert codes(r) == ["42", "casino"]
+        assert bolds(r) == ["casino"]
 
     def test_public_chat_and_topic_links(self):
         r = render_notification(
@@ -90,7 +90,7 @@ class TestNotification:
         r = render_notification(
             payload(chat_id=-555, chat_kind="group"), lang="en", tz="UTC", now=NOW
         )
-        assert urls(r) == ["https://t.me/taras"]
+        assert urls(r) == ["https://t.me/alex"]
         assert "42" in codes(r)
 
     @pytest.mark.parametrize(
@@ -137,31 +137,31 @@ class TestNotification:
         assert "rule for all chats" in r.text
 
     def test_long_text_is_windowed_around_the_match(self):
-        text = "a" * 5000 + " казино " + "b" * 5000
-        start = text.index("казино")
+        text = "a" * 5000 + " casino " + "b" * 5000
+        start = text.index("casino")
         r = render_notification(
             payload(text=text, spans=[(start, start + 6)]), lang="en", tz="UTC", now=NOW
         )
         assert utf16_len(r.text) <= MAX_MESSAGE_UTF16
-        assert "казино" in r.text
-        assert bolds(r) == ["казино"]
+        assert "casino" in r.text
+        assert bolds(r) == ["casino"]
         assert r.text.count("…") >= 2
         assert all(e.offset + e.length <= utf16_len(r.text) for e in r.entities)
 
     def test_emoji_text_stays_within_the_utf16_limit(self):
-        text = "👍" * 3000 + "казино"
+        text = "👍" * 3000 + "casino"
         r = render_notification(
             payload(text=text, spans=[(3000, 3006)]), lang="en", tz="UTC", now=NOW
         )
         assert utf16_len(r.text) <= MAX_MESSAGE_UTF16
-        assert bolds(r) == ["казино"]
+        assert bolds(r) == ["casino"]
 
     def test_multiple_match_spans_are_all_bold(self):
-        text = "казино и ещё казино"
+        text = "casino and more casino"
         r = render_notification(
-            payload(text=text, spans=[(0, 6), (13, 19)]), lang="en", tz="UTC", now=NOW
+            payload(text=text, spans=[(0, 6), (16, 22)]), lang="en", tz="UTC", now=NOW
         )
-        assert bolds(r) == ["казино", "казино"]
+        assert bolds(r) == ["casino", "casino"]
 
     def test_empty_text_renders_headers_only(self):
         r = render_notification(payload(text="", spans=[]), lang="en", tz="UTC", now=NOW)
@@ -197,8 +197,8 @@ class TestWeekly:
     @pytest.mark.parametrize("lang", ["ru", "en", "uk"])
     def test_it_fits_in_one_message_with_hostile_names(self, lang):
         """A chat title and a rule are both somebody's free text."""
-        chats = [(-100 - i, "Ч" * 300, 10**i) for i in range(9)]
-        rules = [("re:(" + "|".join(f"слово{j}" for j in range(30)) + ")", 10**i) for i in range(9)]
+        chats = [(-100 - i, "C" * 300, 10**i) for i in range(9)]
+        rules = [("re:(" + "|".join(f"word{j}" for j in range(30)) + ")", 10**i) for i in range(9)]
         r = render_weekly(lang=lang, total=10**9, previous=1, chats=chats, rules=rules)
         assert utf16_len(r.text) <= MAX_MESSAGE_UTF16
         assert all(e.offset + e.length <= utf16_len(r.text) for e in r.entities)
@@ -213,7 +213,7 @@ class TestDigest:
                 chat_id=chat_id,
                 chat_title=f"Chat {i % chats}",
                 msg_id=100 + i,
-                text=f"сообщение {i} про казино",
+                text=f"message {i} about casino",
                 spans=[(16, 22)],
             )
             out.append(DigestEntry(p, (1, chat_id, 100 + i)))
@@ -258,12 +258,12 @@ class TestDigest:
                     DigestEntry(
                         payload(
                             chat_id=chat_id,
-                            chat_title="Ч" * 128,
+                            chat_title="C" * 128,
                             msg_id=100 + i,
-                            rule_pattern="re:(" + "|".join(f"слово{j}" for j in range(30)) + ")",
-                            sender_name="И" * 129,
+                            rule_pattern="re:(" + "|".join(f"word{j}" for j in range(30)) + ")",
+                            sender_name="I" * 129,
                             sender_username="u" * 32,
-                            text="казино " * 40,
+                            text="casino " * 40,
                             spans=[(0, 6)],
                         ),
                         (1, chat_id, 100 + i),

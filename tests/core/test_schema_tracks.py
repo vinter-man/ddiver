@@ -42,7 +42,7 @@ CREATE TABLE fb_items (
 FB_V3 = "CREATE INDEX fb_items_received ON fb_items(received_at);"
 CORE_NEXT = "ALTER TABLE users ADD COLUMN from_the_future INTEGER NOT NULL DEFAULT 0;"
 
-GROUP = ChatRef(1234567890, "Оренда Варна", None, "group")
+GROUP = ChatRef(1234567890, "Varna Rentals", None, "group")
 
 
 async def opened(path: Path, **kw) -> Storage:

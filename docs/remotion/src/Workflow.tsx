@@ -2,6 +2,7 @@ import React from 'react';
 import {AbsoluteFill, interpolate, Sequence, spring, useCurrentFrame, useVideoConfig} from 'remotion';
 import {C} from './theme';
 import {Grain, Hit, Key, MONO, SANS} from './ui';
+import {Code, In, Link} from './telegram';
 
 export const FPS = 25;
 export const W = 1000;
@@ -102,16 +103,16 @@ const Caption: React.FC<{children: React.ReactNode}> = ({children}) => (
 /* ── beat 1: the chat you are only a member of ─────────────────────────── */
 
 const NOISE = [
-  'хто зна де тут нормальна кава ☕️',
-  'продам диван, самовивіз',
+  'anyone know a decent coffee place near the centre ☕️',
+  'selling a sofa, pickup only',
   '+++',
-  'а хто вже платив за комуналку?',
-  'Здається квартира в центрі, 2 кімнати 🏠',
-  'шукаю попутника до Софії в пʼятницю',
-  'доброго ранку всім 🌞',
-  'ⓘ реклама: курси англійської',
-  'хтось загубив ключі біля входу',
-  'дякую!!',
+  'has anybody paid the utilities bill yet?',
+  'Renting out a 2-bedroom apartment in the centre 🏠',
+  'looking for a lift to Sofia on Friday',
+  'morning all 🌞',
+  'ⓘ ad: english classes, first lesson free',
+  'somebody lost their keys by the entrance',
+  'thanks!!',
 ];
 
 const Noise: React.FC = () => {
@@ -175,10 +176,10 @@ const Match: React.FC = () => {
     <>
       <Caption>Your rules read every one of them.</Caption>
       <div style={{display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28}}>
-        <Key on={local > 18}>=квартира</Key>
-        <Key>from:@ostap</Key>
-        <Key>re:оренд\w+</Key>
-        <Key>-реклама</Key>
+        <Key on={local > 18}>=apartment</Key>
+        <Key>from:@alexcarter</Key>
+        <Key>re:\d+\s?(bed|br)\b</Key>
+        <Key>-agency</Key>
       </div>
       <div
         style={{
@@ -192,7 +193,7 @@ const Match: React.FC = () => {
           transform: `scale(${1 + pop * 0.025})`,
         }}
       >
-        Здається {local > 18 ? <Hit>квартира</Hit> : 'квартира'} в центрі, 2 кімнати 🏠
+        Renting out a 2-bedroom {local > 18 ? <Hit>apartment</Hit> : 'apartment'} in the centre 🏠
       </div>
       <div style={{marginTop: 18, fontSize: 19, color: C.grey}}>
         Ninety-eight of them are forgotten. This one is not.
@@ -220,7 +221,7 @@ const Outbox: React.FC = () => (
       }}
     >
       <div>
-        <span style={{color: C.grey}}>outbox</span> ← match(chat=варна, rule==квартира)
+        <span style={{color: C.grey}}>outbox</span> ← match(chat=varna_rentals, rule==apartment)
       </div>
       <div>
         <span style={{color: C.grey}}>status</span> ={' '}
@@ -272,59 +273,32 @@ const Delivered: React.FC = () => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const local = frame;
-  const line = (n: number) =>
-    interpolate(local, [6 + n * 5, 18 + n * 5], [0, 1], {
-      extrapolateLeft: 'clamp',
-      extrapolateRight: 'clamp',
-    });
   const rise = spring({frame: local, fps, config: {damping: 16}});
+  const show = interpolate(local, [8, 24], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
   return (
     <div style={{transform: `translateY(${(1 - rise) * 22}px)`}}>
       <Caption>In your private messages, twelve seconds later.</Caption>
-      <div
-        style={{
-          backgroundColor: C.card,
-          border: `1px solid ${C.goldDim}`,
-          borderRadius: 16,
-          padding: '22px 26px',
-          maxWidth: 760,
-          boxShadow: '0 18px 44px rgba(0,0,0,0.45)',
-        }}
-      >
-        {[
-          ['📡', 'Оренда Варна 🏠'],
-          ['👤', 'Тарас Коваленко · @taras_k'],
-          ['🔗', 'https://t.me/varna_rent/4471'],
-          ['🔑', '=квартира (chat rule)'],
-        ].map(([icon, text], i) => (
-          <div
-            key={text}
-            style={{
-              display: 'flex',
-              gap: 12,
-              fontSize: 19,
-              color: i === 3 ? C.greyBright : C.cream,
-              fontFamily: i >= 2 ? MONO : SANS,
-              opacity: line(i),
-              padding: '4px 0',
-            }}
-          >
-            <span style={{fontFamily: SANS}}>{icon}</span>
-            {text}
-          </div>
-        ))}
-        <div
-          style={{
-            marginTop: 16,
-            paddingTop: 16,
-            borderTop: `1px solid ${C.line}`,
-            fontSize: 22,
-            color: C.cream,
-            opacity: line(4),
-          }}
+      {/* The real client, so the last frame of the gif matches the screenshots below it. */}
+      <div style={{maxWidth: 760, opacity: show}}>
+        <In
+          time="11:03"
+          width="100%"
+          keyboard={[[{label: '🚫 Ignore sender'}, {label: '🗑 Remove this rule'}]]}
         >
-          Здається <Hit>квартира</Hit> в центрі, 2 кімнати 🏠
-        </div>
+          📡 Chat Varna Rentals
+          <br />
+          👤 Sender <Link>Alex Carter</Link> · @alexcarter · 48201
+          <br />
+          🔗 Message <Link>https://t.me/varna_rentals/4471</Link>
+          <br />
+          🔑 Rule <Code>=apartment</Code> (chat rule)
+          <div style={{marginTop: 8}}>
+            Renting out a 2-bedroom <b>apartment</b> in the centre, no agency fee 🏠
+          </div>
+        </In>
       </div>
     </div>
   );

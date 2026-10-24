@@ -11,16 +11,16 @@ from tests.fakes import make_channel, make_event, make_user
 
 
 def test_sender_from_user_entity():
-    info = sender_from_entity(make_user(42, "Тарас", "taras"))
+    info = sender_from_entity(make_user(42, "Alex", "taras"))
     assert (info.id, info.username, info.is_bot, info.is_deleted) == (42, "taras", False, False)
-    assert info.display_name == "Тарас"
+    assert info.display_name == "Alex"
 
 
 def test_sender_display_name_variants():
     assert sender_from_entity(make_user(1, None, "nick")).display_name == "@nick"
     assert sender_from_entity(make_user(1, None, None)).display_name == ""
-    full = tl.User(id=1, first_name="Тарас", last_name="Коваленко")
-    assert sender_from_entity(full).display_name == "Тарас Коваленко"
+    full = tl.User(id=1, first_name="Alex", last_name="Carter")
+    assert sender_from_entity(full).display_name == "Alex Carter"
 
 
 def test_sender_from_channel_entity_is_marked_and_flagged():
@@ -67,7 +67,7 @@ async def test_sender_of_uses_attached_entity_without_resolving():
         calls.append(peer_id)
 
     cache = SenderCache(resolver)
-    event = make_event(sender=make_user(42, "Тарас", "taras"))
+    event = make_event(sender=make_user(42, "Alex", "taras"))
     info = await sender_of(event.message, cache)
     assert info.id == 42 and info.username == "taras"
     assert calls == []
@@ -96,12 +96,12 @@ async def test_sender_of_never_resolves_on_the_hot_path():
 
 async def test_sender_of_uses_a_name_the_cache_already_knows():
     cache = SenderCache(None, clock=FakeClock())
-    cache.put(sender_from_entity(make_user(42, "Тарас", "taras", min_=False)))
+    cache.put(sender_from_entity(make_user(42, "Alex", "taras", min_=False)))
     message = make_event().message
     message._sender = None
     message._entities = {}
     info = await sender_of(message, cache)
-    assert info.display_name == "Тарас"
+    assert info.display_name == "Alex"
 
 
 async def test_resolver_is_rate_limited():

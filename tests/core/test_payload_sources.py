@@ -61,19 +61,19 @@ TELEGRAM_KEYS = {
 def tg_payload(**overrides: object) -> Payload:
     base: dict[str, object] = {
         "chat_id": -1001234567890,
-        "chat_title": "Чат",
+        "chat_title": "Chat",
         "chat_username": None,
         "chat_kind": "supergroup",
         "msg_id": 77,
         "topic_id": None,
         "date": T0,
-        "text": "Заходи в казино",
+        "text": "Come play at the casino",
         "spans": [(9, 15)],
-        "rule_pattern": "казино",
+        "rule_pattern": "casino",
         "rule_kind": "include",
         "rule_is_global": False,
         "sender_id": 42,
-        "sender_name": "Тарас",
+        "sender_name": "Alex",
         "sender_username": "taras",
     }
     return Payload(**{**base, **overrides})
@@ -82,15 +82,15 @@ def tg_payload(**overrides: object) -> Payload:
 def fb_payload(**overrides: object) -> Payload:
     base: dict[str, object] = {
         "chat_id": GROUP,
-        "chat_title": "Оренда Варна",
+        "chat_title": "Varna Rentals",
         "chat_username": None,
         "chat_kind": "group",
         "msg_id": POST,
         "topic_id": None,
         "date": T0,
-        "text": "Здам квартиру біля моря",
-        "spans": [(5, 13)],
-        "rule_pattern": "квартир",
+        "text": "Renting out an apartment by the sea",
+        "spans": [(15, 24)],
+        "rule_pattern": "apartm",
         "rule_kind": "include",
         "rule_is_global": True,
         "sender_id": AUTHOR,
@@ -162,7 +162,7 @@ class TestFacebookNotification:
     def test_every_link_is_the_one_the_payload_carries(self):
         r = render_notification(fb_payload(), lang="uk", tz="Europe/Kyiv", now=NOW)
         links = linked(r)
-        assert links["Оренда Варна"] == GROUP_URL
+        assert links["Varna Rentals"] == GROUP_URL
         assert links["Olena K."] == AUTHOR_URL
         assert links[POST_URL] == POST_URL  # the link line shows the post address itself
         assert no_telegram_links(r)
@@ -177,18 +177,18 @@ class TestFacebookNotification:
         )
         assert urls(r) == []
         assert t("en", "notif.link") not in r.text  # no link line without a link
-        assert "Оренда Варна" in r.text
+        assert "Varna Rentals" in r.text
 
     def test_a_group_link_alone_still_links_the_title(self):
         r = render_notification(fb_payload(url=None, sender_url=None), lang="en", tz="UTC", now=NOW)
-        assert linked(r) == {"Оренда Варна": GROUP_URL}
+        assert linked(r) == {"Varna Rentals": GROUP_URL}
 
     def test_the_post_link_stands_in_for_a_missing_group_and_profile_link(self):
         r = render_notification(
             fb_payload(chat_url=None, sender_url=None), lang="en", tz="UTC", now=NOW
         )
         links = linked(r)
-        assert links["Оренда Варна"] == POST_URL
+        assert links["Varna Rentals"] == POST_URL
         assert links["Olena K."] == POST_URL
 
     def test_a_username_never_becomes_a_telegram_profile_link(self):
@@ -237,7 +237,7 @@ class TestFacebookNotification:
         raw = r.text.encode("utf-16-le")
         assert [
             raw[e.offset * 2 : (e.offset + e.length) * 2].decode("utf-16-le") for e in bold
-        ] == ["квартиру"]
+        ] == ["apartment"]
 
     @pytest.mark.parametrize(
         "bad",
@@ -274,7 +274,7 @@ class TestFacebookNotification:
         "good",
         [
             "https://www.facebook.com/" + "a" * 2023,  # exactly the limit
-            "https://www.facebook.com/people/Олена-К/100000000000001/",
+            "https://www.facebook.com/people/Olena-K/100000000000001/",
             "HTTPS://WWW.FACEBOOK.COM/groups/1/",
             "http://example.org/a?b=c&d=%20e#f",
         ],
@@ -311,14 +311,14 @@ class TestTelegramPayloadWithLinks:
         r = render_notification(
             tg_payload(chat_username="pub", chat_url=own), lang="en", tz="UTC", now=NOW
         )
-        assert linked(r)["Чат"] == own
+        assert linked(r)["Chat"] == own
         assert "https://t.me/pub/77" in urls(r)
 
     def test_a_carried_profile_link_is_used_for_the_name(self):
         r = render_notification(
             tg_payload(sender_url="https://example.org/u/42"), lang="en", tz="UTC", now=NOW
         )
-        assert linked(r)["Тарас"] == "https://example.org/u/42"
+        assert linked(r)["Alex"] == "https://example.org/u/42"
 
 
 def digest_of(*payloads: Payload) -> list[DigestEntry]:
@@ -335,7 +335,7 @@ class TestFacebookDigest:
     def test_a_private_group_is_marked_in_its_heading(self):
         r = render_digest(digest_of(fb_payload(chat_private=True)), lang="en", tz="UTC", now=NOW)
         heading = r.text.split("\n")[2]
-        assert heading == "📡 Оренда Варна 🔒 — 1"
+        assert heading == "📡 Varna Rentals 🔒 — 1"
         public = render_digest(digest_of(fb_payload()), lang="en", tz="UTC", now=NOW)
         assert "🔒" not in public.text
 
@@ -360,14 +360,14 @@ class TestFacebookDigest:
                     DigestEntry(
                         fb_payload(
                             chat_id=gid,
-                            chat_title="Ч" * 128,
+                            chat_title="C" * 128,
                             chat_private=True,
                             chat_url=f"https://www.facebook.com/groups/{gid}/",
                             msg_id=POST + i,
                             url=f"https://www.facebook.com/groups/{gid}/posts/{POST + i}/",
-                            rule_pattern="re:(" + "|".join(f"слово{j}" for j in range(30)) + ")",
-                            sender_name="И" * 129,
-                            text="казино " * 40,
+                            rule_pattern="re:(" + "|".join(f"word{j}" for j in range(30)) + ")",
+                            sender_name="I" * 129,
+                            text="casino " * 40,
                         ),
                         (1, gid, POST + i),
                     )
@@ -385,7 +385,7 @@ class TestFacebookDigest:
             now=NOW,
         )
         assert urls(r) == []
-        assert "Оренда Варна" in r.text
+        assert "Varna Rentals" in r.text
 
 
 ids = st.integers(min_value=-(2**63), max_value=2**63 - 1)

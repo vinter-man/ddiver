@@ -17,8 +17,8 @@ from tests.fakes import make_channel, make_event
 OWNER = 1
 CHAT_ID = -1001234567890
 OTHER_ID = -1005555555555
-CHAT = make_channel(CHAT_ID, "Чат")
-OTHER = make_channel(OTHER_ID, "Другой")
+CHAT = make_channel(CHAT_ID, "Chat")
+OTHER = make_channel(OTHER_ID, "Other")
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ async def store(tmp_path, clock):
     await s.upsert_chat(ChatRef.from_entity(OTHER))
     await s.subscribe(OWNER, CHAT_ID)
     await s.subscribe(OWNER, OTHER_ID)
-    await s.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "казино")
+    await s.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "casino")
     clock.now = T0
     yield s
     await s.close()
@@ -113,7 +113,7 @@ class TestCatchup:
             {
                 CHAT_ID: history_of(
                     CHAT,
-                    [(103, "казино три"), (102, "тишина"), (101, "казино один")],
+                    [(103, "casino three"), (102, "silence"), (101, "casino one")],
                 )
             }
         )
@@ -131,7 +131,7 @@ class TestCatchup:
         await store.upsert_cursors([Cursor(CHAT_ID, 10, T0 - dt.timedelta(days=3))])
         messages = history_of(
             CHAT,
-            [(30, "казино свежее"), (20, "казино старое")],
+            [(30, "casino fresh"), (20, "casino old")],
             step=0,
         )
         messages[1].date = T0 - dt.timedelta(days=2)
@@ -145,7 +145,7 @@ class TestCatchup:
     async def test_cap_is_reported_on_the_first_notification(self, store, listener, clock, sleeps):
         await store.upsert_cursors([Cursor(CHAT_ID, 0, T0)])
         history = FakeHistory(
-            {CHAT_ID: history_of(CHAT, [(i, "казино") for i in range(20, 0, -1)], step=1)}
+            {CHAT_ID: history_of(CHAT, [(i, "casino") for i in range(20, 0, -1)], step=1)}
         )
         catchup = Catchup(store, listener, history, clock=clock, sleep=sleeps, per_chat=5)
         result = await catchup.run({CHAT_ID})
@@ -164,7 +164,7 @@ class TestCatchup:
         point — was told to nobody.
         """
         await store.upsert_cursors([Cursor(CHAT_ID, 0, T0)])
-        texts = [(i, "казино" if i > 18 else "ничего интересного") for i in range(20, 0, -1)]
+        texts = [(i, "casino" if i > 18 else "nothing interesting") for i in range(20, 0, -1)]
         history = FakeHistory({CHAT_ID: history_of(CHAT, texts, step=1)})
         catchup = Catchup(store, listener, history, clock=clock, sleep=sleeps, per_chat=5)
         result = await catchup.run({CHAT_ID})
@@ -173,7 +173,7 @@ class TestCatchup:
         assert listener.delivered[0].payload["catchup_capped"] is True
 
     async def test_chats_without_a_cursor_are_skipped(self, store, listener, clock, sleeps):
-        history = FakeHistory({CHAT_ID: history_of(CHAT, [(1, "казино")])})
+        history = FakeHistory({CHAT_ID: history_of(CHAT, [(1, "casino")])})
         result = await catchup_of(store, listener, history, clock, sleeps).run({CHAT_ID})
         assert history.calls == []
         assert result.chats == 0
@@ -181,7 +181,7 @@ class TestCatchup:
     async def test_unavailable_chats_are_not_probed(self, store, listener, clock, sleeps):
         await store.upsert_cursors([Cursor(CHAT_ID, 1, T0)])
         await store.set_chat_available(CHAT_ID, False)
-        history = FakeHistory({CHAT_ID: history_of(CHAT, [(2, "казино")])})
+        history = FakeHistory({CHAT_ID: history_of(CHAT, [(2, "casino")])})
         result = await catchup_of(store, listener, history, clock, sleeps).run({CHAT_ID})
         assert history.calls == []
         assert result.skipped == 1
@@ -209,7 +209,7 @@ class TestCatchup:
         await store.upsert_cursors(
             [Cursor(CHAT_ID, 1, T0), Cursor(OTHER_ID, 1, T0)],
         )
-        history = FakeHistory({OTHER_ID: history_of(OTHER, [(5, "казино")])})
+        history = FakeHistory({OTHER_ID: history_of(OTHER, [(5, "casino")])})
         history.errors[CHAT_ID] = errors.FloodWaitError(request=None, capture=30)
         catchup = Catchup(store, listener, history, clock=clock, sleep=sleeps)
         result = await catchup.run({CHAT_ID, OTHER_ID})
@@ -220,7 +220,7 @@ class TestCatchup:
 
     async def test_cursor_is_withheld_until_the_chat_finished(self, store, listener, clock):
         await store.upsert_cursors([Cursor(CHAT_ID, 1, T0)])
-        history = FakeHistory({CHAT_ID: history_of(CHAT, [(9, "казино")])})
+        history = FakeHistory({CHAT_ID: history_of(CHAT, [(9, "casino")])})
         seen_blocked = []
 
         async def sleep(_seconds):
@@ -261,7 +261,7 @@ class TestCatchup:
         wait is likeliest, so the error and the loss arrive together rather than by coincidence.
         """
         await store.upsert_cursors([Cursor(CHAT_ID, 100, T0)])
-        history = FakeHistory({CHAT_ID: history_of(CHAT, [(i, "казино") for i in (200, 150)])})
+        history = FakeHistory({CHAT_ID: history_of(CHAT, [(i, "casino") for i in (200, 150)])})
         history.errors[CHAT_ID] = failure
 
         async def live_message_arrives(_seconds):
@@ -277,8 +277,8 @@ class TestCatchup:
         await store.upsert_cursors([Cursor(CHAT_ID, 0, T0), Cursor(OTHER_ID, 0, T0)])
         history = FakeHistory(
             {
-                CHAT_ID: history_of(CHAT, [(i, "казино") for i in range(10, 0, -1)], step=1),
-                OTHER_ID: history_of(OTHER, [(i, "казино") for i in range(10, 0, -1)], step=1),
+                CHAT_ID: history_of(CHAT, [(i, "casino") for i in range(10, 0, -1)], step=1),
+                OTHER_ID: history_of(OTHER, [(i, "casino") for i in range(10, 0, -1)], step=1),
             }
         )
         catchup = Catchup(store, listener, history, clock=clock, sleep=sleeps, total=5)
@@ -288,14 +288,14 @@ class TestCatchup:
 
     async def test_service_and_own_messages_are_filtered(self, store, listener, clock, sleeps):
         await store.upsert_cursors([Cursor(CHAT_ID, 0, T0)])
-        own = make_event("казино", chat=CHAT, msg_id=3, out=True).message
+        own = make_event("casino", chat=CHAT, msg_id=3, out=True).message
         service = tl.MessageService(
             id=2,
             peer_id=tl.PeerChannel(1234567890),
             date=T0,
             action=tl.MessageActionChatJoinedByLink(inviter_id=1),
         )
-        normal = make_event("казино", chat=CHAT, msg_id=1).message
+        normal = make_event("casino", chat=CHAT, msg_id=1).message
         history = FakeHistory({CHAT_ID: [own, service, normal]})
         result = await catchup_of(store, listener, history, clock, sleeps).run({CHAT_ID})
         assert result.claimed == 1
@@ -304,14 +304,14 @@ class TestCatchup:
 
     async def test_disabled_by_configuration(self, store, listener, clock, sleeps):
         await store.upsert_cursors([Cursor(CHAT_ID, 0, T0)])
-        history = FakeHistory({CHAT_ID: history_of(CHAT, [(1, "казино")])})
+        history = FakeHistory({CHAT_ID: history_of(CHAT, [(1, "casino")])})
         catchup = Catchup(store, listener, history, clock=clock, sleep=sleeps, hours=0)
         assert (await catchup.run({CHAT_ID})).chats == 0
         assert history.calls == []
 
     async def test_dedupe_between_catchup_and_live(self, store, listener, clock, sleeps):
         await store.upsert_cursors([Cursor(CHAT_ID, 0, T0)])
-        event = make_event("казино", chat=CHAT, msg_id=7)
+        event = make_event("casino", chat=CHAT, msg_id=7)
         await listener.handle(event.message, chat=event.chat)  # live first
         history = FakeHistory({CHAT_ID: [event.message]})
         result = await catchup_of(store, listener, history, clock, sleeps).run({CHAT_ID})
@@ -327,7 +327,7 @@ class TestRoundSafety:
     async def test_every_chat_in_the_round_holds_its_cursor(self, store, listener, clock):
         """A live message in a chat still queued must not flush a cursor past the gap."""
         await store.upsert_cursors([Cursor(CHAT_ID, 1, T0), Cursor(OTHER_ID, 1, T0)])
-        history = FakeHistory({CHAT_ID: history_of(CHAT, [(5, "казино")])})
+        history = FakeHistory({CHAT_ID: history_of(CHAT, [(5, "casino")])})
         blocked_during_replay: set[int] = set()
 
         original = listener.handle
@@ -352,8 +352,8 @@ class TestRoundSafety:
         await store.upsert_cursors([Cursor(CHAT_ID, 0, T0), Cursor(OTHER_ID, 0, T0)])
         history = FakeHistory(
             {
-                CHAT_ID: history_of(CHAT, [(2, "казино два"), (1, "казино один")], step=1),
-                OTHER_ID: history_of(OTHER, [(3, "казино три")]),
+                CHAT_ID: history_of(CHAT, [(2, "casino two"), (1, "casino one")], step=1),
+                OTHER_ID: history_of(OTHER, [(3, "casino three")]),
             }
         )
         original = listener.handle
@@ -401,7 +401,7 @@ class TestRoundSafety:
 
         await store.upsert_cursors([Cursor(CHAT_ID, 1, T0)])
         await store.set_chat_available(CHAT_ID, False)
-        history = FakeHistory({CHAT_ID: history_of(CHAT, [(9, "казино")])})
+        history = FakeHistory({CHAT_ID: history_of(CHAT, [(9, "casino")])})
         catchup = Catchup(
             store, listener, history, clock=clock, sleep=sleeps, on_recovered=on_recovered
         )
@@ -452,7 +452,7 @@ class TestCursorHonesty:
         history = FakeHistory(
             {
                 CHAT_ID: history_of(
-                    CHAT, [(3, "казино три"), (2, "казино два"), (1, "казино")], step=1
+                    CHAT, [(3, "casino three"), (2, "casino two"), (1, "casino")], step=1
                 )
             }
         )
@@ -473,8 +473,8 @@ class TestCursorHonesty:
         await store.upsert_cursors([Cursor(CHAT_ID, 100, T0), Cursor(OTHER_ID, 100, T0)])
         history = FakeHistory(
             {
-                CHAT_ID: history_of(CHAT, [(i, "казино") for i in range(200, 100, -1)], step=1),
-                OTHER_ID: history_of(OTHER, [(i, "казино") for i in range(200, 100, -1)], step=1),
+                CHAT_ID: history_of(CHAT, [(i, "casino") for i in range(200, 100, -1)], step=1),
+                OTHER_ID: history_of(OTHER, [(i, "casino") for i in range(200, 100, -1)], step=1),
             }
         )
         catchup = Catchup(store, listener, history, clock=clock, sleep=sleeps, total=5)
@@ -504,7 +504,7 @@ class TestCursorHonesty:
         await listener.matcher.reload()
         assert not listener.matcher.is_monitored(CHAT_ID)
 
-        history = FakeHistory({CHAT_ID: history_of(CHAT, [(9, "казино")])})
+        history = FakeHistory({CHAT_ID: history_of(CHAT, [(9, "casino")])})
         catchup = Catchup(
             store, listener, history, clock=clock, sleep=sleeps, on_available=on_available
         )

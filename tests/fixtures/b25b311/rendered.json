@@ -10,65 +10,65 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 37,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityBold",
-     "length": 12,
+     "length": 13,
      "offset": 37
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 58,
-     "offset": 58,
+     "length": 66,
+     "offset": 59,
      "url": "https://t.me/varna_rent/101"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 44,
-     "offset": 121,
+     "length": 48,
+     "offset": 130,
      "url": "https://t.me/varna_rent/108"
     },
     {
      "_": "MessageEntityBold",
      "length": 11,
-     "offset": 169
+     "offset": 182
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 279,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 19,
+     "offset": 279
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 64,
+     "offset": 307,
+     "url": "https://t.me/c/2222222222/202"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 17,
-     "offset": 261,
+     "offset": 375,
      "url": "https://t.me/robota_sofia"
     },
     {
      "_": "MessageEntityBold",
      "length": 17,
-     "offset": 261
+     "offset": 375
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 23,
-     "offset": 287,
+     "length": 22,
+     "offset": 401,
      "url": "https://t.me/robota_sofia/7/303"
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 19,
-     "offset": 314,
-     "url": "https://t.me/c/2222222222/202"
-    },
-    {
-     "_": "MessageEntityBold",
-     "length": 19,
-     "offset": 314
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 71,
-     "offset": 342,
-     "url": "https://t.me/c/2222222222/202"
     }
    ],
    "keys": [
@@ -100,7 +100,7 @@
    ],
    "lang": "en",
    "overflow": 0,
-   "text": "📦 5 matches while you were busy\n\n📡 Оренда Варна — 2\n  • квартира · Тарас · Сдаётся квартира в центре, 2 комнаты 🏠\n  • квартира · Резолвнутый Имя · квартира у моря\n📡 Basic group — 1\n  • квартира · Deleted account · …ное объявление. Ищу квартиру на месяц.\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@ostap · Остап · —\n📡 Закрытый <чат> & co — 1\n  • re:(?i)срочно\\s+продам · Оксана · СРОЧНО продам велосипед <почти новый>",
+   "text": "📦 5 matches while you were busy\n\n📡 Varna Rentals — 2\n  • apartment · Alex · …ing out a 2-bedroom apartment in the centre 🏠\n  • apartment · Resolved Name · apartment by the sea\n📡 Basic group — 1\n  • apartment · Deleted account · …ing. Looking for an apartment for a month.\n📡 Private <chat> & co — 1\n  • re:(?i)urgent\\s+sale · Nina · URGENT selling a bike <almost new>\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@ostap · Mark · —",
    "tz": "UTC",
    "user_id": 111111111
   },
@@ -113,65 +113,65 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 37,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityBold",
-     "length": 12,
+     "length": 13,
      "offset": 37
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 58,
-     "offset": 58,
+     "length": 66,
+     "offset": 59,
      "url": "https://t.me/varna_rent/101"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 44,
-     "offset": 121,
+     "length": 48,
+     "offset": 130,
      "url": "https://t.me/varna_rent/108"
     },
     {
      "_": "MessageEntityBold",
      "length": 11,
-     "offset": 169
+     "offset": 182
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 279,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 19,
+     "offset": 279
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 64,
+     "offset": 307,
+     "url": "https://t.me/c/2222222222/202"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 17,
-     "offset": 261,
+     "offset": 375,
      "url": "https://t.me/robota_sofia"
     },
     {
      "_": "MessageEntityBold",
      "length": 17,
-     "offset": 261
+     "offset": 375
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 23,
-     "offset": 287,
+     "length": 22,
+     "offset": 401,
      "url": "https://t.me/robota_sofia/7/303"
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 19,
-     "offset": 314,
-     "url": "https://t.me/c/2222222222/202"
-    },
-    {
-     "_": "MessageEntityBold",
-     "length": 19,
-     "offset": 314
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 71,
-     "offset": 342,
-     "url": "https://t.me/c/2222222222/202"
     }
    ],
    "keys": [
@@ -203,7 +203,7 @@
    ],
    "lang": "en",
    "overflow": 12,
-   "text": "📦 5 matches while you were busy\n\n📡 Оренда Варна — 2\n  • квартира · Тарас · Сдаётся квартира в центре, 2 комнаты 🏠\n  • квартира · Резолвнутый Имя · квартира у моря\n📡 Basic group — 1\n  • квартира · Deleted account · …ное объявление. Ищу квартиру на месяц.\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@ostap · Остап · —\n📡 Закрытый <чат> & co — 1\n  • re:(?i)срочно\\s+продам · Оксана · СРОЧНО продам велосипед <почти новый>\n\n⚠️ 12 matches were dropped because the queue was full",
+   "text": "📦 5 matches while you were busy\n\n📡 Varna Rentals — 2\n  • apartment · Alex · …ing out a 2-bedroom apartment in the centre 🏠\n  • apartment · Resolved Name · apartment by the sea\n📡 Basic group — 1\n  • apartment · Deleted account · …ing. Looking for an apartment for a month.\n📡 Private <chat> & co — 1\n  • re:(?i)urgent\\s+sale · Nina · URGENT selling a bike <almost new>\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@ostap · Mark · —\n\n⚠️ 12 matches were dropped because the queue was full",
    "tz": "UTC",
    "user_id": 111111111
   },
@@ -216,65 +216,65 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 41,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityBold",
-     "length": 12,
+     "length": 13,
      "offset": 41
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 58,
-     "offset": 62,
+     "length": 66,
+     "offset": 63,
      "url": "https://t.me/varna_rent/101"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 44,
-     "offset": 125,
+     "length": 48,
+     "offset": 134,
      "url": "https://t.me/varna_rent/108"
     },
     {
      "_": "MessageEntityBold",
      "length": 11,
-     "offset": 173
+     "offset": 186
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 285,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 19,
+     "offset": 285
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 64,
+     "offset": 313,
+     "url": "https://t.me/c/2222222222/202"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 17,
-     "offset": 267,
+     "offset": 381,
      "url": "https://t.me/robota_sofia"
     },
     {
      "_": "MessageEntityBold",
      "length": 17,
-     "offset": 267
+     "offset": 381
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 23,
-     "offset": 293,
+     "length": 22,
+     "offset": 407,
      "url": "https://t.me/robota_sofia/7/303"
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 19,
-     "offset": 320,
-     "url": "https://t.me/c/2222222222/202"
-    },
-    {
-     "_": "MessageEntityBold",
-     "length": 19,
-     "offset": 320
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 71,
-     "offset": 348,
-     "url": "https://t.me/c/2222222222/202"
     }
    ],
    "keys": [
@@ -306,7 +306,7 @@
    ],
    "lang": "ru",
    "overflow": 0,
-   "text": "📦 5 совпадений, пока вы были заняты\n\n📡 Оренда Варна — 2\n  • квартира · Тарас · Сдаётся квартира в центре, 2 комнаты 🏠\n  • квартира · Резолвнутый Имя · квартира у моря\n📡 Basic group — 1\n  • квартира · Удалённый аккаунт · …ное объявление. Ищу квартиру на месяц.\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@ostap · Остап · —\n📡 Закрытый <чат> & co — 1\n  • re:(?i)срочно\\s+продам · Оксана · СРОЧНО продам велосипед <почти новый>",
+   "text": "📦 5 совпадений, пока вы были заняты\n\n📡 Varna Rentals — 2\n  • apartment · Alex · …ing out a 2-bedroom apartment in the centre 🏠\n  • apartment · Resolved Name · apartment by the sea\n📡 Basic group — 1\n  • apartment · Удалённый аккаунт · …ing. Looking for an apartment for a month.\n📡 Private <chat> & co — 1\n  • re:(?i)urgent\\s+sale · Nina · URGENT selling a bike <almost new>\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@ostap · Mark · —",
    "tz": "Europe/Kyiv",
    "user_id": 111111111
   },
@@ -319,65 +319,65 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 41,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityBold",
-     "length": 12,
+     "length": 13,
      "offset": 41
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 58,
-     "offset": 62,
+     "length": 66,
+     "offset": 63,
      "url": "https://t.me/varna_rent/101"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 44,
-     "offset": 125,
+     "length": 48,
+     "offset": 134,
      "url": "https://t.me/varna_rent/108"
     },
     {
      "_": "MessageEntityBold",
      "length": 11,
-     "offset": 173
+     "offset": 186
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 285,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 19,
+     "offset": 285
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 64,
+     "offset": 313,
+     "url": "https://t.me/c/2222222222/202"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 17,
-     "offset": 267,
+     "offset": 381,
      "url": "https://t.me/robota_sofia"
     },
     {
      "_": "MessageEntityBold",
      "length": 17,
-     "offset": 267
+     "offset": 381
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 23,
-     "offset": 293,
+     "length": 22,
+     "offset": 407,
      "url": "https://t.me/robota_sofia/7/303"
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 19,
-     "offset": 320,
-     "url": "https://t.me/c/2222222222/202"
-    },
-    {
-     "_": "MessageEntityBold",
-     "length": 19,
-     "offset": 320
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 71,
-     "offset": 348,
-     "url": "https://t.me/c/2222222222/202"
     }
    ],
    "keys": [
@@ -409,7 +409,7 @@
    ],
    "lang": "ru",
    "overflow": 12,
-   "text": "📦 5 совпадений, пока вы были заняты\n\n📡 Оренда Варна — 2\n  • квартира · Тарас · Сдаётся квартира в центре, 2 комнаты 🏠\n  • квартира · Резолвнутый Имя · квартира у моря\n📡 Basic group — 1\n  • квартира · Удалённый аккаунт · …ное объявление. Ищу квартиру на месяц.\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@ostap · Остап · —\n📡 Закрытый <чат> & co — 1\n  • re:(?i)срочно\\s+продам · Оксана · СРОЧНО продам велосипед <почти новый>\n\n⚠️ 12 совпадений отброшено: очередь была переполнена",
+   "text": "📦 5 совпадений, пока вы были заняты\n\n📡 Varna Rentals — 2\n  • apartment · Alex · …ing out a 2-bedroom apartment in the centre 🏠\n  • apartment · Resolved Name · apartment by the sea\n📡 Basic group — 1\n  • apartment · Удалённый аккаунт · …ing. Looking for an apartment for a month.\n📡 Private <chat> & co — 1\n  • re:(?i)urgent\\s+sale · Nina · URGENT selling a bike <almost new>\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@ostap · Mark · —\n\n⚠️ 12 совпадений отброшено: очередь была переполнена",
    "tz": "Europe/Kyiv",
    "user_id": 111111111
   },
@@ -422,65 +422,65 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 38,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityBold",
-     "length": 12,
+     "length": 13,
      "offset": 38
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 58,
-     "offset": 59,
+     "length": 66,
+     "offset": 60,
      "url": "https://t.me/varna_rent/101"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 44,
-     "offset": 122,
+     "length": 48,
+     "offset": 131,
      "url": "https://t.me/varna_rent/108"
     },
     {
      "_": "MessageEntityBold",
      "length": 11,
-     "offset": 170
+     "offset": 183
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 281,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 19,
+     "offset": 281
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 64,
+     "offset": 309,
+     "url": "https://t.me/c/2222222222/202"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 17,
-     "offset": 263,
+     "offset": 377,
      "url": "https://t.me/robota_sofia"
     },
     {
      "_": "MessageEntityBold",
      "length": 17,
-     "offset": 263
+     "offset": 377
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 23,
-     "offset": 289,
+     "length": 22,
+     "offset": 403,
      "url": "https://t.me/robota_sofia/7/303"
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 19,
-     "offset": 316,
-     "url": "https://t.me/c/2222222222/202"
-    },
-    {
-     "_": "MessageEntityBold",
-     "length": 19,
-     "offset": 316
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 71,
-     "offset": 344,
-     "url": "https://t.me/c/2222222222/202"
     }
    ],
    "keys": [
@@ -512,7 +512,7 @@
    ],
    "lang": "uk",
    "overflow": 0,
-   "text": "📦 5 збігів, поки ви були зайняті\n\n📡 Оренда Варна — 2\n  • квартира · Тарас · Сдаётся квартира в центре, 2 комнаты 🏠\n  • квартира · Резолвнутый Имя · квартира у моря\n📡 Basic group — 1\n  • квартира · Видалений акаунт · …ное объявление. Ищу квартиру на месяц.\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@ostap · Остап · —\n📡 Закрытый <чат> & co — 1\n  • re:(?i)срочно\\s+продам · Оксана · СРОЧНО продам велосипед <почти новый>",
+   "text": "📦 5 збігів, поки ви були зайняті\n\n📡 Varna Rentals — 2\n  • apartment · Alex · …ing out a 2-bedroom apartment in the centre 🏠\n  • apartment · Resolved Name · apartment by the sea\n📡 Basic group — 1\n  • apartment · Видалений акаунт · …ing. Looking for an apartment for a month.\n📡 Private <chat> & co — 1\n  • re:(?i)urgent\\s+sale · Nina · URGENT selling a bike <almost new>\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@ostap · Mark · —",
    "tz": "America/New_York",
    "user_id": 111111111
   },
@@ -525,65 +525,65 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 38,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityBold",
-     "length": 12,
+     "length": 13,
      "offset": 38
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 58,
-     "offset": 59,
+     "length": 66,
+     "offset": 60,
      "url": "https://t.me/varna_rent/101"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 44,
-     "offset": 122,
+     "length": 48,
+     "offset": 131,
      "url": "https://t.me/varna_rent/108"
     },
     {
      "_": "MessageEntityBold",
      "length": 11,
-     "offset": 170
+     "offset": 183
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 281,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 19,
+     "offset": 281
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 64,
+     "offset": 309,
+     "url": "https://t.me/c/2222222222/202"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 17,
-     "offset": 263,
+     "offset": 377,
      "url": "https://t.me/robota_sofia"
     },
     {
      "_": "MessageEntityBold",
      "length": 17,
-     "offset": 263
+     "offset": 377
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 23,
-     "offset": 289,
+     "length": 22,
+     "offset": 403,
      "url": "https://t.me/robota_sofia/7/303"
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 19,
-     "offset": 316,
-     "url": "https://t.me/c/2222222222/202"
-    },
-    {
-     "_": "MessageEntityBold",
-     "length": 19,
-     "offset": 316
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 71,
-     "offset": 344,
-     "url": "https://t.me/c/2222222222/202"
     }
    ],
    "keys": [
@@ -615,7 +615,7 @@
    ],
    "lang": "uk",
    "overflow": 12,
-   "text": "📦 5 збігів, поки ви були зайняті\n\n📡 Оренда Варна — 2\n  • квартира · Тарас · Сдаётся квартира в центре, 2 комнаты 🏠\n  • квартира · Резолвнутый Имя · квартира у моря\n📡 Basic group — 1\n  • квартира · Видалений акаунт · …ное объявление. Ищу квартиру на месяц.\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@ostap · Остап · —\n📡 Закрытый <чат> & co — 1\n  • re:(?i)срочно\\s+продам · Оксана · СРОЧНО продам велосипед <почти новый>\n\n⚠️ 12 збігів відкинуто: черга була переповнена",
+   "text": "📦 5 збігів, поки ви були зайняті\n\n📡 Varna Rentals — 2\n  • apartment · Alex · …ing out a 2-bedroom apartment in the centre 🏠\n  • apartment · Resolved Name · apartment by the sea\n📡 Basic group — 1\n  • apartment · Видалений акаунт · …ing. Looking for an apartment for a month.\n📡 Private <chat> & co — 1\n  • re:(?i)urgent\\s+sale · Nina · URGENT selling a bike <almost new>\n📡 Robota Sofia 🇧🇬 — 1\n  • from:@ostap · Mark · —\n\n⚠️ 12 збігів відкинуто: черга була переповнена",
    "tz": "America/New_York",
    "user_id": 111111111
   },
@@ -628,42 +628,42 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 37,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityBold",
-     "length": 12,
+     "length": 13,
      "offset": 37
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 38,
-     "offset": 58,
+     "length": 45,
+     "offset": 59,
      "url": "https://t.me/varna_rent/109"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 36,
-     "offset": 101,
+     "length": 35,
+     "offset": 109,
      "url": "https://t.me/varna_rent/111"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 17,
-     "offset": 141,
+     "offset": 148,
      "url": "https://t.me/robota_sofia"
     },
     {
      "_": "MessageEntityBold",
      "length": 17,
-     "offset": 141
+     "offset": 148
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 52,
-     "offset": 167,
+     "length": 44,
+     "offset": 174,
      "url": "https://t.me/robota_sofia/1/310"
     }
    ],
@@ -686,7 +686,7 @@
    ],
    "lang": "en",
    "overflow": 0,
-   "text": "📦 3 matches while you were busy\n\n📡 Оренда Варна — 2\n  • казино · Тарас · 🎰🎰 Заходи в казино!\n  • казино · Тарас · <b>&amp;</b> казино\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Тарас Коваленко · Тарас Коваленко · Всем привет",
+   "text": "📦 3 matches while you were busy\n\n📡 Varna Rentals — 2\n  • casino · Alex · 🎰🎰 Come play at the casino!\n  • casino · Alex · <b>&amp;</b> casino\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Alex Carter · Alex Carter · Hi everyone",
    "tz": "UTC",
    "user_id": 222222222
   },
@@ -699,42 +699,42 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 37,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityBold",
-     "length": 12,
+     "length": 13,
      "offset": 37
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 38,
-     "offset": 58,
+     "length": 45,
+     "offset": 59,
      "url": "https://t.me/varna_rent/109"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 36,
-     "offset": 101,
+     "length": 35,
+     "offset": 109,
      "url": "https://t.me/varna_rent/111"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 17,
-     "offset": 141,
+     "offset": 148,
      "url": "https://t.me/robota_sofia"
     },
     {
      "_": "MessageEntityBold",
      "length": 17,
-     "offset": 141
+     "offset": 148
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 52,
-     "offset": 167,
+     "length": 44,
+     "offset": 174,
      "url": "https://t.me/robota_sofia/1/310"
     }
    ],
@@ -757,7 +757,7 @@
    ],
    "lang": "en",
    "overflow": 12,
-   "text": "📦 3 matches while you were busy\n\n📡 Оренда Варна — 2\n  • казино · Тарас · 🎰🎰 Заходи в казино!\n  • казино · Тарас · <b>&amp;</b> казино\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Тарас Коваленко · Тарас Коваленко · Всем привет\n\n⚠️ 12 matches were dropped because the queue was full",
+   "text": "📦 3 matches while you were busy\n\n📡 Varna Rentals — 2\n  • casino · Alex · 🎰🎰 Come play at the casino!\n  • casino · Alex · <b>&amp;</b> casino\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Alex Carter · Alex Carter · Hi everyone\n\n⚠️ 12 matches were dropped because the queue was full",
    "tz": "UTC",
    "user_id": 222222222
   },
@@ -770,42 +770,42 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 41,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityBold",
-     "length": 12,
+     "length": 13,
      "offset": 41
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 38,
-     "offset": 62,
+     "length": 45,
+     "offset": 63,
      "url": "https://t.me/varna_rent/109"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 36,
-     "offset": 105,
+     "length": 35,
+     "offset": 113,
      "url": "https://t.me/varna_rent/111"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 17,
-     "offset": 145,
+     "offset": 152,
      "url": "https://t.me/robota_sofia"
     },
     {
      "_": "MessageEntityBold",
      "length": 17,
-     "offset": 145
+     "offset": 152
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 52,
-     "offset": 171,
+     "length": 44,
+     "offset": 178,
      "url": "https://t.me/robota_sofia/1/310"
     }
    ],
@@ -828,7 +828,7 @@
    ],
    "lang": "ru",
    "overflow": 0,
-   "text": "📦 3 совпадений, пока вы были заняты\n\n📡 Оренда Варна — 2\n  • казино · Тарас · 🎰🎰 Заходи в казино!\n  • казино · Тарас · <b>&amp;</b> казино\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Тарас Коваленко · Тарас Коваленко · Всем привет",
+   "text": "📦 3 совпадений, пока вы были заняты\n\n📡 Varna Rentals — 2\n  • casino · Alex · 🎰🎰 Come play at the casino!\n  • casino · Alex · <b>&amp;</b> casino\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Alex Carter · Alex Carter · Hi everyone",
    "tz": "Europe/Kyiv",
    "user_id": 222222222
   },
@@ -841,42 +841,42 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 41,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityBold",
-     "length": 12,
+     "length": 13,
      "offset": 41
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 38,
-     "offset": 62,
+     "length": 45,
+     "offset": 63,
      "url": "https://t.me/varna_rent/109"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 36,
-     "offset": 105,
+     "length": 35,
+     "offset": 113,
      "url": "https://t.me/varna_rent/111"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 17,
-     "offset": 145,
+     "offset": 152,
      "url": "https://t.me/robota_sofia"
     },
     {
      "_": "MessageEntityBold",
      "length": 17,
-     "offset": 145
+     "offset": 152
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 52,
-     "offset": 171,
+     "length": 44,
+     "offset": 178,
      "url": "https://t.me/robota_sofia/1/310"
     }
    ],
@@ -899,7 +899,7 @@
    ],
    "lang": "ru",
    "overflow": 12,
-   "text": "📦 3 совпадений, пока вы были заняты\n\n📡 Оренда Варна — 2\n  • казино · Тарас · 🎰🎰 Заходи в казино!\n  • казино · Тарас · <b>&amp;</b> казино\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Тарас Коваленко · Тарас Коваленко · Всем привет\n\n⚠️ 12 совпадений отброшено: очередь была переполнена",
+   "text": "📦 3 совпадений, пока вы были заняты\n\n📡 Varna Rentals — 2\n  • casino · Alex · 🎰🎰 Come play at the casino!\n  • casino · Alex · <b>&amp;</b> casino\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Alex Carter · Alex Carter · Hi everyone\n\n⚠️ 12 совпадений отброшено: очередь была переполнена",
    "tz": "Europe/Kyiv",
    "user_id": 222222222
   },
@@ -912,42 +912,42 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 38,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityBold",
-     "length": 12,
+     "length": 13,
      "offset": 38
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 38,
-     "offset": 59,
+     "length": 45,
+     "offset": 60,
      "url": "https://t.me/varna_rent/109"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 36,
-     "offset": 102,
+     "length": 35,
+     "offset": 110,
      "url": "https://t.me/varna_rent/111"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 17,
-     "offset": 142,
+     "offset": 149,
      "url": "https://t.me/robota_sofia"
     },
     {
      "_": "MessageEntityBold",
      "length": 17,
-     "offset": 142
+     "offset": 149
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 52,
-     "offset": 168,
+     "length": 44,
+     "offset": 175,
      "url": "https://t.me/robota_sofia/1/310"
     }
    ],
@@ -970,7 +970,7 @@
    ],
    "lang": "uk",
    "overflow": 0,
-   "text": "📦 3 збігів, поки ви були зайняті\n\n📡 Оренда Варна — 2\n  • казино · Тарас · 🎰🎰 Заходи в казино!\n  • казино · Тарас · <b>&amp;</b> казино\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Тарас Коваленко · Тарас Коваленко · Всем привет",
+   "text": "📦 3 збігів, поки ви були зайняті\n\n📡 Varna Rentals — 2\n  • casino · Alex · 🎰🎰 Come play at the casino!\n  • casino · Alex · <b>&amp;</b> casino\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Alex Carter · Alex Carter · Hi everyone",
    "tz": "America/New_York",
    "user_id": 222222222
   },
@@ -983,42 +983,42 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 38,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityBold",
-     "length": 12,
+     "length": 13,
      "offset": 38
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 38,
-     "offset": 59,
+     "length": 45,
+     "offset": 60,
      "url": "https://t.me/varna_rent/109"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 36,
-     "offset": 102,
+     "length": 35,
+     "offset": 110,
      "url": "https://t.me/varna_rent/111"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 17,
-     "offset": 142,
+     "offset": 149,
      "url": "https://t.me/robota_sofia"
     },
     {
      "_": "MessageEntityBold",
      "length": 17,
-     "offset": 142
+     "offset": 149
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 52,
-     "offset": 168,
+     "length": 44,
+     "offset": 175,
      "url": "https://t.me/robota_sofia/1/310"
     }
    ],
@@ -1041,7 +1041,7 @@
    ],
    "lang": "uk",
    "overflow": 12,
-   "text": "📦 3 збігів, поки ви були зайняті\n\n📡 Оренда Варна — 2\n  • казино · Тарас · 🎰🎰 Заходи в казино!\n  • казино · Тарас · <b>&amp;</b> казино\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Тарас Коваленко · Тарас Коваленко · Всем привет\n\n⚠️ 12 збігів відкинуто: черга була переповнена",
+   "text": "📦 3 збігів, поки ви були зайняті\n\n📡 Varna Rentals — 2\n  • casino · Alex · 🎰🎰 Come play at the casino!\n  • casino · Alex · <b>&amp;</b> casino\n📡 Robota Sofia 🇧🇬 — 1\n  • from:Alex Carter · Alex Carter · Hi everyone\n\n⚠️ 12 збігів відкинуто: черга була переповнена",
    "tz": "America/New_York",
    "user_id": 222222222
   }
@@ -1063,14 +1063,14 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 8,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
-     "offset": 31,
+     "length": 4,
+     "offset": 32,
      "url": "https://t.me/varna_rent/101"
     },
     {
@@ -1092,13 +1092,13 @@
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
+     "length": 9,
      "offset": 154
     },
     {
      "_": "MessageEntityBold",
-     "length": 8,
-     "offset": 193
+     "length": 9,
+     "offset": 210
     }
    ],
    "key": [
@@ -1107,7 +1107,7 @@
     101
    ],
    "lang": "en",
-   "text": "📡 Chat Оренда Варна\n👤 Sender Тарас · @taras_kovalenko · 42\n🔗 Message https://t.me/varna_rent/101\n🕒 2026-09-20 09:41:00 +00:00 (UTC) · 1 h ago\n🔑 Rule квартира (rule for all chats)\n\nСдаётся квартира в центре, 2 комнаты 🏠",
+   "text": "📡 Chat Varna Rentals\n👤 Sender Alex · @taras_kovalenko · 42\n🔗 Message https://t.me/varna_rent/101\n🕒 2026-09-20 09:41:00 +00:00 (UTC) · 1 h ago\n🔑 Rule apartment (rule for all chats)\n\nRenting out a 2-bedroom apartment in the centre 🏠",
    "tz": "UTC"
   },
   {
@@ -1126,14 +1126,14 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 7,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
-     "offset": 35,
+     "length": 4,
+     "offset": 36,
      "url": "https://t.me/varna_rent/101"
     },
     {
@@ -1155,13 +1155,13 @@
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
+     "length": 9,
      "offset": 173
     },
     {
      "_": "MessageEntityBold",
-     "length": 8,
-     "offset": 216
+     "length": 9,
+     "offset": 233
     }
    ],
    "key": [
@@ -1170,7 +1170,7 @@
     101
    ],
    "lang": "ru",
-   "text": "📡 Чат Оренда Варна\n👤 Отправитель Тарас · @taras_kovalenko · 42\n🔗 Сообщение https://t.me/varna_rent/101\n🕒 2026-09-20 12:41:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило квартира (правило для всех чатов)\n\nСдаётся квартира в центре, 2 комнаты 🏠",
+   "text": "📡 Чат Varna Rentals\n👤 Отправитель Alex · @taras_kovalenko · 42\n🔗 Сообщение https://t.me/varna_rent/101\n🕒 2026-09-20 12:41:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило apartment (правило для всех чатов)\n\nRenting out a 2-bedroom apartment in the centre 🏠",
    "tz": "Europe/Kyiv"
   },
   {
@@ -1189,14 +1189,14 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 7,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
-     "offset": 34,
+     "length": 4,
+     "offset": 35,
      "url": "https://t.me/varna_rent/101"
     },
     {
@@ -1218,13 +1218,13 @@
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
+     "length": 9,
      "offset": 181
     },
     {
      "_": "MessageEntityBold",
-     "length": 8,
-     "offset": 224
+     "length": 9,
+     "offset": 241
     }
    ],
    "key": [
@@ -1233,7 +1233,7 @@
     101
    ],
    "lang": "uk",
-   "text": "📡 Чат Оренда Варна\n👤 Відправник Тарас · @taras_kovalenko · 42\n🔗 Повідомлення https://t.me/varna_rent/101\n🕒 2026-09-20 05:41:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило квартира (правило для всіх чатів)\n\nСдаётся квартира в центре, 2 комнаты 🏠",
+   "text": "📡 Чат Varna Rentals\n👤 Відправник Alex · @taras_kovalenko · 42\n🔗 Повідомлення https://t.me/varna_rent/101\n🕒 2026-09-20 05:41:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило apartment (правило для всіх чатів)\n\nRenting out a 2-bedroom apartment in the centre 🏠",
    "tz": "America/New_York"
   },
   {
@@ -1258,30 +1258,30 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 6,
+     "length": 4,
      "offset": 38,
      "url": "https://t.me/c/2222222222/202"
     },
     {
      "_": "MessageEntityCode",
      "length": 2,
-     "offset": 47
+     "offset": 45
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 29,
-     "offset": 76,
+     "offset": 74,
      "url": "https://t.me/c/2222222222/202"
     },
     {
      "_": "MessageEntityCode",
-     "length": 22,
-     "offset": 160
+     "length": 20,
+     "offset": 158
     },
     {
      "_": "MessageEntityBold",
-     "length": 13,
-     "offset": 196
+     "length": 14,
+     "offset": 192
     }
    ],
    "key": [
@@ -1290,7 +1290,7 @@
     202
    ],
    "lang": "en",
-   "text": "📡 Chat Закрытый <чат> & co\n👤 Sender Оксана · 43 · ↪️ forwarded\n🔗 Message https://t.me/c/2222222222/202\n🕒 2026-09-20 09:22:00 +00:00 (UTC) · 1 h ago\n🔑 Rule re:(?i)срочно\\s+продам (chat rule)\n\nСРОЧНО продам велосипед <почти новый>",
+   "text": "📡 Chat Private <chat> & co\n👤 Sender Nina · 43 · ↪️ forwarded\n🔗 Message https://t.me/c/2222222222/202\n🕒 2026-09-20 09:22:00 +00:00 (UTC) · 1 h ago\n🔑 Rule re:(?i)urgent\\s+sale (chat rule)\n\nURGENT selling a bike <almost new>",
    "tz": "UTC"
   },
   {
@@ -1315,14 +1315,71 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 6,
+     "length": 4,
      "offset": 42,
      "url": "https://t.me/c/2222222222/202"
     },
     {
      "_": "MessageEntityCode",
      "length": 2,
-     "offset": 51
+     "offset": 49
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 29,
+     "offset": 80,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 20,
+     "offset": 177
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 14,
+     "offset": 214
+    }
+   ],
+   "key": [
+    111111111,
+    -1002222222222,
+    202
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Private <chat> & co\n👤 Отправитель Nina · 43 · ↪️ переслано\n🔗 Сообщение https://t.me/c/2222222222/202\n🕒 2026-09-20 12:22:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило re:(?i)urgent\\s+sale (правило чата)\n\nURGENT selling a bike <almost new>",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1002222222222:43"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:2"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 19,
+     "offset": 7,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 41,
+     "url": "https://t.me/c/2222222222/202"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 48
     },
     {
      "_": "MessageEntityTextUrl",
@@ -1332,70 +1389,13 @@
     },
     {
      "_": "MessageEntityCode",
-     "length": 22,
-     "offset": 179
+     "length": 20,
+     "offset": 185
     },
     {
      "_": "MessageEntityBold",
-     "length": 13,
-     "offset": 218
-    }
-   ],
-   "key": [
-    111111111,
-    -1002222222222,
-    202
-   ],
-   "lang": "ru",
-   "text": "📡 Чат Закрытый <чат> & co\n👤 Отправитель Оксана · 43 · ↪️ переслано\n🔗 Сообщение https://t.me/c/2222222222/202\n🕒 2026-09-20 12:22:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило re:(?i)срочно\\s+продам (правило чата)\n\nСРОЧНО продам велосипед <почти новый>",
-   "tz": "Europe/Kyiv"
-  },
-  {
-   "buttons": [
-    [
-     [
-      "notif.btn.ignore",
-      "ig:-1002222222222:43"
-     ],
-     [
-      "notif.btn.drop_rule",
-      "rdrop:2"
-     ]
-    ]
-   ],
-   "entities": [
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 19,
-     "offset": 7,
-     "url": "https://t.me/c/2222222222/202"
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 6,
-     "offset": 41,
-     "url": "https://t.me/c/2222222222/202"
-    },
-    {
-     "_": "MessageEntityCode",
-     "length": 2,
-     "offset": 50
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 29,
-     "offset": 84,
-     "url": "https://t.me/c/2222222222/202"
-    },
-    {
-     "_": "MessageEntityCode",
-     "length": 22,
-     "offset": 187
-    },
-    {
-     "_": "MessageEntityBold",
-     "length": 13,
-     "offset": 226
+     "length": 14,
+     "offset": 222
     }
    ],
    "key": [
@@ -1404,7 +1404,7 @@
     202
    ],
    "lang": "uk",
-   "text": "📡 Чат Закрытый <чат> & co\n👤 Відправник Оксана · 43 · ↪️ переслано\n🔗 Повідомлення https://t.me/c/2222222222/202\n🕒 2026-09-20 05:22:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило re:(?i)срочно\\s+продам (правило чату)\n\nСРОЧНО продам велосипед <почти новый>",
+   "text": "📡 Чат Private <chat> & co\n👤 Відправник Nina · 43 · ↪️ переслано\n🔗 Повідомлення https://t.me/c/2222222222/202\n🕒 2026-09-20 05:22:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило re:(?i)urgent\\s+sale (правило чату)\n\nURGENT selling a bike <almost new>",
    "tz": "America/New_York"
   },
   {
@@ -1429,31 +1429,31 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
+     "length": 4,
      "offset": 36,
      "url": "https://t.me/robota_sofia/7/303"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 6,
-     "offset": 44,
+     "offset": 43,
      "url": "https://t.me/ostap"
     },
     {
      "_": "MessageEntityCode",
      "length": 2,
-     "offset": 53
+     "offset": 52
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 31,
-     "offset": 67,
+     "offset": 66,
      "url": "https://t.me/robota_sofia/7/303"
     },
     {
      "_": "MessageEntityCode",
      "length": 11,
-     "offset": 153
+     "offset": 152
     }
    ],
    "key": [
@@ -1462,7 +1462,7 @@
     303
    ],
    "lang": "en",
-   "text": "📡 Chat Robota Sofia 🇧🇬\n👤 Sender Остап · @ostap · 44\n🔗 Message https://t.me/robota_sofia/7/303\n🕒 2026-09-20 09:03:00 +00:00 (UTC) · 2 h ago\n🔑 Rule from:@ostap (chat rule)",
+   "text": "📡 Chat Robota Sofia 🇧🇬\n👤 Sender Mark · @ostap · 44\n🔗 Message https://t.me/robota_sofia/7/303\n🕒 2026-09-20 09:03:00 +00:00 (UTC) · 2 h ago\n🔑 Rule from:@ostap (chat rule)",
    "tz": "UTC"
   },
   {
@@ -1487,66 +1487,8 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
+     "length": 4,
      "offset": 40,
-     "url": "https://t.me/robota_sofia/7/303"
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 6,
-     "offset": 48,
-     "url": "https://t.me/ostap"
-    },
-    {
-     "_": "MessageEntityCode",
-     "length": 2,
-     "offset": 57
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 31,
-     "offset": 73,
-     "url": "https://t.me/robota_sofia/7/303"
-    },
-    {
-     "_": "MessageEntityCode",
-     "length": 11,
-     "offset": 172
-    }
-   ],
-   "key": [
-    111111111,
-    -1003333333333,
-    303
-   ],
-   "lang": "ru",
-   "text": "📡 Чат Robota Sofia 🇧🇬\n👤 Отправитель Остап · @ostap · 44\n🔗 Сообщение https://t.me/robota_sofia/7/303\n🕒 2026-09-20 12:03:00 +03:00 (Europe/Kyiv) · 2 ч назад\n🔑 Правило from:@ostap (правило чата)",
-   "tz": "Europe/Kyiv"
-  },
-  {
-   "buttons": [
-    [
-     [
-      "notif.btn.ignore",
-      "ig:-1003333333333:44"
-     ],
-     [
-      "notif.btn.drop_rule",
-      "rdrop:3"
-     ]
-    ]
-   ],
-   "entities": [
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 17,
-     "offset": 7,
-     "url": "https://t.me/robota_sofia"
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 5,
-     "offset": 39,
      "url": "https://t.me/robota_sofia/7/303"
     },
     {
@@ -1563,13 +1505,71 @@
     {
      "_": "MessageEntityTextUrl",
      "length": 31,
-     "offset": 75,
+     "offset": 72,
      "url": "https://t.me/robota_sofia/7/303"
     },
     {
      "_": "MessageEntityCode",
      "length": 11,
-     "offset": 180
+     "offset": 171
+    }
+   ],
+   "key": [
+    111111111,
+    -1003333333333,
+    303
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Robota Sofia 🇧🇬\n👤 Отправитель Mark · @ostap · 44\n🔗 Сообщение https://t.me/robota_sofia/7/303\n🕒 2026-09-20 12:03:00 +03:00 (Europe/Kyiv) · 2 ч назад\n🔑 Правило from:@ostap (правило чата)",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1003333333333:44"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:3"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 17,
+     "offset": 7,
+     "url": "https://t.me/robota_sofia"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 4,
+     "offset": 39,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 6,
+     "offset": 46,
+     "url": "https://t.me/ostap"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 2,
+     "offset": 55
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 31,
+     "offset": 74,
+     "url": "https://t.me/robota_sofia/7/303"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 11,
+     "offset": 179
     }
    ],
    "key": [
@@ -1578,7 +1578,7 @@
     303
    ],
    "lang": "uk",
-   "text": "📡 Чат Robota Sofia 🇧🇬\n👤 Відправник Остап · @ostap · 44\n🔗 Повідомлення https://t.me/robota_sofia/7/303\n🕒 2026-09-20 05:03:00 -04:00 (America/New_York) · 2 год тому\n🔑 Правило from:@ostap (правило чату)",
+   "text": "📡 Чат Robota Sofia 🇧🇬\n👤 Відправник Mark · @ostap · 44\n🔗 Повідомлення https://t.me/robota_sofia/7/303\n🕒 2026-09-20 05:03:00 -04:00 (America/New_York) · 2 год тому\n🔑 Правило from:@ostap (правило чату)",
    "tz": "America/New_York"
   },
   {
@@ -1602,13 +1602,13 @@
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
+     "length": 9,
      "offset": 130
     },
     {
      "_": "MessageEntityBold",
-     "length": 7,
-     "offset": 1046
+     "length": 6,
+     "offset": 1098
     }
    ],
    "key": [
@@ -1617,7 +1617,7 @@
     404
    ],
    "lang": "en",
-   "text": "📡 Chat Basic group\n👤 Sender Deleted account · 45\n🕒 2026-09-20 09:44:00 +00:00 (UTC) · 1 h ago · ⏪ missed while offline\n🔑 Rule квартира (rule for all chats)\n⚠️ Older messages in this chat were not checked — the catch-up limit was reached\n\nДлинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Ищу квартиру на месяц.",
+   "text": "📡 Chat Basic group\n👤 Sender Deleted account · 45\n🕒 2026-09-20 09:44:00 +00:00 (UTC) · 1 h ago · ⏪ missed while offline\n🔑 Rule apartment (rule for all chats)\n⚠️ Older messages in this chat were not checked — the catch-up limit was reached\n\nA very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. Looking for an apartment for a month.",
    "tz": "UTC"
   },
   {
@@ -1641,13 +1641,13 @@
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
+     "length": 9,
      "offset": 159
     },
     {
      "_": "MessageEntityBold",
-     "length": 7,
-     "offset": 1073
+     "length": 6,
+     "offset": 1125
     }
    ],
    "key": [
@@ -1656,7 +1656,7 @@
     404
    ],
    "lang": "ru",
-   "text": "📡 Чат Basic group\n👤 Отправитель Удалённый аккаунт · 45\n🕒 2026-09-20 12:44:00 +03:00 (Europe/Kyiv) · 1 ч назад · ⏪ пропущено, пока бот был офлайн\n🔑 Правило квартира (правило для всех чатов)\n⚠️ Более старые сообщения в этом чате не проверены — сработал лимит догона\n\nДлинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Ищу квартиру на месяц.",
+   "text": "📡 Чат Basic group\n👤 Отправитель Удалённый аккаунт · 45\n🕒 2026-09-20 12:44:00 +03:00 (Europe/Kyiv) · 1 ч назад · ⏪ пропущено, пока бот был офлайн\n🔑 Правило apartment (правило для всех чатов)\n⚠️ Более старые сообщения в этом чате не проверены — сработал лимит догона\n\nA very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. Looking for an apartment for a month.",
    "tz": "Europe/Kyiv"
   },
   {
@@ -1680,13 +1680,13 @@
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
+     "length": 9,
      "offset": 163
     },
     {
      "_": "MessageEntityBold",
-     "length": 7,
-     "offset": 1084
+     "length": 6,
+     "offset": 1136
     }
    ],
    "key": [
@@ -1695,7 +1695,7 @@
     404
    ],
    "lang": "uk",
-   "text": "📡 Чат Basic group\n👤 Відправник Видалений акаунт · 45\n🕒 2026-09-20 05:44:00 -04:00 (America/New_York) · 1 год тому · ⏪ пропущено, поки бот був офлайн\n🔑 Правило квартира (правило для всіх чатів)\n⚠️ Старіші повідомлення в цьому чаті не перевірені — спрацював ліміт наздоганяння\n\nДлинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Длинное объявление. Ищу квартиру на месяц.",
+   "text": "📡 Чат Basic group\n👤 Відправник Видалений акаунт · 45\n🕒 2026-09-20 05:44:00 -04:00 (America/New_York) · 1 год тому · ⏪ пропущено, поки бот був офлайн\n🔑 Правило apartment (правило для всіх чатів)\n⚠️ Старіші повідомлення в цьому чаті не перевірені — спрацював ліміт наздоганяння\n\nA very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. A very long listing. Looking for an apartment for a month.",
    "tz": "America/New_York"
   },
   {
@@ -1714,41 +1714,41 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 8,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 15,
-     "offset": 31,
+     "length": 13,
+     "offset": 32,
      "url": "https://t.me/varna_rent/108"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 16,
-     "offset": 49,
+     "offset": 48,
      "url": "https://t.me/taras_kovalenko"
     },
     {
      "_": "MessageEntityCode",
      "length": 2,
-     "offset": 68
+     "offset": 67
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 27,
-     "offset": 82,
+     "offset": 81,
      "url": "https://t.me/varna_rent/108"
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
-     "offset": 164
+     "length": 9,
+     "offset": 163
     },
     {
      "_": "MessageEntityBold",
-     "length": 8,
+     "length": 9,
      "offset": 195
     }
    ],
@@ -1758,7 +1758,7 @@
     108
    ],
    "lang": "en",
-   "text": "📡 Chat Оренда Варна\n👤 Sender Резолвнутый Имя · @taras_kovalenko · 42\n🔗 Message https://t.me/varna_rent/108\n🕒 2026-09-20 09:48:00 +00:00 (UTC) · 1 h ago\n🔑 Rule квартира (rule for all chats)\n\nквартира у моря",
+   "text": "📡 Chat Varna Rentals\n👤 Sender Resolved Name · @taras_kovalenko · 42\n🔗 Message https://t.me/varna_rent/108\n🕒 2026-09-20 09:48:00 +00:00 (UTC) · 1 h ago\n🔑 Rule apartment (rule for all chats)\n\napartment by the sea",
    "tz": "UTC"
   },
   {
@@ -1777,41 +1777,41 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 7,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 15,
-     "offset": 35,
+     "length": 13,
+     "offset": 36,
      "url": "https://t.me/varna_rent/108"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 16,
-     "offset": 53,
+     "offset": 52,
      "url": "https://t.me/taras_kovalenko"
     },
     {
      "_": "MessageEntityCode",
      "length": 2,
-     "offset": 72
+     "offset": 71
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 27,
-     "offset": 88,
+     "offset": 87,
      "url": "https://t.me/varna_rent/108"
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
-     "offset": 183
+     "length": 9,
+     "offset": 182
     },
     {
      "_": "MessageEntityBold",
-     "length": 8,
+     "length": 9,
      "offset": 218
     }
    ],
@@ -1821,7 +1821,7 @@
     108
    ],
    "lang": "ru",
-   "text": "📡 Чат Оренда Варна\n👤 Отправитель Резолвнутый Имя · @taras_kovalenko · 42\n🔗 Сообщение https://t.me/varna_rent/108\n🕒 2026-09-20 12:48:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило квартира (правило для всех чатов)\n\nквартира у моря",
+   "text": "📡 Чат Varna Rentals\n👤 Отправитель Resolved Name · @taras_kovalenko · 42\n🔗 Сообщение https://t.me/varna_rent/108\n🕒 2026-09-20 12:48:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило apartment (правило для всех чатов)\n\napartment by the sea",
    "tz": "Europe/Kyiv"
   },
   {
@@ -1840,41 +1840,41 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 7,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 15,
-     "offset": 34,
+     "length": 13,
+     "offset": 35,
      "url": "https://t.me/varna_rent/108"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 16,
-     "offset": 52,
+     "offset": 51,
      "url": "https://t.me/taras_kovalenko"
     },
     {
      "_": "MessageEntityCode",
      "length": 2,
-     "offset": 71
+     "offset": 70
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 27,
-     "offset": 90,
+     "offset": 89,
      "url": "https://t.me/varna_rent/108"
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
-     "offset": 191
+     "length": 9,
+     "offset": 190
     },
     {
      "_": "MessageEntityBold",
-     "length": 8,
+     "length": 9,
      "offset": 226
     }
    ],
@@ -1884,7 +1884,7 @@
     108
    ],
    "lang": "uk",
-   "text": "📡 Чат Оренда Варна\n👤 Відправник Резолвнутый Имя · @taras_kovalenko · 42\n🔗 Повідомлення https://t.me/varna_rent/108\n🕒 2026-09-20 05:48:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило квартира (правило для всіх чатів)\n\nквартира у моря",
+   "text": "📡 Чат Varna Rentals\n👤 Відправник Resolved Name · @taras_kovalenko · 42\n🔗 Повідомлення https://t.me/varna_rent/108\n🕒 2026-09-20 05:48:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило apartment (правило для всіх чатів)\n\napartment by the sea",
    "tz": "America/New_York"
   },
   {
@@ -1903,14 +1903,14 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 8,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
-     "offset": 31,
+     "length": 4,
+     "offset": 32,
      "url": "https://t.me/varna_rent/109"
     },
     {
@@ -1938,7 +1938,7 @@
     {
      "_": "MessageEntityBold",
      "length": 6,
-     "offset": 188
+     "offset": 196
     }
    ],
    "key": [
@@ -1947,7 +1947,7 @@
     109
    ],
    "lang": "en",
-   "text": "📡 Chat Оренда Варна\n👤 Sender Тарас · @taras_kovalenko · 42\n🔗 Message https://t.me/varna_rent/109\n🕒 2026-09-20 09:49:00 +00:00 (UTC) · 1 h ago\n🔑 Rule казино (chat rule)\n\n🎰🎰 Заходи в казино!",
+   "text": "📡 Chat Varna Rentals\n👤 Sender Alex · @taras_kovalenko · 42\n🔗 Message https://t.me/varna_rent/109\n🕒 2026-09-20 09:49:00 +00:00 (UTC) · 1 h ago\n🔑 Rule casino (chat rule)\n\n🎰🎰 Come play at the casino!",
    "tz": "UTC"
   },
   {
@@ -1966,14 +1966,14 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 7,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
-     "offset": 35,
+     "length": 4,
+     "offset": 36,
      "url": "https://t.me/varna_rent/109"
     },
     {
@@ -2001,7 +2001,7 @@
     {
      "_": "MessageEntityBold",
      "length": 6,
-     "offset": 210
+     "offset": 218
     }
    ],
    "key": [
@@ -2010,7 +2010,7 @@
     109
    ],
    "lang": "ru",
-   "text": "📡 Чат Оренда Варна\n👤 Отправитель Тарас · @taras_kovalenko · 42\n🔗 Сообщение https://t.me/varna_rent/109\n🕒 2026-09-20 12:49:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило казино (правило чата)\n\n🎰🎰 Заходи в казино!",
+   "text": "📡 Чат Varna Rentals\n👤 Отправитель Alex · @taras_kovalenko · 42\n🔗 Сообщение https://t.me/varna_rent/109\n🕒 2026-09-20 12:49:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило casino (правило чата)\n\n🎰🎰 Come play at the casino!",
    "tz": "Europe/Kyiv"
   },
   {
@@ -2029,14 +2029,14 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 7,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
-     "offset": 34,
+     "length": 4,
+     "offset": 35,
      "url": "https://t.me/varna_rent/109"
     },
     {
@@ -2064,7 +2064,7 @@
     {
      "_": "MessageEntityBold",
      "length": 6,
-     "offset": 218
+     "offset": 226
     }
    ],
    "key": [
@@ -2073,7 +2073,7 @@
     109
    ],
    "lang": "uk",
-   "text": "📡 Чат Оренда Варна\n👤 Відправник Тарас · @taras_kovalenko · 42\n🔗 Повідомлення https://t.me/varna_rent/109\n🕒 2026-09-20 05:49:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило казино (правило чату)\n\n🎰🎰 Заходи в казино!",
+   "text": "📡 Чат Varna Rentals\n👤 Відправник Alex · @taras_kovalenko · 42\n🔗 Повідомлення https://t.me/varna_rent/109\n🕒 2026-09-20 05:49:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило casino (правило чату)\n\n🎰🎰 Come play at the casino!",
    "tz": "America/New_York"
   },
   {
@@ -2098,25 +2098,25 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 15,
+     "length": 11,
      "offset": 36,
      "url": "https://t.me/robota_sofia/1/310"
     },
     {
      "_": "MessageEntityCode",
      "length": 2,
-     "offset": 54
+     "offset": 50
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 31,
-     "offset": 68,
+     "offset": 64,
      "url": "https://t.me/robota_sofia/1/310"
     },
     {
      "_": "MessageEntityCode",
-     "length": 20,
-     "offset": 154
+     "length": 16,
+     "offset": 150
     }
    ],
    "key": [
@@ -2125,7 +2125,7 @@
     310
    ],
    "lang": "en",
-   "text": "📡 Chat Robota Sofia 🇧🇬\n👤 Sender Тарас Коваленко · 46\n🔗 Message https://t.me/robota_sofia/1/310\n🕒 2026-09-20 09:10:00 +00:00 (UTC) · 1 h ago\n🔑 Rule from:Тарас Коваленко (rule for all chats)\n\nВсем привет",
+   "text": "📡 Chat Robota Sofia 🇧🇬\n👤 Sender Alex Carter · 46\n🔗 Message https://t.me/robota_sofia/1/310\n🕒 2026-09-20 09:10:00 +00:00 (UTC) · 1 h ago\n🔑 Rule from:Alex Carter (rule for all chats)\n\nHi everyone",
    "tz": "UTC"
   },
   {
@@ -2150,25 +2150,25 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 15,
+     "length": 11,
      "offset": 40,
      "url": "https://t.me/robota_sofia/1/310"
     },
     {
      "_": "MessageEntityCode",
      "length": 2,
-     "offset": 58
+     "offset": 54
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 31,
-     "offset": 74,
+     "offset": 70,
      "url": "https://t.me/robota_sofia/1/310"
     },
     {
      "_": "MessageEntityCode",
-     "length": 20,
-     "offset": 173
+     "length": 16,
+     "offset": 169
     }
    ],
    "key": [
@@ -2177,7 +2177,7 @@
     310
    ],
    "lang": "ru",
-   "text": "📡 Чат Robota Sofia 🇧🇬\n👤 Отправитель Тарас Коваленко · 46\n🔗 Сообщение https://t.me/robota_sofia/1/310\n🕒 2026-09-20 12:10:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило from:Тарас Коваленко (правило для всех чатов)\n\nВсем привет",
+   "text": "📡 Чат Robota Sofia 🇧🇬\n👤 Отправитель Alex Carter · 46\n🔗 Сообщение https://t.me/robota_sofia/1/310\n🕒 2026-09-20 12:10:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило from:Alex Carter (правило для всех чатов)\n\nHi everyone",
    "tz": "Europe/Kyiv"
   },
   {
@@ -2202,25 +2202,25 @@
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 15,
+     "length": 11,
      "offset": 39,
      "url": "https://t.me/robota_sofia/1/310"
     },
     {
      "_": "MessageEntityCode",
      "length": 2,
-     "offset": 57
+     "offset": 53
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 31,
-     "offset": 76,
+     "offset": 72,
      "url": "https://t.me/robota_sofia/1/310"
     },
     {
      "_": "MessageEntityCode",
-     "length": 20,
-     "offset": 181
+     "length": 16,
+     "offset": 177
     }
    ],
    "key": [
@@ -2229,7 +2229,7 @@
     310
    ],
    "lang": "uk",
-   "text": "📡 Чат Robota Sofia 🇧🇬\n👤 Відправник Тарас Коваленко · 46\n🔗 Повідомлення https://t.me/robota_sofia/1/310\n🕒 2026-09-20 05:10:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило from:Тарас Коваленко (правило для всіх чатів)\n\nВсем привет",
+   "text": "📡 Чат Robota Sofia 🇧🇬\n👤 Відправник Alex Carter · 46\n🔗 Повідомлення https://t.me/robota_sofia/1/310\n🕒 2026-09-20 05:10:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило from:Alex Carter (правило для всіх чатів)\n\nHi everyone",
    "tz": "America/New_York"
   },
   {
@@ -2248,14 +2248,14 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 8,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
-     "offset": 31,
+     "length": 4,
+     "offset": 32,
      "url": "https://t.me/varna_rent/111"
     },
     {
@@ -2292,7 +2292,7 @@
     111
    ],
    "lang": "en",
-   "text": "📡 Chat Оренда Варна\n👤 Sender Тарас · @taras_kovalenko · 42\n🔗 Message https://t.me/varna_rent/111\n🕒 2026-09-20 09:51:00 +00:00 (UTC) · 1 h ago\n🔑 Rule казино (chat rule)\n\n<b>&amp;</b> казино",
+   "text": "📡 Chat Varna Rentals\n👤 Sender Alex · @taras_kovalenko · 42\n🔗 Message https://t.me/varna_rent/111\n🕒 2026-09-20 09:51:00 +00:00 (UTC) · 1 h ago\n🔑 Rule casino (chat rule)\n\n<b>&amp;</b> casino",
    "tz": "UTC"
   },
   {
@@ -2311,14 +2311,14 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 7,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
-     "offset": 35,
+     "length": 4,
+     "offset": 36,
      "url": "https://t.me/varna_rent/111"
     },
     {
@@ -2355,7 +2355,7 @@
     111
    ],
    "lang": "ru",
-   "text": "📡 Чат Оренда Варна\n👤 Отправитель Тарас · @taras_kovalenko · 42\n🔗 Сообщение https://t.me/varna_rent/111\n🕒 2026-09-20 12:51:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило казино (правило чата)\n\n<b>&amp;</b> казино",
+   "text": "📡 Чат Varna Rentals\n👤 Отправитель Alex · @taras_kovalenko · 42\n🔗 Сообщение https://t.me/varna_rent/111\n🕒 2026-09-20 12:51:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило casino (правило чата)\n\n<b>&amp;</b> casino",
    "tz": "Europe/Kyiv"
   },
   {
@@ -2374,14 +2374,14 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 7,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
-     "offset": 34,
+     "length": 4,
+     "offset": 35,
      "url": "https://t.me/varna_rent/111"
     },
     {
@@ -2418,7 +2418,7 @@
     111
    ],
    "lang": "uk",
-   "text": "📡 Чат Оренда Варна\n👤 Відправник Тарас · @taras_kovalenko · 42\n🔗 Повідомлення https://t.me/varna_rent/111\n🕒 2026-09-20 05:51:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило казино (правило чату)\n\n<b>&amp;</b> казино",
+   "text": "📡 Чат Varna Rentals\n👤 Відправник Alex · @taras_kovalenko · 42\n🔗 Повідомлення https://t.me/varna_rent/111\n🕒 2026-09-20 05:51:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило casino (правило чату)\n\n<b>&amp;</b> casino",
    "tz": "America/New_York"
   },
   {
@@ -2437,14 +2437,14 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 8,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
-     "offset": 31,
+     "length": 4,
+     "offset": 32,
      "url": "https://t.me/varna_rent/112"
     },
     {
@@ -2466,13 +2466,13 @@
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
+     "length": 9,
      "offset": 154
     },
     {
      "_": "MessageEntityBold",
-     "length": 8,
-     "offset": 176
+     "length": 9,
+     "offset": 177
     }
    ],
    "key": [
@@ -2481,7 +2481,7 @@
     112
    ],
    "lang": "en",
-   "text": "📡 Chat Оренда Варна\n👤 Sender Тарас · @taras_kovalenko · 42\n🔗 Message https://t.me/varna_rent/112\n🕒 2026-09-20 09:52:00 +00:00 (UTC) · 1 h ago\n🔑 Rule квартира (chat rule)\n\nквартира",
+   "text": "📡 Chat Varna Rentals\n👤 Sender Alex · @taras_kovalenko · 42\n🔗 Message https://t.me/varna_rent/112\n🕒 2026-09-20 09:52:00 +00:00 (UTC) · 1 h ago\n🔑 Rule apartment (chat rule)\n\napartment",
    "tz": "UTC"
   },
   {
@@ -2500,14 +2500,14 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 7,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
-     "offset": 35,
+     "length": 4,
+     "offset": 36,
      "url": "https://t.me/varna_rent/112"
     },
     {
@@ -2529,13 +2529,13 @@
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
+     "length": 9,
      "offset": 173
     },
     {
      "_": "MessageEntityBold",
-     "length": 8,
-     "offset": 198
+     "length": 9,
+     "offset": 199
     }
    ],
    "key": [
@@ -2544,7 +2544,7 @@
     112
    ],
    "lang": "ru",
-   "text": "📡 Чат Оренда Варна\n👤 Отправитель Тарас · @taras_kovalenko · 42\n🔗 Сообщение https://t.me/varna_rent/112\n🕒 2026-09-20 12:52:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило квартира (правило чата)\n\nквартира",
+   "text": "📡 Чат Varna Rentals\n👤 Отправитель Alex · @taras_kovalenko · 42\n🔗 Сообщение https://t.me/varna_rent/112\n🕒 2026-09-20 12:52:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило apartment (правило чата)\n\napartment",
    "tz": "Europe/Kyiv"
   },
   {
@@ -2563,14 +2563,14 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 7,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 5,
-     "offset": 34,
+     "length": 4,
+     "offset": 35,
      "url": "https://t.me/varna_rent/112"
     },
     {
@@ -2592,13 +2592,13 @@
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
+     "length": 9,
      "offset": 181
     },
     {
      "_": "MessageEntityBold",
-     "length": 8,
-     "offset": 206
+     "length": 9,
+     "offset": 207
     }
    ],
    "key": [
@@ -2607,7 +2607,7 @@
     112
    ],
    "lang": "uk",
-   "text": "📡 Чат Оренда Варна\n👤 Відправник Тарас · @taras_kovalenko · 42\n🔗 Повідомлення https://t.me/varna_rent/112\n🕒 2026-09-20 05:52:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило квартира (правило чату)\n\nквартира",
+   "text": "📡 Чат Varna Rentals\n👤 Відправник Alex · @taras_kovalenko · 42\n🔗 Повідомлення https://t.me/varna_rent/112\n🕒 2026-09-20 05:52:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило apartment (правило чату)\n\napartment",
    "tz": "America/New_York"
   },
   {
@@ -2626,42 +2626,42 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 7,
+     "length": 4,
      "offset": 8,
      "url": "https://t.me/novosti_bg"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 7,
-     "offset": 26,
+     "length": 4,
+     "offset": 23,
      "url": "https://t.me/novosti_bg/505"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 11,
-     "offset": 36,
-     "url": "https://t.me/novosti_bg"
+     "length": 8,
+     "offset": 30,
+     "url": "https://t.me/bg_news"
     },
     {
      "_": "MessageEntityCode",
      "length": 14,
-     "offset": 50
+     "offset": 41
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 27,
-     "offset": 76,
+     "offset": 67,
      "url": "https://t.me/novosti_bg/505"
     },
     {
      "_": "MessageEntityCode",
      "length": 4,
-     "offset": 158
+     "offset": 149
     },
     {
      "_": "MessageEntityBold",
      "length": 4,
-     "offset": 176
+     "offset": 175
     }
    ],
    "key": [
@@ -2670,7 +2670,7 @@
     505
    ],
    "lang": "en",
-   "text": "📡 Chat Новости\n👤 Sender Новости · @novosti_bg · -1005555555555\n🔗 Message https://t.me/novosti_bg/505\n🕒 2026-09-20 09:25:00 +00:00 (UTC) · 1 h ago\n🔑 Rule курс (chat rule)\n\nКурс лева не изменился",
+   "text": "📡 Chat News\n👤 Sender News · @bg_news · -1005555555555\n🔗 Message https://t.me/novosti_bg/505\n🕒 2026-09-20 09:25:00 +00:00 (UTC) · 1 h ago\n🔑 Rule rate (chat rule)\n\nThe lev rate has not moved",
    "tz": "UTC"
   },
   {
@@ -2689,42 +2689,42 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 7,
+     "length": 4,
      "offset": 7,
      "url": "https://t.me/novosti_bg"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 7,
-     "offset": 30,
+     "length": 4,
+     "offset": 27,
      "url": "https://t.me/novosti_bg/505"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 11,
-     "offset": 40,
-     "url": "https://t.me/novosti_bg"
+     "length": 8,
+     "offset": 34,
+     "url": "https://t.me/bg_news"
     },
     {
      "_": "MessageEntityCode",
      "length": 14,
-     "offset": 54
+     "offset": 45
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 27,
-     "offset": 82,
+     "offset": 73,
      "url": "https://t.me/novosti_bg/505"
     },
     {
      "_": "MessageEntityCode",
      "length": 4,
-     "offset": 177
+     "offset": 168
     },
     {
      "_": "MessageEntityBold",
      "length": 4,
-     "offset": 198
+     "offset": 197
     }
    ],
    "key": [
@@ -2733,7 +2733,7 @@
     505
    ],
    "lang": "ru",
-   "text": "📡 Чат Новости\n👤 Отправитель Новости · @novosti_bg · -1005555555555\n🔗 Сообщение https://t.me/novosti_bg/505\n🕒 2026-09-20 12:25:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило курс (правило чата)\n\nКурс лева не изменился",
+   "text": "📡 Чат News\n👤 Отправитель News · @bg_news · -1005555555555\n🔗 Сообщение https://t.me/novosti_bg/505\n🕒 2026-09-20 12:25:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило rate (правило чата)\n\nThe lev rate has not moved",
    "tz": "Europe/Kyiv"
   },
   {
@@ -2752,42 +2752,42 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 7,
+     "length": 4,
      "offset": 7,
      "url": "https://t.me/novosti_bg"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 7,
-     "offset": 29,
+     "length": 4,
+     "offset": 26,
      "url": "https://t.me/novosti_bg/505"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 11,
-     "offset": 39,
-     "url": "https://t.me/novosti_bg"
+     "length": 8,
+     "offset": 33,
+     "url": "https://t.me/bg_news"
     },
     {
      "_": "MessageEntityCode",
      "length": 14,
-     "offset": 53
+     "offset": 44
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 27,
-     "offset": 84,
+     "offset": 75,
      "url": "https://t.me/novosti_bg/505"
     },
     {
      "_": "MessageEntityCode",
      "length": 4,
-     "offset": 185
+     "offset": 176
     },
     {
      "_": "MessageEntityBold",
      "length": 4,
-     "offset": 206
+     "offset": 205
     }
    ],
    "key": [
@@ -2796,7 +2796,7 @@
     505
    ],
    "lang": "uk",
-   "text": "📡 Чат Новости\n👤 Відправник Новости · @novosti_bg · -1005555555555\n🔗 Повідомлення https://t.me/novosti_bg/505\n🕒 2026-09-20 05:25:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило курс (правило чату)\n\nКурс лева не изменился",
+   "text": "📡 Чат News\n👤 Відправник News · @bg_news · -1005555555555\n🔗 Повідомлення https://t.me/novosti_bg/505\n🕒 2026-09-20 05:25:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило rate (правило чату)\n\nThe lev rate has not moved",
    "tz": "America/New_York"
   },
   {
@@ -2815,42 +2815,42 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 8,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
-     "offset": 31,
+     "length": 13,
+     "offset": 32,
      "url": "https://t.me/varna_rent/106"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 11,
-     "offset": 46,
+     "offset": 48,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityCode",
      "length": 14,
-     "offset": 60
+     "offset": 62
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 27,
-     "offset": 86,
+     "offset": 88,
      "url": "https://t.me/varna_rent/106"
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
-     "offset": 168
+     "length": 9,
+     "offset": 170
     },
     {
      "_": "MessageEntityBold",
-     "length": 8,
-     "offset": 214
+     "length": 9,
+     "offset": 218
     }
    ],
    "key": [
@@ -2859,7 +2859,7 @@
     106
    ],
    "lang": "en",
-   "text": "📡 Chat Оренда Варна\n👤 Sender Оренда Варна · @varna_rent · -1001111111111\n🔗 Message https://t.me/varna_rent/106\n🕒 2026-09-20 09:46:00 +00:00 (UTC) · 1 h ago\n🔑 Rule квартира (rule for all chats)\n\nАдминистрация: квартира сдана",
+   "text": "📡 Chat Varna Rentals\n👤 Sender Varna Rentals · @varna_rent · -1001111111111\n🔗 Message https://t.me/varna_rent/106\n🕒 2026-09-20 09:46:00 +00:00 (UTC) · 1 h ago\n🔑 Rule apartment (rule for all chats)\n\nManagement: the apartment is taken",
    "tz": "UTC"
   },
   {
@@ -2878,89 +2878,26 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 7,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
-     "offset": 35,
+     "length": 13,
+     "offset": 36,
      "url": "https://t.me/varna_rent/106"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 11,
-     "offset": 50,
+     "offset": 52,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityCode",
      "length": 14,
-     "offset": 64
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 27,
-     "offset": 92,
-     "url": "https://t.me/varna_rent/106"
-    },
-    {
-     "_": "MessageEntityCode",
-     "length": 8,
-     "offset": 187
-    },
-    {
-     "_": "MessageEntityBold",
-     "length": 8,
-     "offset": 237
-    }
-   ],
-   "key": [
-    111111111,
-    -1001111111111,
-    106
-   ],
-   "lang": "ru",
-   "text": "📡 Чат Оренда Варна\n👤 Отправитель Оренда Варна · @varna_rent · -1001111111111\n🔗 Сообщение https://t.me/varna_rent/106\n🕒 2026-09-20 12:46:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило квартира (правило для всех чатов)\n\nАдминистрация: квартира сдана",
-   "tz": "Europe/Kyiv"
-  },
-  {
-   "buttons": [
-    [
-     [
-      "notif.btn.ignore",
-      "ig:-1001111111111:-1001111111111"
-     ],
-     [
-      "notif.btn.drop_rule",
-      "rdrop:1"
-     ]
-    ]
-   ],
-   "entities": [
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 12,
-     "offset": 7,
-     "url": "https://t.me/varna_rent"
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 12,
-     "offset": 34,
-     "url": "https://t.me/varna_rent/106"
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 11,
-     "offset": 49,
-     "url": "https://t.me/varna_rent"
-    },
-    {
-     "_": "MessageEntityCode",
-     "length": 14,
-     "offset": 63
+     "offset": 66
     },
     {
      "_": "MessageEntityTextUrl",
@@ -2970,13 +2907,76 @@
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
-     "offset": 195
+     "length": 9,
+     "offset": 189
     },
     {
      "_": "MessageEntityBold",
-     "length": 8,
-     "offset": 245
+     "length": 9,
+     "offset": 241
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    106
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Varna Rentals\n👤 Отправитель Varna Rentals · @varna_rent · -1001111111111\n🔗 Сообщение https://t.me/varna_rent/106\n🕒 2026-09-20 12:46:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило apartment (правило для всех чатов)\n\nManagement: the apartment is taken",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.ignore",
+      "ig:-1001111111111:-1001111111111"
+     ],
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 13,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 13,
+     "offset": 35,
+     "url": "https://t.me/varna_rent/106"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 11,
+     "offset": 51,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 14,
+     "offset": 65
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 96,
+     "url": "https://t.me/varna_rent/106"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 9,
+     "offset": 197
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 9,
+     "offset": 249
     }
    ],
    "key": [
@@ -2985,7 +2985,7 @@
     106
    ],
    "lang": "uk",
-   "text": "📡 Чат Оренда Варна\n👤 Відправник Оренда Варна · @varna_rent · -1001111111111\n🔗 Повідомлення https://t.me/varna_rent/106\n🕒 2026-09-20 05:46:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило квартира (правило для всіх чатів)\n\nАдминистрация: квартира сдана",
+   "text": "📡 Чат Varna Rentals\n👤 Відправник Varna Rentals · @varna_rent · -1001111111111\n🔗 Повідомлення https://t.me/varna_rent/106\n🕒 2026-09-20 05:46:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило apartment (правило для всіх чатів)\n\nManagement: the apartment is taken",
    "tz": "America/New_York"
   },
   {
@@ -3000,31 +3000,31 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 8,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 14,
-     "offset": 31,
+     "offset": 32,
      "url": "https://t.me/varna_rent/107"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 27,
-     "offset": 57,
+     "offset": 58,
      "url": "https://t.me/varna_rent/107"
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
-     "offset": 139
+     "length": 9,
+     "offset": 140
     },
     {
      "_": "MessageEntityBold",
-     "length": 8,
-     "offset": 170
+     "length": 9,
+     "offset": 172
     }
    ],
    "key": [
@@ -3033,7 +3033,7 @@
     107
    ],
    "lang": "en",
-   "text": "📡 Chat Оренда Варна\n👤 Sender Unknown sender\n🔗 Message https://t.me/varna_rent/107\n🕒 2026-09-20 09:47:00 +00:00 (UTC) · 1 h ago\n🔑 Rule квартира (rule for all chats)\n\nквартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира кварт…\n… [+2200 more characters]",
+   "text": "📡 Chat Varna Rentals\n👤 Sender Unknown sender\n🔗 Message https://t.me/varna_rent/107\n🕒 2026-09-20 09:47:00 +00:00 (UTC) · 1 h ago\n🔑 Rule apartment (rule for all chats)\n\napartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment …\n… [+2800 more characters]",
    "tz": "UTC"
   },
   {
@@ -3048,13 +3048,61 @@
    "entities": [
     {
      "_": "MessageEntityTextUrl",
-     "length": 12,
+     "length": 13,
      "offset": 7,
      "url": "https://t.me/varna_rent"
     },
     {
      "_": "MessageEntityTextUrl",
      "length": 23,
+     "offset": 36,
+     "url": "https://t.me/varna_rent/107"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 27,
+     "offset": 73,
+     "url": "https://t.me/varna_rent/107"
+    },
+    {
+     "_": "MessageEntityCode",
+     "length": 9,
+     "offset": 168
+    },
+    {
+     "_": "MessageEntityBold",
+     "length": 9,
+     "offset": 204
+    }
+   ],
+   "key": [
+    111111111,
+    -1001111111111,
+    107
+   ],
+   "lang": "ru",
+   "text": "📡 Чат Varna Rentals\n👤 Отправитель Неизвестный отправитель\n🔗 Сообщение https://t.me/varna_rent/107\n🕒 2026-09-20 12:47:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило apartment (правило для всех чатов)\n\napartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment …\n… [+2800 символов]",
+   "tz": "Europe/Kyiv"
+  },
+  {
+   "buttons": [
+    [
+     [
+      "notif.btn.drop_rule",
+      "rdrop:1"
+     ]
+    ]
+   ],
+   "entities": [
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 13,
+     "offset": 7,
+     "url": "https://t.me/varna_rent"
+    },
+    {
+     "_": "MessageEntityTextUrl",
+     "length": 20,
      "offset": 35,
      "url": "https://t.me/varna_rent/107"
     },
@@ -3066,61 +3114,13 @@
     },
     {
      "_": "MessageEntityCode",
-     "length": 8,
-     "offset": 167
+     "length": 9,
+     "offset": 173
     },
     {
      "_": "MessageEntityBold",
-     "length": 8,
-     "offset": 202
-    }
-   ],
-   "key": [
-    111111111,
-    -1001111111111,
-    107
-   ],
-   "lang": "ru",
-   "text": "📡 Чат Оренда Варна\n👤 Отправитель Неизвестный отправитель\n🔗 Сообщение https://t.me/varna_rent/107\n🕒 2026-09-20 12:47:00 +03:00 (Europe/Kyiv) · 1 ч назад\n🔑 Правило квартира (правило для всех чатов)\n\nквартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира кварт…\n… [+2200 символов]",
-   "tz": "Europe/Kyiv"
-  },
-  {
-   "buttons": [
-    [
-     [
-      "notif.btn.drop_rule",
-      "rdrop:1"
-     ]
-    ]
-   ],
-   "entities": [
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 12,
-     "offset": 7,
-     "url": "https://t.me/varna_rent"
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 20,
-     "offset": 34,
-     "url": "https://t.me/varna_rent/107"
-    },
-    {
-     "_": "MessageEntityTextUrl",
-     "length": 27,
-     "offset": 71,
-     "url": "https://t.me/varna_rent/107"
-    },
-    {
-     "_": "MessageEntityCode",
-     "length": 8,
-     "offset": 172
-    },
-    {
-     "_": "MessageEntityBold",
-     "length": 8,
-     "offset": 207
+     "length": 9,
+     "offset": 209
     }
    ],
    "key": [
@@ -3129,7 +3129,7 @@
     107
    ],
    "lang": "uk",
-   "text": "📡 Чат Оренда Варна\n👤 Відправник Невідомий відправник\n🔗 Повідомлення https://t.me/varna_rent/107\n🕒 2026-09-20 05:47:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило квартира (правило для всіх чатів)\n\nквартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира квартира кварт…\n… [+2200 символів]",
+   "text": "📡 Чат Varna Rentals\n👤 Відправник Невідомий відправник\n🔗 Повідомлення https://t.me/varna_rent/107\n🕒 2026-09-20 05:47:00 -04:00 (America/New_York) · 1 год тому\n🔑 Правило apartment (правило для всіх чатів)\n\napartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment apartment …\n… [+2800 символів]",
    "tz": "America/New_York"
   }
  ],

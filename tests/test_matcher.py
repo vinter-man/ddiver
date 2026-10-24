@@ -41,21 +41,21 @@ async def matcher(store):
 async def test_monitored_set_and_fast_path(store, matcher):
     assert matcher.monitored == {CHAT_A.id, CHAT_B.id}
     assert matcher.is_monitored(CHAT_A.id) and not matcher.is_monitored(-5)
-    assert await matcher.evaluate(-5, "казино", 10) == []
+    assert await matcher.evaluate(-5, "casino", 10) == []
     assert await matcher.evaluate(CHAT_A.id, "", 10) == []
     assert matcher.stats_evaluated == 0
 
 
 async def test_one_match_per_user_chat_specific_before_global(store, matcher):
-    g = await store.add_rule(1, ALL_CHATS, RuleKind.INCLUDE, "казино")
-    c = await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "=казино")
-    await store.add_rule(2, CHAT_A.id, RuleKind.INCLUDE, "re:каз\\w+")
+    g = await store.add_rule(1, ALL_CHATS, RuleKind.INCLUDE, "casino")
+    c = await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "=casino")
+    await store.add_rule(2, CHAT_A.id, RuleKind.INCLUDE, "re:cas\\w+")
     await matcher.invalidate()
-    matches = await matcher.evaluate(CHAT_A.id, "Заходи в КАЗИНО", 10)
+    matches = await matcher.evaluate(CHAT_A.id, "Come play at the CASINO", 10)
     assert {(m.user_id, m.rule.id) for m in matches} == {(1, c.id), (2, matches[1].rule.id)}
-    assert "Заходи в КАЗИНО"[matches[0].span.start : matches[0].span.end] == "КАЗИНО"
+    assert "Come play at the CASINO"[matches[0].span.start : matches[0].span.end] == "CASINO"
     # in chat B only user 1 is subscribed and only the global rule applies
-    matches_b = await matcher.evaluate(CHAT_B.id, "казино!", 10)
+    matches_b = await matcher.evaluate(CHAT_B.id, "casino!", 10)
     assert [(m.user_id, m.rule.id) for m in matches_b] == [(1, g.id)]
     assert matcher.stats_matched == 2
 
@@ -73,7 +73,7 @@ class TestSenderRules:
     async def test_an_empty_message_is_still_free_when_nobody_watches_a_sender(
         self, store, matcher
     ):
-        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "казино")
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "casino")
         await matcher.invalidate()
         assert await matcher.evaluate(CHAT_A.id, "", 10, username="ostap") == []
         assert matcher.stats_evaluated == 0
@@ -81,25 +81,25 @@ class TestSenderRules:
     async def test_a_keyword_hit_is_reported_in_preference_to_the_sender(self, store, matcher):
         """Both are true; the keyword says *why* and highlights the words."""
         await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "from:@ostap")
-        word = await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "казино")
+        word = await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "casino")
         await matcher.invalidate()
-        matches = await matcher.evaluate(CHAT_A.id, "тут казино", 10, username="ostap")
+        matches = await matcher.evaluate(CHAT_A.id, "casino here", 10, username="ostap")
         assert [m.rule.id for m in matches] == [word.id]
         assert matches[0].spans
 
     async def test_a_sender_exclusion_silences_a_keyword(self, store, matcher):
-        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "казино")
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "casino")
         await store.add_rule(1, ALL_CHATS, RuleKind.EXCLUDE, "from:@ostap")
         await matcher.invalidate()
-        assert await matcher.evaluate(CHAT_A.id, "казино", 10, username="ostap") == []
-        assert len(await matcher.evaluate(CHAT_A.id, "казино", 10, username="petya")) == 1
+        assert await matcher.evaluate(CHAT_A.id, "casino", 10, username="ostap") == []
+        assert len(await matcher.evaluate(CHAT_A.id, "casino", 10, username="petya")) == 1
 
     async def test_the_ignore_list_still_wins(self, store, matcher):
         """Ignoring somebody must beat a rule that says to watch them, or unignoring is a lie."""
         await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "from:@ostap")
         await store.add_ignored(1, CHAT_A.id, 77)
         await matcher.invalidate()
-        assert await matcher.evaluate(CHAT_A.id, "что угодно", 77, username="ostap") == []
+        assert await matcher.evaluate(CHAT_A.id, "anything", 77, username="ostap") == []
 
     async def test_it_watches_by_id_when_the_name_and_username_are_gone(self, store, matcher):
         """A deleted account has neither, and it is still the same person's messages."""
@@ -110,30 +110,30 @@ class TestSenderRules:
 
     async def test_other_users_rules_are_unaffected(self, store, matcher):
         await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "from:@ostap")
-        await store.add_rule(2, CHAT_A.id, RuleKind.INCLUDE, "казино")
+        await store.add_rule(2, CHAT_A.id, RuleKind.INCLUDE, "casino")
         await matcher.invalidate()
-        matches = await matcher.evaluate(CHAT_A.id, "казино", 10, username="ostap")
+        matches = await matcher.evaluate(CHAT_A.id, "casino", 10, username="ostap")
         assert {m.user_id for m in matches} == {1, 2}
 
 
 async def test_exclusion_beats_inclusion(store, matcher):
-    await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "казино")
-    await store.add_rule(1, ALL_CHATS, RuleKind.EXCLUDE, "re:тест")
+    await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "casino")
+    await store.add_rule(1, ALL_CHATS, RuleKind.EXCLUDE, "re:probe")
     await matcher.invalidate()
-    assert await matcher.evaluate(CHAT_A.id, "казино тест", 10) == []
-    assert len(await matcher.evaluate(CHAT_A.id, "казино", 10)) == 1
+    assert await matcher.evaluate(CHAT_A.id, "casino probe", 10) == []
+    assert len(await matcher.evaluate(CHAT_A.id, "casino", 10)) == 1
 
 
 async def test_ignored_sender_per_chat_and_global(store, matcher):
-    await store.add_rule(1, ALL_CHATS, RuleKind.INCLUDE, "спам")
+    await store.add_rule(1, ALL_CHATS, RuleKind.INCLUDE, "spam")
     await store.add_ignored(1, CHAT_A.id, 500)
     await store.add_ignored(1, ALL_CHATS, 600)
     await matcher.invalidate()
-    assert await matcher.evaluate(CHAT_A.id, "спам", 500) == []
-    assert await matcher.evaluate(CHAT_B.id, "спам", 500) != []  # chat-scoped ignore
-    assert await matcher.evaluate(CHAT_A.id, "спам", 600) == []
-    assert await matcher.evaluate(CHAT_B.id, "спам", 600) == []
-    assert await matcher.evaluate(CHAT_A.id, "спам", None) != []  # unknown sender is not ignored
+    assert await matcher.evaluate(CHAT_A.id, "spam", 500) == []
+    assert await matcher.evaluate(CHAT_B.id, "spam", 500) != []  # chat-scoped ignore
+    assert await matcher.evaluate(CHAT_A.id, "spam", 600) == []
+    assert await matcher.evaluate(CHAT_B.id, "spam", 600) == []
+    assert await matcher.evaluate(CHAT_A.id, "spam", None) != []  # unknown sender is not ignored
 
 
 async def test_invalidate_single_chat_refreshes_only_that_chat(store, matcher):
@@ -215,7 +215,7 @@ class TestOffloadAndBudget:
 
         await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "needle")
         await matcher.invalidate()
-        await matcher.evaluate(CHAT_A.id, "ничего похожего", 1)
+        await matcher.evaluate(CHAT_A.id, "nothing like it", 1)
         # Compiling always goes to a thread — it validates each pattern, which is several
         # timed searches — but matching one rule does not: the hop would cost more than it
         # saves.
@@ -242,12 +242,12 @@ class TestOffloadAndBudget:
             return await real(func, *args, **kwargs)
 
         for i in range(40):
-            await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, f"re:слово{i}\\d+")
+            await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, f"re:word{i}\\d+")
         await matcher.invalidate()
         monkeypatch = pytest.MonkeyPatch()
         monkeypatch.setattr(matcher_module.asyncio, "to_thread", spy)
         try:
-            await matcher.evaluate(CHAT_A.id, "ничего", 1)
+            await matcher.evaluate(CHAT_A.id, "nothing", 1)
         finally:
             monkeypatch.undo()
         assert "_compile_all" in seen
@@ -264,9 +264,9 @@ class TestOffloadAndBudget:
         """
         monkeypatch.setattr(matcher_module, "MAX_RULESET_BYTES", 8 * 1024)
         for i in range(12):
-            await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, f"такси{i}")
+            await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, f"taxi{i}")
         await matcher.invalidate()
-        await matcher.evaluate(CHAT_A.id, "ничего", 1)
+        await matcher.evaluate(CHAT_A.id, "nothing", 1)
 
         assert matcher.stats_rules_skipped > 0
         assert "rules were not compiled" in caplog.text
@@ -289,9 +289,9 @@ class TestOffloadAndBudget:
         assert m.stats_budget_exceeded >= 1
 
     async def test_small_rule_sets_stay_on_the_loop(self, store, matcher):
-        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "казино")
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "casino")
         await matcher.invalidate()
-        assert len(await matcher.evaluate(CHAT_A.id, "казино", 1)) == 1
+        assert len(await matcher.evaluate(CHAT_A.id, "casino", 1)) == 1
 
 
 class TestCacheGeneration:
@@ -304,7 +304,7 @@ class TestCacheGeneration:
         """
         import ddiver_core.matcher as matcher_module
 
-        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "первое")
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "first")
         await matcher.invalidate()
 
         landed = asyncio.Event()
@@ -315,23 +315,23 @@ class TestCacheGeneration:
             if func.__name__ == "_compile_all" and not landed.is_set():
                 landed.set()
                 # exactly what the bot does when somebody adds a rule
-                await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "второе")
+                await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "second")
                 await matcher.invalidate(CHAT_A.id)
             return result
 
         monkeypatch = pytest.MonkeyPatch()
         monkeypatch.setattr(matcher_module.asyncio, "to_thread", interleave)
         try:
-            await matcher.evaluate(CHAT_A.id, "первое", 5)
+            await matcher.evaluate(CHAT_A.id, "first", 5)
         finally:
             monkeypatch.undo()
 
         assert landed.is_set(), "the interleaving never happened; the test proves nothing"
-        assert await matcher.evaluate(CHAT_A.id, "второе", 5), "the new rule was lost"
+        assert await matcher.evaluate(CHAT_A.id, "second", 5), "the new rule was lost"
 
     async def test_an_uninterrupted_load_is_still_cached(self, store, matcher):
         """The guard must not turn every evaluation into a reload."""
-        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "такси")
+        await store.add_rule(1, CHAT_A.id, RuleKind.INCLUDE, "taxi")
         await matcher.invalidate()
         loads = 0
         real_load = matcher._load
@@ -342,7 +342,7 @@ class TestCacheGeneration:
             return await real_load(chat_id)
 
         matcher._load = counting
-        await matcher.evaluate(CHAT_A.id, "такси", 5)
-        await matcher.evaluate(CHAT_A.id, "такси", 5)
-        await matcher.evaluate(CHAT_A.id, "такси", 5)
+        await matcher.evaluate(CHAT_A.id, "taxi", 5)
+        await matcher.evaluate(CHAT_A.id, "taxi", 5)
+        await matcher.evaluate(CHAT_A.id, "taxi", 5)
         assert loads == 1

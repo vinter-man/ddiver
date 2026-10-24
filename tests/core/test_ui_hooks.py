@@ -21,7 +21,7 @@ from ddiver_core.storage import Role, Storage
 
 OWNER = 1
 MOD = 2
-GROUP = ChatRef(1234567890, "Оренда Варна", None, "group")
+GROUP = ChatRef(1234567890, "Varna Rentals", None, "group")
 OTHER = ChatRef(2345678901, "Robota Sofia", None, "group")
 
 
@@ -234,7 +234,7 @@ class TestRefreshChats:
 
     async def test_search_results_carry_it_too(self, router):
         await cb(router, OWNER, "chats:search")
-        actions = await msg(router, OWNER, "варна")
+        actions = await msg(router, OWNER, "varna")
         assert "refresh" in callbacks(actions)
 
     async def test_the_button_sits_above_search_and_back(self, router):

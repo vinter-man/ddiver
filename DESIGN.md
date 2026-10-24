@@ -355,10 +355,10 @@ invites is actually accepted; suggestions and a
 🗂 Shared chats for the owner). Pickers paginate (8 chats, 10 rules per page). Toggles encode
 the target state (`sub:<chat>:1`) so a double tap is idempotent.
 
-Rules: the ➕ prompt always shows a localized cheat-sheet (`казино`, `=казино`, `re:каз[иі]но`);
+Rules: the ➕ prompt always shows a localized cheat-sheet (`casino`, `=casino`, `re:cas[iy]no`);
 lists show a kind icon and truncate patterns to 60 chars. Multi-line add reports per line
 (added / duplicate / invalid with reason); caps: 50 lines per message, 200 rules per (user,
-chat), 500 per user. **There is no comment syntax** — `#промо` is a hashtag keyword.
+chat), 500 per user. **There is no comment syntax** — `#promo` is a hashtag keyword.
 Validation runs in a thread so a slow pattern cannot stall the loop.
 
 Notification buttons carry no nonce: `ig:<chat>:<sender>` mutes a sender and
@@ -413,7 +413,7 @@ message · bot sender dropped unless opted in · deleted account · anonymous ad
 (`sender_id == chat_id`) · forum topic links including the general topic · basic group without
 links · collectible usernames · chat title with `<>&` and emoji · text beyond 4096 UTF-16 units ·
 windowing around a late match · zero-width and NFD text with offset mapping · Cyrillic case ·
-`=слово` next to punctuation · `=c++` · hashtag rules · invalid regex · catastrophic regex
+`=word` next to punctuation · `=c++` · hashtag rules · invalid regex · catastrophic regex
 timing out and auto-disabling · exclusion beating inclusion · chat rule before global rule ·
 ignore per chat vs global · private chat never monitored · callback with a foreign rule id ·
 `allow:` from a non-owner · FloodWait retry · blocked user paused then restored · digest at the

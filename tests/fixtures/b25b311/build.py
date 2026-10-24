@@ -127,11 +127,11 @@ async def populate(old: Legacy, storage: Any, clock: Clock) -> None:
     await storage.update_user(BLOCKED, role=role.ALLOWED, tz="UTC")
     clock.tick(1)
 
-    public = chat_ref(-1001111111111, "Оренда Варна", "varna_rent", "supergroup")
-    private = chat_ref(-1002222222222, "Закрытый <чат> & co", None, "supergroup")
+    public = chat_ref(-1001111111111, "Varna Rentals", "varna_rent", "supergroup")
+    private = chat_ref(-1002222222222, "Private <chat> & co", None, "supergroup")
     forum = chat_ref(-1003333333333, "Robota Sofia 🇧🇬", "robota_sofia", "supergroup", True)
     basic = chat_ref(-4444444444, "Basic group", None, "group")
-    channel = chat_ref(-1005555555555, "Новости", "novosti_bg", "channel")
+    channel = chat_ref(-1005555555555, "News", "novosti_bg", "channel")
     old_basic = chat_ref(-5555555555, "Old basic group", None, "group")
     migrated = chat_ref(-1006666666666, "Old basic group", None, "supergroup")
     for index, chat in enumerate((public, private, forum, basic, channel, old_basic), start=1):
@@ -148,25 +148,25 @@ async def populate(old: Legacy, storage: Any, clock: Clock) -> None:
     await storage.subscribe(BLOCKED, public.id)
     clock.tick(1)
 
-    flat = await storage.add_rule(OWNER, all_chats, include, "квартира")
-    urgent = await storage.add_rule(OWNER, private.id, include, r"re:(?i)срочно\s+продам")
+    flat = await storage.add_rule(OWNER, all_chats, include, "apartment")
+    urgent = await storage.add_rule(OWNER, private.id, include, r"re:(?i)urgent\s+sale")
     ostap = await storage.add_rule(OWNER, forum.id, include, "from:@ostap")
     await storage.add_rule(OWNER, private.id, include, "from:123456789")
-    await storage.add_rule(OWNER, public.id, exclude, "реклама")
-    taxi = await storage.add_rule(OWNER, all_chats, include, "=такси")
+    await storage.add_rule(OWNER, public.id, exclude, "ads")
+    taxi = await storage.add_rule(OWNER, all_chats, include, "=taxi")
     await storage.add_rule(OWNER, old_basic.id, include, "#promo")
-    news = await storage.add_rule(OWNER, channel.id, include, "курс")
-    casino = await storage.add_rule(MOD, public.id, include, "казино")
-    taras = await storage.add_rule(MOD, all_chats, include, "from:Тарас Коваленко")
+    news = await storage.add_rule(OWNER, channel.id, include, "rate")
+    casino = await storage.add_rule(MOD, public.id, include, "casino")
+    taras = await storage.add_rule(MOD, all_chats, include, "from:Alex Carter")
     await storage.add_rule(MOD, forum.id, exclude, "from:@spam_bot")
-    blocked_rule = await storage.add_rule(BLOCKED, public.id, include, "квартира")
+    blocked_rule = await storage.add_rule(BLOCKED, public.id, include, "apartment")
     await storage.disable_rule(taxi.id, "timeout")
     await storage.flush_rule_hits({flat.id: 3, casino.id: 1, urgent.id: 2})
     clock.tick(1)
 
-    await storage.add_ignored(OWNER, public.id, 999000999, "спам")
+    await storage.add_ignored(OWNER, public.id, 999000999, "spam")
     await storage.add_ignored(OWNER, all_chats, -1007777777777, None)
-    await storage.add_ignored(MOD, forum.id, 888000888, "бот объявлений")
+    await storage.add_ignored(MOD, forum.id, 888000888, "listings bot")
     await storage.add_ignored(OWNER, old_basic.id, 777000777, "moved with the chat")
     clock.tick(1)
 
@@ -242,7 +242,7 @@ async def claim_outbox(
             "rule_kind": rule.kind.value,
             "rule_is_global": rule.chat_id == 0,
             "sender_id": 42,
-            "sender_name": "Тарас",
+            "sender_name": "Alex",
             "sender_username": "taras_kovalenko",
         }
         return payload_type(**{**base, **kw})
@@ -252,7 +252,11 @@ async def claim_outbox(
             OWNER,
             rules["flat"],
             payload(
-                public, 101, rules["flat"], "Сдаётся квартира в центре, 2 комнаты 🏠", "квартира"
+                public,
+                101,
+                rules["flat"],
+                "Renting out a 2-bedroom apartment in the centre 🏠",
+                "apartment",
             ),
         ),
         (
@@ -262,10 +266,10 @@ async def claim_outbox(
                 private,
                 202,
                 rules["urgent"],
-                "СРОЧНО продам велосипед <почти новый>",
-                "СРОЧНО продам",
+                "URGENT selling a bike <almost new>",
+                "URGENT selling",
                 sender_id=43,
-                sender_name="Оксана",
+                sender_name="Nina",
                 sender_username=None,
                 is_forwarded=True,
             ),
@@ -281,7 +285,7 @@ async def claim_outbox(
                 None,
                 topic_id=7,
                 sender_id=44,
-                sender_name="Остап",
+                sender_name="Mark",
                 sender_username="ostap",
             ),
         ),
@@ -292,8 +296,8 @@ async def claim_outbox(
                 basic,
                 404,
                 rules["flat"],
-                "Длинное объявление. " * 40 + "Ищу квартиру на месяц.",
-                "квартир",
+                "A very long listing. " * 40 + "Looking for an apartment for a month.",
+                "apartm",
                 sender_id=45,
                 sender_name="",
                 sender_username=None,
@@ -305,12 +309,14 @@ async def claim_outbox(
         (
             OWNER,
             rules["flat"],
-            payload(public, 108, rules["flat"], "квартира у моря", "квартира", sender_name=""),
+            payload(
+                public, 108, rules["flat"], "apartment by the sea", "apartment", sender_name=""
+            ),
         ),
         (
             MOD,
             rules["casino"],
-            payload(public, 109, rules["casino"], "🎰🎰 Заходи в казино!", "казино"),
+            payload(public, 109, rules["casino"], "🎰🎰 Come play at the casino!", "casino"),
         ),
         (
             MOD,
@@ -319,23 +325,23 @@ async def claim_outbox(
                 forum,
                 310,
                 rules["taras"],
-                "Всем привет",
+                "Hi everyone",
                 None,
                 topic_id=1,
                 sender_id=46,
-                sender_name="Тарас Коваленко",
+                sender_name="Alex Carter",
                 sender_username=None,
             ),
         ),
         (
             MOD,
             rules["casino"],
-            payload(public, 111, rules["casino"], "<b>&amp;</b> казино", "казино"),
+            payload(public, 111, rules["casino"], "<b>&amp;</b> casino", "casino"),
         ),
         (
             BLOCKED,
             rules["blocked"],
-            payload(public, 112, rules["blocked"], "квартира", "квартира"),
+            payload(public, 112, rules["blocked"], "apartment", "apartment"),
         ),
         (
             OWNER,
@@ -344,11 +350,11 @@ async def claim_outbox(
                 channel,
                 505,
                 rules["news"],
-                "Курс лева не изменился",
-                "Курс",
+                "The lev rate has not moved",
+                "rate",
                 sender_id=channel.id,
-                sender_name="Новости",
-                sender_username="novosti_bg",
+                sender_name="News",
+                sender_username="bg_news",
                 sender_is_channel=True,
             ),
         ),
@@ -359,10 +365,10 @@ async def claim_outbox(
                 public,
                 106,
                 rules["flat"],
-                "Администрация: квартира сдана",
-                "квартира",
+                "Management: the apartment is taken",
+                "apartment",
                 sender_id=public.id,
-                sender_name="Оренда Варна",
+                sender_name="Varna Rentals",
                 sender_username="varna_rent",
                 sender_is_channel=True,
             ),
@@ -374,8 +380,8 @@ async def claim_outbox(
                 public,
                 107,
                 rules["flat"],
-                "квартира " * 600,
-                "квартира",
+                "apartment " * 600,
+                "apartment",
                 sender_id=None,
                 sender_name="",
                 sender_username=None,
@@ -395,7 +401,7 @@ async def claim_outbox(
     # What the delivery worker writes back: a name it resolved, and the three final states.
     resolved = next(s for _, _, s in rows if s.msg_id == 108)
     await storage.update_payload(
-        (OWNER, public.id, 108), {**resolved.to_json(), "sender_name": "Резолвнутый Имя"}
+        (OWNER, public.id, 108), {**resolved.to_json(), "sender_name": "Resolved Name"}
     )
     await storage.set_delivery_status(OWNER, channel.id, 505, status.SENT, attempts=1)
     await storage.mark_digested([(OWNER, public.id, 106)])

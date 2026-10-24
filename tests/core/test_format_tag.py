@@ -22,14 +22,14 @@ from ddiver_core_testing import T0
 
 FB = "ddiver-fb.config"
 OWNER = 1
-GROUP = ChatRef(1234567890, "Оренда Варна", None, "group")
+GROUP = ChatRef(1234567890, "Varna Rentals", None, "group")
 
 
 def config(tag: object = FB, **extra: object) -> dict[str, object]:
     return {
         "format": tag,
         "version": portable.VERSION,
-        "rules": [{"chat_id": 0, "kind": "include", "pattern": "квартира"}],
+        "rules": [{"chat_id": 0, "kind": "include", "pattern": "apartment"}],
         **extra,
     }
 
@@ -63,7 +63,7 @@ class TestAppName:
 class TestLoads:
     def test_the_apps_own_file_is_read(self):
         data = portable.loads(json.dumps(config()), format_tag=FB)
-        assert data["rules"][0]["pattern"] == "квартира"
+        assert data["rules"][0]["pattern"] == "apartment"
 
     def test_the_default_is_still_ddiver(self):
         assert portable.loads(json.dumps(config(portable.FORMAT)))["format"] == "ddiver.config"
@@ -111,11 +111,11 @@ class TestExportConfig:
         await store.open()
         try:
             await store.ensure_user(OWNER)
-            await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "квартира")
+            await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "apartment")
             exported = await portable.export_config(store, OWNER, now=T0, format_tag=FB)
             assert exported["format"] == FB
             back = portable.loads(portable.dumps(exported), format_tag=FB)
-            assert back["rules"] == [{"chat_id": 0, "kind": "include", "pattern": "квартира"}]
+            assert back["rules"] == [{"chat_id": 0, "kind": "include", "pattern": "apartment"}]
         finally:
             await store.close()
 
@@ -146,7 +146,7 @@ async def say(router: Router, text: str | None = None, **kw: Any) -> list[Action
 class TestRouter:
     async def test_export_names_the_file_after_the_app_and_writes_its_tag(self, store, clock):
         router = build_router(store, clock=clock, export_format=FB)
-        await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "квартира")
+        await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "apartment")
         clock.now = dt.datetime(2026, 10, 1, 9, 30, tzinfo=dt.UTC)
         [doc] = await say(router, "/export")
         assert isinstance(doc, SendDocument)
@@ -160,7 +160,7 @@ class TestRouter:
 
     async def test_a_ddiver_export_is_refused_by_the_fb_bot_and_nothing_lands(self, store, clock):
         ddiver = build_router(store, clock=clock)
-        await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "такси")
+        await store.add_rule(OWNER, ALL_CHATS, RuleKind.INCLUDE, "taxi")
         [doc] = await say(ddiver, "/export")
         for rule in await store.list_rules(OWNER):
             await store.delete_rule(rule.id, OWNER)
@@ -182,7 +182,7 @@ class TestRouter:
     async def test_the_fb_bot_reads_back_its_own_export(self, store, clock):
         fb = build_router(store, clock=clock, export_format=FB)
         await store.subscribe(OWNER, GROUP.id)
-        await store.add_rule(OWNER, GROUP.id, RuleKind.INCLUDE, "квартира")
+        await store.add_rule(OWNER, GROUP.id, RuleKind.INCLUDE, "apartment")
         [doc] = await say(fb, "/export")
         for rule in await store.list_rules(OWNER):
             await store.delete_rule(rule.id, OWNER)
@@ -190,7 +190,7 @@ class TestRouter:
         await say(fb, "/import")
         await say(fb, document=doc.content, document_name=doc.filename)
         assert [(r.chat_id, r.pattern) for r in await store.list_rules(OWNER)] == [
-            (GROUP.id, "квартира")
+            (GROUP.id, "apartment")
         ]
 
     async def test_a_malformed_tag_fails_when_the_router_is_built(self, store):
