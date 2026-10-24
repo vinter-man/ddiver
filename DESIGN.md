@@ -444,12 +444,3 @@ Besides the offline suite, the following was exercised on a real account and rea
 * **Bot senders are dropped** — a forum whose messages all come from a news bot produced 40
   considered messages and zero notifications, which is the intended behaviour and the reason
   the first forum replay looked empty.
-
-## Borrowed ideas (attribution)
-
-khoben/telemirror (GPL-3, re-implemented): keyword compilation, message links, forum topic
-derivation, connect-hang workaround, fatal-auth classification. guibacellar/TEx (Apache-2):
-tooling baseline, graceful signal handling. Hootrix/keyword_alert_bot (GPL-3, idea): dual-client
-layout, entity caching. Heavrnl/TelegramForwarder (GPL-3, idea): add chat by link or title
-fragment, rule table shape. Riniba/TelegramMonitor (Apache-2, idea): regex timeout with
-auto-disable, inline "block sender".
