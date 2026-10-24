@@ -30,7 +30,7 @@ export const TG = {
   accent: '#5288C1',
 } as const;
 
-const Avatar: React.FC<{size?: number}> = ({size = 42}) => (
+const Avatar: React.FC<{size?: number; letter?: string}> = ({size = 42, letter = 'd'}) => (
   <div
     style={{
       width: size,
@@ -46,7 +46,7 @@ const Avatar: React.FC<{size?: number}> = ({size = 42}) => (
       flexShrink: 0,
     }}
   >
-    d
+    {letter}
   </div>
 );
 
@@ -76,7 +76,7 @@ export const Window: React.FC<{children: React.ReactNode; title?: string}> = ({
         flexShrink: 0,
       }}
     >
-      <Avatar />
+      <Avatar letter={title[0]!.toLowerCase()} />
       <div style={{flex: 1}}>
         <div style={{fontSize: 16, fontWeight: 600, color: TG.text}}>{title}</div>
         <div style={{fontSize: 13.5, color: TG.dim, marginTop: 2}}>bot</div>

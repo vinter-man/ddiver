@@ -7,7 +7,8 @@
  */
 import React from 'react';
 import {AbsoluteFill} from 'remotion';
-import {Code, DayDivider, Doc, In, Link, Out, Window} from './telegram';
+import {Code, DayDivider, Doc, In, Link, Out, SANS, Window} from './telegram';
+import {Chart, GF, Nav, RowHeader, Stat} from './grafana';
 
 const B: React.FC<{children: React.ReactNode}> = ({children}) => (
   <b style={{fontWeight: 700}}>{children}</b>
@@ -168,4 +169,87 @@ export const ShotStatus: React.FC = () => (
       Queue: 0 · last update 3 s ago
     </In>
   </Screen>
+);
+
+/* ── 6. the dashboard ──────────────────────────────────────────────────── */
+
+export const ShotGrafana: React.FC = () => (
+  <AbsoluteFill style={{backgroundColor: GF.canvas, fontFamily: SANS, flexDirection: 'column'}}>
+    <Nav />
+    <div style={{padding: '8px 14px 14px', display: 'flex', flexDirection: 'column', gap: 7}}>
+      <RowHeader>Is it alive?</RowHeader>
+      <div style={{display: 'flex', gap: 7}}>
+        <Stat title="Process" value="UP" />
+        <Stat title="Listener" value="connected" />
+        <Stat title="Needs login" value="no" />
+        <Stat title="Uptime" value="6 d 04 h" color={GF.text} />
+        <Stat title="Chats watched" value="4" color={GF.text} />
+        <Stat title="Queued now" value="0" />
+      </div>
+      <RowHeader>Traffic</RowHeader>
+      <div style={{display: 'flex', gap: 7}}>
+        <Chart
+          title="Messages per second"
+          seed={7}
+          color={GF.green}
+          legend="rate(ddiver_messages_seen_total[5m])"
+          yTicks={['12', '8', '4', '0']}
+          base={38}
+          swing={9}
+        />
+        <Chart
+          title="Notifications per second"
+          seed={23}
+          color={GF.blue}
+          legend="rate(ddiver_delivery_delivered_total[5m])"
+          yTicks={['0.6', '0.4', '0.2', '0']}
+          base={14}
+          swing={6}
+        />
+      </div>
+    </div>
+  </AbsoluteFill>
+);
+
+/* ── 7. the alerts, where they actually arrive ─────────────────────────── */
+
+export const ShotAlerts: React.FC = () => (
+  <AbsoluteFill>
+    <Window title="ddiver alerts">
+      <DayDivider />
+      {/* Exactly what deploy/grafana/alerting/contact-points.yml.tmpl renders. */}
+      <In time="03:14" width="76%">
+        FIRING — The listener has been disconnected
+        <br />
+        The user session’s transport has been down for ten minutes. Messages are being missed.
+      </In>
+      <In time="03:41" width="76%">
+        RESOLVED — The listener has been disconnected
+        <br />
+        The user session’s transport has been down for ten minutes. Messages are being missed.
+      </In>
+    </Window>
+  </AbsoluteFill>
+);
+
+/* ── 8. the dead-man's switch going off ───────────────────────────────── */
+
+export const ShotHealthchecks: React.FC = () => (
+  <AbsoluteFill>
+    <Window title="Healthchecks.io">
+      <DayDivider />
+      {/* healthchecks.io's own telegram_message.html, with our check's name in it. */}
+      <In time="04:02" width="70%">
+        🔴 The check <Link>ddiver</Link> is <B>DOWN</B>.
+        <div style={{height: 10}} />
+        <B>Period:</B> 5 minutes
+        <br />
+        <B>Total Pings:</B> 40321
+        <br />
+        <B>Last Ping:</B> Success, 7 minutes ago
+        <div style={{height: 10}} />
+        All the other checks are up.
+      </In>
+    </Window>
+  </AbsoluteFill>
 );

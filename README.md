@@ -30,7 +30,6 @@ the first `/start`.
   * [On a VPS](#vps)
 * [Commands](#commands)
 * [Watching it](#watching)
-* [Privacy](#privacy)
 * [Under the hood](#hood)
 * [Contact](#contact)
 
@@ -190,6 +189,11 @@ only alert that survives the machine dying — which is exactly what a quiet cha
 PING_URL=https://hc-ping.com/your-uuid-here
 ```
 
+![healthchecks](docs/assets/healthchecks.png)
+
+That message arrives from somebody else's machine. Everything below runs on the same box as
+ddiver and so cannot report its own funeral.
+
 **Metrics, logs, dashboards.** One extra compose file brings up Prometheus, Loki, Alloy and a
 Grafana with the dashboard already provisioned.
 
@@ -197,6 +201,11 @@ Grafana with the dashboard already provisioned.
 docker compose -f docker-compose.yml -f deploy/docker-compose.observability.yml up -d
 ssh -L 3000:127.0.0.1:3000 you@your-box    # Grafana is bound to localhost
 ```
+
+![grafana](docs/assets/grafana.png)
+
+Six stats for "is it alive", then traffic, delivery, matching, the watchdog, and a searchable
+log panel underneath.
 
 > :godmode: Logs arrive as JSON with `level` and `logger` as labels, so they are queryable
 > rather than greppable: `{service="ddiver", level="ERROR"} | json | msg =~ ".*flood.*"`. Point
@@ -218,36 +227,10 @@ ALERT_TELEGRAM_TOKEN=123456:AA...
 ALERT_TELEGRAM_CHAT_ID=your-numeric-id
 ```
 
+![alerts](docs/assets/alerts.png)
+
 Without Docker: `METRICS_PORT=9109` exposes `/metrics`, `LOG_FORMAT=json` makes the logs
 machine-readable, and `ddiver health` exits non-zero when the heartbeat is stale.
-
----
----
-
-## <a name="privacy"></a> Privacy
-
-ddiver reads chats you are a member of, and the people in them have not agreed to anything.
-Worth knowing before you run it, and before you hand it to another moderator.
-
-| | |
-|---|---|
-| **What is stored** | matched messages only, never the stream. Text, chat title, sender id, name and username, link. Everything else is evaluated in memory and forgotten |
-| **For how long** | seven days, then a daily job deletes it. The rest of the database is your configuration |
-| **Who can read it** | whoever can read the machine's disk, plus every moderator you shared a chat with |
-| **What leaves the machine** | notifications to the moderators' DMs. No telemetry, no third-party service |
-| **Deleting it** | remove the rule to stop new matches; delete `data/ddiver.sqlite3` to drop the old ones early |
-
-If you are in the EU this is personal data under the GDPR and running it makes you the
-controller. For a personal moderation aid that is a low bar, but it is not nothing.
-
-> :rage1: `data/user.session` **is** your Telegram account: it can read every chat you are in
-> and write as you. ddiver keeps `data/` at `0700`, never logs message text above DEBUG, and
-> never sends anything on your behalf — but if you back that directory up, back it up somewhere
-> you would be willing to keep your password.
->
-> Running a user account through an API client is a grey area in Telegram's terms. ddiver only
-> reads, and never joins or messages anyone en masse, which is the low-risk end of it. The risk
-> is not zero; a secondary account is a reasonable precaution.
 
 ---
 ---
@@ -277,7 +260,7 @@ clock.
 
 ```bash
 uv sync
-uv run pytest -q          # 1023 tests, no Telegram connection needed
+uv run pytest -q          # 1025 tests, no Telegram connection needed
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 ```
@@ -286,13 +269,7 @@ uv run mypy
 > what it is. [CLAUDE.md](CLAUDE.md) is the short orientation for a coding agent: which package
 > a change belongs in, how to run the gate the way CI runs it, and the three times a green suite
 > or a green CI here was wrong anyway.
->
-> The banner is drawn by hand; the gif and every screenshot above are a
-> [Remotion](https://www.remotion.dev/) project in [`docs/remotion`](docs/remotion), `npm run
-> build` to regenerate. The chat window is Telegram Desktop's dark theme reproduced in React,
-> and the words in it are the bot's own, out of `i18n/en.py`. Only the chats, the people and
-> the messages are invented — a real screenshot of a real chat in a public README publishes
-> somebody else's name and message forever.
+
 
 ---
 ---

@@ -140,7 +140,12 @@ class TestItReadsAsEnglish:
     time. These two assertions are the only thing that stops it.
     """
 
-    ARTWORK = ("docs/remotion/src/shots.tsx", "docs/remotion/src/Workflow.tsx")
+    ARTWORK = (
+        "docs/remotion/src/shots.tsx",
+        "docs/remotion/src/Workflow.tsx",
+        "docs/remotion/src/telegram.tsx",
+        "docs/remotion/src/grafana.tsx",
+    )
 
     @pytest.mark.parametrize("doc", (*DOCS, *ARTWORK))
     def test_nothing_a_stranger_reads_first_is_in_cyrillic(self, doc):

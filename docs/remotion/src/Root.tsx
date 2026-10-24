@@ -1,7 +1,16 @@
 import React from 'react';
 import {Composition, Still} from 'remotion';
 import {FPS, H, TOTAL, W, Workflow} from './Workflow';
-import {ShotChats, ShotNotification, ShotRules, ShotStatus, ShotWeekly} from './shots';
+import {
+  ShotAlerts,
+  ShotChats,
+  ShotGrafana,
+  ShotHealthchecks,
+  ShotNotification,
+  ShotRules,
+  ShotStatus,
+  ShotWeekly,
+} from './shots';
 
 /** Each shot is as tall as its own content: no letterboxing in the README. */
 const SHOT_W = 1100;
@@ -21,5 +30,8 @@ export const Root: React.FC = () => (
     <Still id="shot-rules" component={ShotRules} width={SHOT_W} height={700} />
     <Still id="shot-weekly" component={ShotWeekly} width={SHOT_W} height={615} />
     <Still id="shot-status" component={ShotStatus} width={SHOT_W} height={512} />
+    <Still id="shot-grafana" component={ShotGrafana} width={SHOT_W} height={432} />
+    <Still id="shot-alerts" component={ShotAlerts} width={SHOT_W} height={372} />
+    <Still id="shot-healthchecks" component={ShotHealthchecks} width={SHOT_W} height={362} />
   </>
 );
