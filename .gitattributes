@@ -1,0 +1,4 @@
+# The READMEs' images are built by a small Remotion project. It is documentation, not part of
+# the application, and without this GitHub reports the repository as part TypeScript.
+docs/remotion/** linguist-documentation
+docs/assets/** linguist-documentation
