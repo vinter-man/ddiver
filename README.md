@@ -260,7 +260,7 @@ clock.
 
 ```bash
 uv sync
-uv run pytest -q          # 1025 tests, no Telegram connection needed
+uv run pytest -q          # 1030 tests, no Telegram connection needed
 uv run ruff check . && uv run ruff format --check .
 uv run mypy
 ```

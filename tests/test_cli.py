@@ -22,7 +22,7 @@ from ddiver_core_testing import T0
 ENV = {
     "API_ID": "12345",
     "API_HASH": "0123456789abcdef0123456789abcdef",
-    "BOT_TOKEN": "123456789:AAExampleTokenWithEnoughLength_xyz",
+    "BOT_TOKEN": "123456789:NOT-A-REAL-BOTFATHER-SECRET",
     "OWNER_ID": "777",
 }
 

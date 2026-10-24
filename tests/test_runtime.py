@@ -332,7 +332,7 @@ async def app(tmp_path, monkeypatch, clock):
     for key, value in {
         "API_ID": "1",
         "API_HASH": "0" * 32,
-        "BOT_TOKEN": "123456789:AAExampleTokenWithEnoughLength_xyz",
+        "BOT_TOKEN": "123456789:NOT-A-REAL-BOTFATHER-SECRET",
         "OWNER_ID": "1",
         "DATA_DIR": str(tmp_path),
     }.items():

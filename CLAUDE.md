@@ -73,6 +73,13 @@ change to it therefore takes effect on the deploy *after* the one that ships it.
   evidence reopens them; a fresh reviewer's opinion does not.
 - **Reviewer findings are claims.** Reproduce one before acting on it, and judge separately
   whether the suggested fix is safe — several have been wrong where they were specific.
+- **No fixture may look like a real credential.** `tests/test_secrets.py` fails the build on
+  anything shaped like a BotFather token, a private key or an `api_hash`, in any tracked file,
+  with no exemptions. A realistic-looking placeholder is not harmless: one in the tests here
+  raised a GitHub secret-scanning alert that cost an afternoon to prove was nothing. The
+  fixture token is `123456789:NOT-A-REAL-BOTFATHER-SECRET` — it satisfies
+  `Settings._bot_token_shape` (digits, a colon, 20+ characters) while matching no detector,
+  because detectors key on the `AA` prefix. Keep both properties when changing it.
 - **`tests/test_packaging.py` stays in this package and keeps reading the real `deploy/` files.**
   Every assertion in it is an outage that already happened.
 - **Keep this file true, in the same commit that makes it false.** A module that moves, a

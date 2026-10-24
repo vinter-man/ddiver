@@ -8,7 +8,7 @@ from ddiver.config import Settings
 BASE = {
     "API_ID": "12345",
     "API_HASH": "0123456789abcdef0123456789abcdef",
-    "BOT_TOKEN": "123456789:AAExampleTokenWithEnoughLength_xyz",
+    "BOT_TOKEN": "123456789:NOT-A-REAL-BOTFATHER-SECRET",
     "OWNER_ID": "777",
 }
 
@@ -29,7 +29,7 @@ def test_defaults_and_paths(monkeypatch):
     assert s.catchup_hours == 24
     assert s.regex_timeout == pytest.approx(0.02)
     assert s.ignore_own_messages is True
-    assert "AAExample" not in repr(s)  # secrets are masked
+    assert "NOT-A-REAL" not in repr(s)  # secrets are masked
 
 
 def test_bad_bot_token(monkeypatch):

@@ -132,7 +132,7 @@ class TestTheDatabase:
         env = {
             "API_ID": "1",
             "API_HASH": "0" * 32,
-            "BOT_TOKEN": "123456789:AAExampleTokenWithEnoughLength_xyz",
+            "BOT_TOKEN": "123456789:NOT-A-REAL-BOTFATHER-SECRET",
             "OWNER_ID": str(OWNER),
             "DATA_DIR": str(db_file.parent),
         }
