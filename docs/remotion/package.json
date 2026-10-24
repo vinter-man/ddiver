@@ -8,7 +8,7 @@
     "build": "node render.mjs"
   },
   "dependencies": {
-    "@remotion/cli": "4.0.410",
+    "@remotion/cli": "4.0.538",
     "@remotion/google-fonts": "4.0.410",
     "react": "19.2.0",
     "react-dom": "19.2.0",
